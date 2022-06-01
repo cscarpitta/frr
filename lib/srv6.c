@@ -57,6 +57,10 @@ const char *seg6local_action2str(uint32_t action)
 		return "End.AS";
 	case ZEBRA_SEG6_LOCAL_ACTION_END_AM:
 		return "End.AM";
+	case ZEBRA_SEG6_LOCAL_ACTION_END_BPF:
+		return "End.BPF";
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
+		return "End.DT46";
 	case ZEBRA_SEG6_LOCAL_ACTION_UNSPEC:
 		return "unspec";
 	default:
@@ -105,8 +109,13 @@ const char *seg6local_context2str(char *str, size_t size,
 	case ZEBRA_SEG6_LOCAL_ACTION_END_T:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
 		snprintf(str, size, "table %u", ctx->table);
 		return str;
+		
+	// case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
+	// 	snprintf(str, size, "vrftable %u", ctx->table);
+	// 	return str;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
@@ -115,6 +124,7 @@ const char *seg6local_context2str(char *str, size_t size,
 	case ZEBRA_SEG6_LOCAL_ACTION_END_S:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_AS:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_AM:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_BPF:
 	case ZEBRA_SEG6_LOCAL_ACTION_UNSPEC:
 	default:
 		snprintf(str, size, "unknown(%s)", __func__);

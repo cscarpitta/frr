@@ -60,6 +60,7 @@ enum seg6local_action_t {
 	ZEBRA_SEG6_LOCAL_ACTION_END_AS       = 13,
 	ZEBRA_SEG6_LOCAL_ACTION_END_AM       = 14,
 	ZEBRA_SEG6_LOCAL_ACTION_END_BPF      = 15,
+	ZEBRA_SEG6_LOCAL_ACTION_END_DT46     = 16,
 };
 
 struct seg6_segs {
@@ -71,6 +72,7 @@ struct seg6local_context {
 	struct in_addr nh4;
 	struct in6_addr nh6;
 	uint32_t table;
+	//uint32_t vrftable;
 };
 
 struct srv6_locator {

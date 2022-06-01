@@ -8660,6 +8660,12 @@ DEFPY (af_sid_vpn_export,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (bgp->tovpn_sid_index != 0 || CHECK_FLAG(bgp->vrf_flags, BGP_CONFIG_VRF_TOVPN_SID_AUTO)) {
+		vty_out(vty, "per-vrf sid and per-af sid are mutually exclusive\n"
+			"Failed: per-vrf sid is configured. Remove per-vrf sid before configuring per-af sid\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	/* skip when it's already configured */
 	if ((sid_idx != 0 && bgp->vpn_policy[afi].tovpn_sid_index != 0)
 	    || (sid_auto && CHECK_FLAG(bgp->vpn_policy[afi].flags,
@@ -8698,6 +8704,113 @@ DEFPY (af_sid_vpn_export,
 	/* post-change */
 	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi,
 			    bgp_get_default(), bgp);
+	return CMD_SUCCESS;
+}
+
+DEFPY (bgp_sid_vpn_export,
+       bgp_sid_vpn_export_cmd,
+       "[no] sid vpn per-vrf export <(1-255)$sid_idx|auto$sid_auto>",
+       NO_STR
+       "sid value for VRF\n"
+       "Between current vrf and vpn\n"
+       "per-vrf\n"
+       "For routes leaked from current vrf to vpn\n"
+       "Sid allocation index\n"
+       "Automatically assign a label\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	// afi_t afi;
+	int debug = 0;
+	int idx = 0;
+	bool yes = true;
+	
+vty_out(vty, "1\n");
+
+	if (argv_find(argv, argc, "no", &idx))
+		yes = false;
+	debug = (BGP_DEBUG(vpn, VPN_LEAK_TO_VRF) |
+		 BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF));
+
+vty_out(vty, "2\n");
+
+	// afi = vpn_policy_getafi(vty, bgp, false);
+	// if (afi == AFI_MAX)
+	// 	return CMD_WARNING_CONFIG_FAILED;
+
+	if (!yes) {
+		/* implement me */
+		vty_out(vty, "It's not implemented\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (bgp->vpn_policy[AFI_IP].tovpn_sid_index != 0 || CHECK_FLAG(bgp->vpn_policy[AFI_IP].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO) || bgp->vpn_policy[AFI_IP6].tovpn_sid_index != 0 || CHECK_FLAG(bgp->vpn_policy[AFI_IP6].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO)) {
+		vty_out(vty, "per-vrf sid and per-af sid are mutually exclusive\n"
+			"Failed: per-af sid is configured. Remove per-af sid before configuring per-vrf sid\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+vty_out(vty, "3\n");
+
+	/* skip when it's already configured */
+	if ((sid_idx != 0 && bgp->tovpn_sid_index != 0)
+	    || (sid_auto && CHECK_FLAG(bgp->vrf_flags,
+				       BGP_CONFIG_VRF_TOVPN_SID_AUTO)))
+		return CMD_SUCCESS;
+
+
+vty_out(vty, "4\n");
+
+	/*
+	 * mode change between sid_idx and sid_auto isn't supported.
+	 * user must negate sid vpn export when they want to change the mode
+	 */
+	if ((sid_auto && bgp->tovpn_sid_index != 0)
+	    || (sid_idx != 0 && CHECK_FLAG(bgp->vrf_flags,
+					   BGP_CONFIG_VRF_TOVPN_SID_AUTO))) {
+		vty_out(vty, "it's already configured as %s.\n",
+			sid_auto ? "auto-mode" : "idx-mode");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+
+vty_out(vty, "5\n");
+
+	/* pre-change */
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP,
+			   bgp_get_default(), bgp);
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6,
+			   bgp_get_default(), bgp);
+
+
+vty_out(vty, "6\n");
+
+	if (sid_auto) {
+		/* SID allocation auto-mode */
+		if (debug)
+			zlog_debug("%s: auto sid alloc.", __func__);
+		SET_FLAG(bgp->vrf_flags,
+			 BGP_CONFIG_VRF_TOVPN_SID_AUTO);
+	} else {
+		/* SID allocation index-mode */
+		if (debug)
+			zlog_debug("%s: idx %ld sid alloc.", __func__, sid_idx);
+		bgp->tovpn_sid_index = sid_idx;
+	}
+
+
+vty_out(vty, "7\n");
+
+	/* post-change */
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP,
+			    bgp_get_default(), bgp);
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6,
+			    bgp_get_default(), bgp);
+
+	// vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_UNSPEC,
+	// 		    bgp_get_default(), bgp);
+
+vty_out(vty, "8\n");
+
 	return CMD_SUCCESS;
 }
 
@@ -19213,6 +19326,7 @@ void bgp_vty_init(void)
 	install_element(BGP_SRV6_NODE, &no_bgp_srv6_locator_cmd);
 	install_element(BGP_IPV4_NODE, &af_sid_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_sid_vpn_export_cmd);
+	install_element(BGP_NODE, &bgp_sid_vpn_export_cmd);
 }
 
 #include "memory.h"
