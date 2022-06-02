@@ -218,6 +218,8 @@ def test_locator_delete():
             no locator loc1
         """
     )
+    check_rib("r1", "show bgp ipv4 vpn json", "r1/vpnv4_rib_locator_deleted.json")
+    check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib_locator_deleted.json")
     check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_locator_deleted.json")
     check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_locator_deleted.json")
     check_ping4("ce1", "192.168.2.2", False)
@@ -237,6 +239,8 @@ def test_locator_recreate():
              prefix 2001:db8:1:1::/64
         """
     )
+    check_rib("r1", "show bgp ipv4 vpn json", "r1/vpnv4_rib_locator_recreated.json")
+    check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib_locator_recreated.json")
     check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_locator_recreated.json")
     check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_locator_recreated.json")
     check_ping4("ce1", "192.168.2.2", True)
@@ -254,6 +258,8 @@ def test_bgp_locator_unset():
            no locator loc1
         """
     )
+    check_rib("r1", "show bgp ipv4 vpn json", "r1/vpnv4_rib_locator_deleted.json")
+    check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib_locator_deleted.json")
     check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_locator_deleted.json")
     check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_locator_deleted.json")
     check_ping4("ce1", "192.168.2.2", False)
@@ -271,6 +277,8 @@ def test_bgp_locator_reset():
            locator loc1
         """
     )
+    check_rib("r1", "show bgp ipv4 vpn json", "r1/vpnv4_rib_locator_recreated.json")
+    check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib_locator_recreated.json")
     check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_locator_recreated.json")
     check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_locator_recreated.json")
     check_ping4("ce1", "192.168.2.2", True)
@@ -287,6 +295,8 @@ def test_bgp_srv6_unset():
           no segment-routing srv6
         """
     )
+    check_rib("r1", "show bgp ipv4 vpn json", "r1/vpnv4_rib_locator_deleted.json")
+    check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib_locator_deleted.json")
     check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_locator_deleted.json")
     check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_locator_deleted.json")
     check_ping4("ce1", "192.168.2.2", False)
@@ -304,6 +314,8 @@ def test_bgp_srv6_reset():
            locator loc1
         """
     )
+    check_rib("r1", "show bgp ipv4 vpn json", "r1/vpnv4_rib_locator_recreated.json")
+    check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib_locator_recreated.json")
     check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_locator_recreated.json")
     check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_locator_recreated.json")
     check_ping4("ce1", "192.168.2.2", True)
