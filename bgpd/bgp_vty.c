@@ -329,6 +329,12 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 		if (tovpn_sid)
 			XFREE(MTYPE_BGP_SRV6_SID,
 			      bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
+
+		/* refresh per-vrf tovpn_sid */
+		tovpn_sid = bgp_vrf->tovpn_sid;
+		if (tovpn_sid)
+			XFREE(MTYPE_BGP_SRV6_SID,
+			      bgp_vrf->tovpn_sid);
 	}
 
 	/* update vpn bgp processes */

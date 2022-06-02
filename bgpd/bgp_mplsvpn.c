@@ -1477,23 +1477,33 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 		uint8_t transposition_length = 0;
 		bool found = false;
 		zlog_info("Searching srv6 locator chunk per-vrf");
-		for (ALL_LIST_ELEMENTS_RO(bgp_vpn->srv6_locator_chunks, node, chunk)) {
-			if (sid_same(bgp_vrf->vpn_policy[afi].tovpn_sid_locator, &chunk->prefix.prefix)) {
-				found = true;
-				break;
+		if (bgp_vpn->srv6_locator_chunks) {
+			for (ALL_LIST_ELEMENTS_RO(bgp_vpn->srv6_locator_chunks, node, chunk)) {
+				if (sid_same(bgp_vrf->vpn_policy[afi].tovpn_sid_locator, &chunk->prefix.prefix)) {
+					found = true;
+					break;
+				}
+			}
+			if (!found) {
+				zlog_err("SID locator error");
+				//assert(0);
+				block_bits_length = BGP_PREFIX_SID_SRV6_LOCATOR_BLOCK_LENGTH;
+				node_bits_length = BGP_PREFIX_SID_SRV6_LOCATOR_NODE_LENGTH;
+				func_bits_length = BGP_PREFIX_SID_SRV6_FUNCTION_LENGTH;
+				arg_bits_length = BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH;
+				transposition_offset = block_bits_length + node_bits_length;
+				transposition_length = BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH;
 			}
 		}
-		if (!found) {
-			zlog_err("SID locator error");
-			assert(0);
-		}
 
-		block_bits_length = chunk->block_bits_length ?: BGP_PREFIX_SID_SRV6_LOCATOR_BLOCK_LENGTH;
-		node_bits_length = chunk->node_bits_length ?: BGP_PREFIX_SID_SRV6_LOCATOR_NODE_LENGTH;
-		func_bits_length = chunk->function_bits_length ?: BGP_PREFIX_SID_SRV6_FUNCTION_LENGTH;
-		arg_bits_length = chunk->argument_bits_length ?: BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH;
-		transposition_offset = chunk->block_bits_length + chunk->node_bits_length;
-		transposition_length = chunk->function_bits_length ?: BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH;
+		if (found) {
+			block_bits_length = chunk->block_bits_length ?: BGP_PREFIX_SID_SRV6_LOCATOR_BLOCK_LENGTH;
+			node_bits_length = chunk->node_bits_length ?: BGP_PREFIX_SID_SRV6_LOCATOR_NODE_LENGTH;
+			func_bits_length = chunk->function_bits_length ?: BGP_PREFIX_SID_SRV6_FUNCTION_LENGTH;
+			arg_bits_length = chunk->argument_bits_length ?: BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH;
+			transposition_offset = block_bits_length + node_bits_length;
+			transposition_length = chunk->function_bits_length ?: BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH;
+		}
 
 
 		encode_label(bgp_vrf->vpn_policy[afi].tovpn_sid_transpose_label,
@@ -1528,24 +1538,33 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 		uint8_t transposition_length = 0;
 		bool found = false;
 		zlog_info("Searching srv6 locator chunk per-vrf");
-		for (ALL_LIST_ELEMENTS_RO(bgp_vpn->srv6_locator_chunks, node, chunk)) {
-			if (sid_same(bgp_vrf->tovpn_sid_locator, &chunk->prefix.prefix)) {
-				found = true;
-				break;
+		if (bgp_vpn->srv6_locator_chunks) {
+			for (ALL_LIST_ELEMENTS_RO(bgp_vpn->srv6_locator_chunks, node, chunk)) {
+				if (sid_same(bgp_vrf->tovpn_sid_locator, &chunk->prefix.prefix)) {
+					found = true;
+					break;
+				}
+			}
+			if (!found) {
+				zlog_err("SID locator error");
+				//assert(0);
+				block_bits_length = BGP_PREFIX_SID_SRV6_LOCATOR_BLOCK_LENGTH;
+				node_bits_length = BGP_PREFIX_SID_SRV6_LOCATOR_NODE_LENGTH;
+				func_bits_length = BGP_PREFIX_SID_SRV6_FUNCTION_LENGTH;
+				arg_bits_length = BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH;
+				transposition_offset = block_bits_length + node_bits_length;
+				transposition_length = BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH;
 			}
 		}
-		if (!found) {
-			zlog_err("SID locator error");
-			assert(0);
+
+		if (found) {
+			block_bits_length = chunk->block_bits_length ?: BGP_PREFIX_SID_SRV6_LOCATOR_BLOCK_LENGTH;
+			node_bits_length = chunk->node_bits_length ?: BGP_PREFIX_SID_SRV6_LOCATOR_NODE_LENGTH;
+			func_bits_length = chunk->function_bits_length ?: BGP_PREFIX_SID_SRV6_FUNCTION_LENGTH;
+			arg_bits_length = chunk->argument_bits_length ?: BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH;
+			transposition_offset = block_bits_length + node_bits_length;
+			transposition_length = chunk->function_bits_length ?: BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH;
 		}
-
-		block_bits_length = chunk->block_bits_length ?: BGP_PREFIX_SID_SRV6_LOCATOR_BLOCK_LENGTH;
-		node_bits_length = chunk->node_bits_length ?: BGP_PREFIX_SID_SRV6_LOCATOR_NODE_LENGTH;
-		func_bits_length = chunk->function_bits_length ?: BGP_PREFIX_SID_SRV6_FUNCTION_LENGTH;
-		arg_bits_length = chunk->argument_bits_length ?: BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH;
-		transposition_offset = chunk->block_bits_length + chunk->node_bits_length;
-		transposition_length = chunk->function_bits_length ?: BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH;
-
 
 		encode_label(bgp_vrf->tovpn_sid_transpose_label,
 			     &label);
