@@ -61,7 +61,7 @@ def build_topo(tgen):
 
 
 def setup_module(mod):
-    result = required_linux_kernel_version("5.15")
+    result = required_linux_kernel_version("5.11")
     if result is not True:
         pytest.skip("Kernel requirements are not met")
 
