@@ -126,8 +126,10 @@ void zebra_srv6_locator_add(struct srv6_locator *locator)
 	 * frequently than adding rib entries, so a broad to all zclients will
 	 * not degrade the overall performance of FRRouting.
 	 */
-	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
-		zsend_zebra_srv6_locator_add(client, locator);
+	if (locator->prefix.prefixlen > 0) {
+		for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
+			zsend_zebra_srv6_locator_add(client, locator);
+	}
 }
 
 void zebra_srv6_locator_delete(struct srv6_locator *locator)

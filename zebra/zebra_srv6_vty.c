@@ -283,6 +283,11 @@ DEFPY (locator_prefix,
 
 	locator->prefix = *prefix;
 
+	if (locator->block_bits_length + locator->node_bits_length > prefix->prefixlen) {
+		vty_out(vty, "%% block-len + node-len must be <= prefixlen\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	/*
 	 * TODO(slankdev): please support variable node-bit-length.
 	 * In draft-ietf-bess-srv6-services-05#section-3.2.1.
@@ -298,8 +303,10 @@ DEFPY (locator_prefix,
 	 *      user should use a pattern of zeros as a filler.
 	 *  (3) The Node Id portion (LSBs) cannot exceed 24 bits.
 	 */
-	locator->block_bits_length = prefix->prefixlen - 24;
-	locator->node_bits_length = 24;
+	if (locator->block_bits_length == 0 && locator->node_bits_length == 0) {
+		locator->block_bits_length = prefix->prefixlen - 24;
+		locator->node_bits_length = 24;
+	}
 	locator->function_bits_length = func_bit_len;
 	locator->argument_bits_length = 0;
 
@@ -337,6 +344,59 @@ DEFPY (locator_prefix,
 	zebra_srv6_locator_add(locator);
 	return CMD_SUCCESS;
 }
+
+DEFPY (locator_behavior,
+       locator_behavior_cmd,
+       "behavior usid [block-len (1-40)$block_bit_len] [node-len (1-24)$node_bit_len]",
+       "Configure SRv6 behavior\n"
+       "Configure SRv6 behavior uSID\n"
+       "Configure SRv6 locator block length in bits\n"
+       "Specify SRv6 locator block length in bits\n"
+       "Configure SRv6 locator node length in bits\n"
+       "Specify SRv6 locator node length in bits\n")
+{
+	VTY_DECLVAR_CONTEXT(srv6_locator, locator);
+	// struct srv6_locator_chunk *chunk = NULL;
+	// struct listnode *node = NULL;
+
+	block_bit_len = block_bit_len ? block_bit_len : 32;
+	node_bit_len = node_bit_len ? node_bit_len : 16;
+	uint16_t prefixlen = locator->prefix.prefixlen;
+
+	if (prefixlen != 0 && block_bit_len + node_bit_len > prefixlen) {
+		vty_out(vty, "%% block-len + node-len must be <= prefixlen\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	locator->block_bits_length = block_bit_len;
+	locator->node_bits_length = node_bit_len;
+
+	// locator->block_bits_length = block_bit_len ? block_bit_len : 32;
+	// locator->node_bits_length = node_bit_len ? node_bit_len : 16;
+
+	zebra_srv6_locator_add(locator);
+	return CMD_SUCCESS;
+}
+
+// Cosa succede se modifichi valori già advertised?
+// I cambiamenti del prefisso del locator non sono supportati attualmente
+// Non ha senso supportare i cambiamenti dei bits length
+
+//check node len + block len = prefix ?
+
+// overlap con pr aperta su github
+
+// i cambiamenti del locator non sono gestiti da bgpd
+
+// func bits default a 0
+
+// implementazione fatta, ma attualmente i parametri non sono usati
+
+// verificare range con ahmed
+//  
+
+// consentire behavor usid prima di settare il prefisso?
+// se si, bisogna fare check di consistenza anche nel locator prefix
 
 static int zebra_sr_config(struct vty *vty)
 {
@@ -395,6 +455,7 @@ void zebra_srv6_vty_init(void)
 
 	/* Command for configuration */
 	install_element(SRV6_LOC_NODE, &locator_prefix_cmd);
+	install_element(SRV6_LOC_NODE, &locator_behavior_cmd);
 
 	/* Command for operation */
 	install_element(VIEW_NODE, &show_srv6_locator_cmd);
