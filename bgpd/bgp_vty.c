@@ -9522,9 +9522,11 @@ DEFPY (show_bgp_srv6,
 	struct listnode *node;
 	struct srv6_locator_chunk *chunk;
 	struct bgp_srv6_function *func;
+	struct in6_addr *tovpn46_sid;
 	struct in6_addr *tovpn4_sid;
 	struct in6_addr *tovpn6_sid;
 	char buf[256];
+	char buf_tovpn46_sid[256];
 	char buf_tovpn4_sid[256];
 	char buf_tovpn6_sid[256];
 
@@ -9537,6 +9539,10 @@ DEFPY (show_bgp_srv6,
 	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
 		prefix2str(&chunk->prefix, buf, sizeof(buf));
 		vty_out(vty, "- %s\n", buf);
+		vty_out(vty, "  block-length: %d\n", chunk->block_bits_length);
+		vty_out(vty, "  node-length: %d\n", chunk->node_bits_length);
+		vty_out(vty, "  func-length: %d\n", chunk->function_bits_length);
+		vty_out(vty, "  arg-length: %d\n", chunk->argument_bits_length);
 	}
 
 	vty_out(vty, "functions:\n");
