@@ -3261,6 +3261,18 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 				XFREE(MTYPE_BGP_SRV6_SID,
 				      bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
 		}
+
+		// refresh per-vrf tovpn_sid
+		tovpn_sid = bgp_vrf->tovpn_sid;
+		if (tovpn_sid) {
+			tmp_prefi.family = AF_INET6;
+			tmp_prefi.prefixlen = 128;
+			tmp_prefi.prefix = *tovpn_sid;
+			if (prefix_match((struct prefix *)&loc.prefix,
+					 (struct prefix *)&tmp_prefi))
+				XFREE(MTYPE_BGP_SRV6_SID,
+				      bgp_vrf->tovpn_sid);
+		}
 	}
 
 	vpn_leak_postchange_all();
