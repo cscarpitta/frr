@@ -9557,8 +9557,12 @@ DEFPY (show_bgp_srv6,
 		vty_out(vty, "- name: %s\n",
 			bgp->name ? bgp->name : "default");
 
+		tovpn46_sid = bgp->tovpn_sid;
 		tovpn4_sid = bgp->vpn_policy[AFI_IP].tovpn_sid;
 		tovpn6_sid = bgp->vpn_policy[AFI_IP6].tovpn_sid;
+		if (tovpn46_sid)
+			inet_ntop(AF_INET6, tovpn46_sid, buf_tovpn46_sid,
+				  sizeof(buf_tovpn46_sid));
 		if (tovpn4_sid)
 			inet_ntop(AF_INET6, tovpn4_sid, buf_tovpn4_sid,
 				  sizeof(buf_tovpn4_sid));
@@ -9566,6 +9570,8 @@ DEFPY (show_bgp_srv6,
 			inet_ntop(AF_INET6, tovpn6_sid, buf_tovpn6_sid,
 				  sizeof(buf_tovpn6_sid));
 
+		vty_out(vty, "  per-vrf tovpn_sid: %s\n",
+			tovpn46_sid ? buf_tovpn46_sid : "none");
 		vty_out(vty, "  vpn_policy[AFI_IP].tovpn_sid: %s\n",
 			tovpn4_sid ? buf_tovpn4_sid : "none");
 		vty_out(vty, "  vpn_policy[AFI_IP6].tovpn_sid: %s\n",
