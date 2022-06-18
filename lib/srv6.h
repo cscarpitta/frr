@@ -91,6 +91,10 @@ struct srv6_locator {
 	uint64_t current;
 	bool status_up;
 	struct list *chunks;
+	
+	uint8_t flags;
+/* SRv6 Locator is a uSID Locator */
+#define SRV6_LOCATOR_USID				(1 << 0)
 
 	QOBJ_FIELDS;
 };
@@ -116,6 +120,19 @@ struct srv6_locator_chunk {
 	uint8_t proto;
 	uint16_t instance;
 	uint32_t session_id;
+	
+	uint8_t flags;
+};
+
+enum srv6_behavior_codepoint_t {
+	SRV6_BEHAVIOR_UNSPEC             = 0,
+	SRV6_BEHAVIOR_END_DT6            = 0x0012,
+	SRV6_BEHAVIOR_END_DT4            = 0x0013,
+	SRV6_BEHAVIOR_END_DT46           = 0x0014,
+	SRV6_BEHAVIOR_END_DT6_USID       = 0x003E,
+	SRV6_BEHAVIOR_END_DT4_USID       = 0x003F,
+	SRV6_BEHAVIOR_END_DT46_USID      = 0x0040,
+	SRV6_BEHAVIOR_OPAQUE             = 0xFFFF,
 };
 
 struct nexthop_srv6 {
