@@ -1461,6 +1461,7 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 		uint8_t transposition_offset = 0;
 		uint8_t transposition_length = 0;
 		bool found = false;
+		enum srv6_behavior_codepoint_t endpoint_behavior;
 
 		if (bgp_vpn->srv6_locator_chunks) {
 			for (ALL_LIST_ELEMENTS_RO(bgp_vpn->srv6_locator_chunks, node, chunk)) {
@@ -1476,6 +1477,7 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 				arg_bits_length = BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH;
 				transposition_offset = block_bits_length + node_bits_length;
 				transposition_length = BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH;
+				endpoint_behavior = SRV6_BEHAVIOR_OPAQUE;
 			}
 		}
 
@@ -1486,6 +1488,21 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 			arg_bits_length = chunk->argument_bits_length ?: BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH;
 			transposition_offset = block_bits_length + node_bits_length;
 			transposition_length = chunk->function_bits_length ?: BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH;
+			if (CHECK_FLAG(chunk->flags, SRV6_LOCATOR_USID)) {
+				if (afi == AFI_IP)
+					endpoint_behavior = SRV6_BEHAVIOR_END_DT4_USID;
+				else if (afi == AFI_IP6)
+					endpoint_behavior = SRV6_BEHAVIOR_END_DT6_USID;
+				else
+					endpoint_behavior = SRV6_BEHAVIOR_OPAQUE;
+			} else {
+				if (afi == AFI_IP)
+					endpoint_behavior = SRV6_BEHAVIOR_END_DT4;
+				else if (afi == AFI_IP6)
+					endpoint_behavior = SRV6_BEHAVIOR_END_DT6;
+				else
+					endpoint_behavior = SRV6_BEHAVIOR_OPAQUE;
+			}
 		}
 
 
@@ -1494,7 +1511,7 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 		static_attr.srv6_l3vpn = XCALLOC(MTYPE_BGP_SRV6_L3VPN,
 				sizeof(struct bgp_attr_srv6_l3vpn));
 		static_attr.srv6_l3vpn->sid_flags = 0x00;
-		static_attr.srv6_l3vpn->endpoint_behavior = 0xffff;
+		static_attr.srv6_l3vpn->endpoint_behavior = endpoint_behavior;
 		static_attr.srv6_l3vpn->loc_block_len =
 			block_bits_length;
 		static_attr.srv6_l3vpn->loc_node_len =
@@ -1520,6 +1537,7 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 		uint8_t transposition_offset = 0;
 		uint8_t transposition_length = 0;
 		bool found = false;
+		enum srv6_behavior_codepoint_t endpoint_behavior;
 
 		if (bgp_vpn->srv6_locator_chunks) {
 			for (ALL_LIST_ELEMENTS_RO(bgp_vpn->srv6_locator_chunks, node, chunk)) {
@@ -1535,6 +1553,7 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 				arg_bits_length = BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH;
 				transposition_offset = block_bits_length + node_bits_length;
 				transposition_length = BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH;
+				endpoint_behavior = SRV6_BEHAVIOR_OPAQUE;
 			}
 		}
 
@@ -1545,6 +1564,10 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 			arg_bits_length = chunk->argument_bits_length ?: BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH;
 			transposition_offset = block_bits_length + node_bits_length;
 			transposition_length = chunk->function_bits_length ?: BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH;
+			if (CHECK_FLAG(chunk->flags, SRV6_LOCATOR_USID))
+				endpoint_behavior = SRV6_BEHAVIOR_END_DT46_USID;
+			else
+				endpoint_behavior = SRV6_BEHAVIOR_END_DT46;
 		}
 
 		encode_label(bgp_vrf->tovpn_sid_transpose_label,
@@ -1552,7 +1575,7 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 		static_attr.srv6_l3vpn = XCALLOC(MTYPE_BGP_SRV6_L3VPN,
 				sizeof(struct bgp_attr_srv6_l3vpn));
 		static_attr.srv6_l3vpn->sid_flags = 0x00;
-		static_attr.srv6_l3vpn->endpoint_behavior = 0xffff;
+		static_attr.srv6_l3vpn->endpoint_behavior = endpoint_behavior;
 		static_attr.srv6_l3vpn->loc_block_len =
 			block_bits_length;
 		static_attr.srv6_l3vpn->loc_node_len =
