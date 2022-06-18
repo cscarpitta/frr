@@ -169,6 +169,9 @@ DEFUN (show_srv6_locator_detail,
 		vty_out(vty, "Prefix: %s\n", str);
 		vty_out(vty, "Function-Bit-Len: %u\n",
 			locator->function_bits_length);
+		
+		if (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
+			vty_out(vty, "uSID\n");
 
 		vty_out(vty, "Chunks:\n");
 		for (ALL_LIST_ELEMENTS_RO((struct list *)locator->chunks, node,
@@ -357,6 +360,43 @@ DEFPY (locator_prefix,
 	return CMD_SUCCESS;
 }
 
+DEFPY (locator_behavior,
+       locator_behavior_cmd,
+       "[no] behavior usid",
+	   NO_STR
+       "Configure SRv6 behavior\n"
+       "Specify SRv6 behavior uSID\n")
+{
+	VTY_DECLVAR_CONTEXT(srv6_locator, locator);
+	
+	if (no)
+		UNSET_FLAG(locator->flags, SRV6_LOCATOR_USID);
+	else
+		SET_FLAG(locator->flags, SRV6_LOCATOR_USID);
+
+	return CMD_SUCCESS;
+}
+
+// Cosa succede se modifichi valori già advertised?
+// I cambiamenti del prefisso del locator non sono supportati attualmente
+// Non ha senso supportare i cambiamenti dei bits length
+
+//check node len + block len = prefix ?
+
+// overlap con pr aperta su github
+
+// i cambiamenti del locator non sono gestiti da bgpd
+
+// func bits default a 0
+
+// implementazione fatta, ma attualmente i parametri non sono usati
+
+// verificare range con ahmed
+//  
+
+// consentire behavor usid prima di settare il prefisso?
+// se si, bisogna fare check di consistenza anche nel locator prefix
+
 static int zebra_sr_config(struct vty *vty)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
@@ -414,6 +454,7 @@ void zebra_srv6_vty_init(void)
 
 	/* Command for configuration */
 	install_element(SRV6_LOC_NODE, &locator_prefix_cmd);
+	install_element(SRV6_LOC_NODE, &locator_behavior_cmd);
 
 	/* Command for operation */
 	install_element(VIEW_NODE, &show_srv6_locator_cmd);
