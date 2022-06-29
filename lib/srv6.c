@@ -61,6 +61,12 @@ const char *seg6local_action2str(uint32_t action)
 		return "End.BPF";
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
 		return "End.DT46";
+	case ZEBRA_SEG6_LOCAL_ACTION_UDT4:
+		return "uDT46";
+	case ZEBRA_SEG6_LOCAL_ACTION_UDT6:
+		return "uDT6";
+	case ZEBRA_SEG6_LOCAL_ACTION_UDT46:
+		return "uDT46";
 	case ZEBRA_SEG6_LOCAL_ACTION_UNSPEC:
 		return "unspec";
 	default:
