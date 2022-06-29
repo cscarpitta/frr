@@ -252,17 +252,18 @@ static inline void vpn_leak_postchange(enum vpn_policy_direction direction,
 		    && bgp_vrf->tovpn_zebra_vrf_sid_last_sent))
 			vpn_leak_zebra_vrf_sid_withdraw(bgp_vrf, afi);
 
-		if (bgp_vrf->vpn_policy[afi].tovpn_sid)
+		if (bgp_vrf->vpn_policy[afi].tovpn_sid) {
 			if (sid_diff(bgp_vrf->vpn_policy[afi].tovpn_sid,
 					bgp_vrf->vpn_policy[afi]
 						.tovpn_zebra_vrf_sid_last_sent)) {
 				vpn_leak_zebra_vrf_sid_update(bgp_vrf, afi);
 			}
-		else 
+		} else if (bgp_vrf->tovpn_sid) {
 			if (sid_diff(bgp_vrf->tovpn_sid,
 					bgp_vrf->tovpn_zebra_vrf_sid_last_sent)) {
 				vpn_leak_zebra_vrf_sid_update(bgp_vrf, afi);
 			}
+		}
 
 		vpn_leak_from_vrf_update_all(bgp_vpn, bgp_vrf, afi);
 	}
