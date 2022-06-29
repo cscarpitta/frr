@@ -1799,9 +1799,14 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 					   seg6local_action2str(
 						   api_nh->seg6local_action));
 
+			struct srv6_sid_structure *seg6local_structure = NULL;
+			if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL_HAS_SID_FORMAT))
+				seg6local_structure = &api_nh->seg6local_structure;
+
 			nexthop_add_srv6_seg6local(nexthop,
 						   api_nh->seg6local_action,
-						   &api_nh->seg6local_ctx);
+						   &api_nh->seg6local_ctx,
+						   seg6local_structure);
 		}
 
 		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6)

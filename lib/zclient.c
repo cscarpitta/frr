@@ -443,7 +443,8 @@ enum zclient_send_status zclient_send_vrf_label(struct zclient *zclient,
 enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
 		const struct in6_addr *sid, ifindex_t oif,
 		enum seg6local_action_t action,
-		const struct seg6local_context *context)
+		const struct seg6local_context *context,
+		const struct srv6_sid_structure *sid_structure)
 {
 	struct prefix_ipv6 p = {};
 	struct zapi_route api = {};
@@ -468,7 +469,9 @@ enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
 	nh.type = NEXTHOP_TYPE_IFINDEX;
 	nh.ifindex = oif;
 	SET_FLAG(nh.flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
-	nexthop_add_srv6_seg6local(&nh, action, context);
+	nexthop_add_srv6_seg6local(&nh, action, context, sid_structure);
+	if (sid_structure)
+		SET_FLAG(nh.flags, NEXTHOP_FLAG_SEG6LOCAL_HAS_SID_FORMAT);
 
 	zapi_nexthop_from_nexthop(&api.nexthops[0], &nh);
 	api.nexthop_num = 1;
@@ -1065,6 +1068,11 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			     sizeof(struct seg6local_context));
 	}
 
+	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL_HAS_SID_FORMAT)) {
+		stream_write(s, &api_nh->seg6local_structure,
+			     sizeof(struct srv6_sid_structure));
+	}
+
 	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_SEG6))
 		stream_write(s, &api_nh->seg6_segs,
 			     sizeof(struct in6_addr));
@@ -1427,6 +1435,10 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 		STREAM_GETL(s, api_nh->seg6local_action);
 		STREAM_GET(&api_nh->seg6local_ctx, s,
 			   sizeof(struct seg6local_context));
+		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL_HAS_SID_FORMAT)) {
+			STREAM_GET(&api_nh->seg6local_structure, s,
+				sizeof(struct srv6_sid_structure));
+		}
 	}
 
 	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6))
@@ -1805,7 +1817,8 @@ struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 
 	if (znh->seg6local_action != ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
 		nexthop_add_srv6_seg6local(n, znh->seg6local_action,
-					   &znh->seg6local_ctx);
+					   &znh->seg6local_ctx,
+					   &znh->seg6local_structure);
 
 	if (!sid_zero(&znh->seg6_segs))
 		nexthop_add_srv6_seg6(n, &znh->seg6_segs);
@@ -1868,6 +1881,13 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 			SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
 			memcpy(&znh->seg6_segs, &nh->nh_srv6->seg6_segs,
 			       sizeof(struct in6_addr));
+		}
+
+		if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_SEG6LOCAL_HAS_SID_FORMAT)) {
+			SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL_HAS_SID_FORMAT);
+			memcpy(&znh->seg6local_structure,
+			       &nh->nh_srv6->seg6local_structure,
+			       sizeof(struct srv6_sid_structure));
 		}
 	}
 

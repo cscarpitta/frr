@@ -364,10 +364,12 @@ void vpn_leak_zebra_vrf_sid_update_per_af(struct bgp *bgp, afi_t afi)
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
 	enum seg6local_action_t act;
 	struct seg6local_context ctx = {};
+	struct srv6_sid_structure sid_structure = {};
 	struct in6_addr *tovpn_sid = NULL;
 	struct in6_addr *tovpn_sid_ls = NULL;
 	struct vrf *vrf;
 	char buf[256] = {0};
+	struct bgp *bgp_vpn = bgp_get_default();
 
 	if (bgp->vrf_id == VRF_UNKNOWN) {
 		if (debug)
@@ -396,9 +398,46 @@ void vpn_leak_zebra_vrf_sid_update_per_af(struct bgp *bgp, afi_t afi)
 		return;
 
 	ctx.table = vrf->data.l.table_id;
-	act = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
-		: ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
-	zclient_send_localsid(zclient, tovpn_sid, bgp->vrf_id, act, &ctx);
+
+	bool found;
+	struct listnode *node;
+	struct srv6_locator_chunk *chunk;
+	uint8_t block_bits_length, node_bits_length, func_bits_length, arg_bits_length;
+	bool is_usid = false;
+	if (bgp_vpn->srv6_locator_chunks) {
+		for (ALL_LIST_ELEMENTS_RO(bgp_vpn->srv6_locator_chunks, node, chunk)) {
+			if (sid_same(bgp->vpn_policy[afi].tovpn_sid_locator, &chunk->prefix.prefix)) {
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			block_bits_length = BGP_PREFIX_SID_SRV6_LOCATOR_BLOCK_LENGTH;
+			node_bits_length = BGP_PREFIX_SID_SRV6_LOCATOR_NODE_LENGTH;
+			func_bits_length = BGP_PREFIX_SID_SRV6_FUNCTION_LENGTH;
+			arg_bits_length = BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH;
+		}
+	}
+
+	if (found) {
+		block_bits_length = chunk->block_bits_length ?: BGP_PREFIX_SID_SRV6_LOCATOR_BLOCK_LENGTH;
+		node_bits_length = chunk->node_bits_length ?: BGP_PREFIX_SID_SRV6_LOCATOR_NODE_LENGTH;
+		func_bits_length = chunk->function_bits_length ?: BGP_PREFIX_SID_SRV6_FUNCTION_LENGTH;
+		arg_bits_length = chunk->argument_bits_length ?: BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH;
+		is_usid = CHECK_FLAG(chunk->flags, SRV6_LOCATOR_USID);
+	}
+	sid_structure.block_bits_length = block_bits_length;
+	sid_structure.node_bits_length = node_bits_length;
+	sid_structure.function_bits_length = func_bits_length;
+	sid_structure.argument_bits_length = arg_bits_length;
+	if (is_usid)
+		act = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_UDT4
+			: ZEBRA_SEG6_LOCAL_ACTION_UDT6;
+	else
+		act = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
+			: ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+	zclient_send_localsid(zclient, tovpn_sid, bgp->vrf_id, act, &ctx,
+		&sid_structure);
 
 	tovpn_sid_ls = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
 	*tovpn_sid_ls = *tovpn_sid;
@@ -415,10 +454,12 @@ void vpn_leak_zebra_vrf_sid_update_per_vrf(struct bgp *bgp)
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
 	enum seg6local_action_t act;
 	struct seg6local_context ctx = {};
+	struct srv6_sid_structure sid_structure = {};
 	struct in6_addr *tovpn_sid = NULL;
 	struct in6_addr *tovpn_sid_ls = NULL;
 	struct vrf *vrf;
 	char buf[256] = {0};
+	struct bgp *bgp_vpn = bgp_get_default();
 
 	if (bgp->vrf_id == VRF_UNKNOWN) {
 		if (debug)
@@ -446,9 +487,41 @@ void vpn_leak_zebra_vrf_sid_update_per_vrf(struct bgp *bgp)
 	if (!vrf)
 		return;
 
+	bool found;
+	struct listnode *node;
+	struct srv6_locator_chunk *chunk;
+	uint8_t block_bits_length, node_bits_length, func_bits_length, arg_bits_length;
+	bool is_usid = false;
 	ctx.table = vrf->data.l.table_id;
-	act = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
-	zclient_send_localsid(zclient, tovpn_sid, bgp->vrf_id, act, &ctx);
+	if (bgp_vpn->srv6_locator_chunks) {
+		for (ALL_LIST_ELEMENTS_RO(bgp_vpn->srv6_locator_chunks, node, chunk)) {
+			if (sid_same(bgp->tovpn_sid_locator, &chunk->prefix.prefix)) {
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			block_bits_length = BGP_PREFIX_SID_SRV6_LOCATOR_BLOCK_LENGTH;
+			node_bits_length = BGP_PREFIX_SID_SRV6_LOCATOR_NODE_LENGTH;
+			func_bits_length = BGP_PREFIX_SID_SRV6_FUNCTION_LENGTH;
+			arg_bits_length = BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH;
+		}
+	}
+
+	if (found) {
+		block_bits_length = chunk->block_bits_length ?: BGP_PREFIX_SID_SRV6_LOCATOR_BLOCK_LENGTH;
+		node_bits_length = chunk->node_bits_length ?: BGP_PREFIX_SID_SRV6_LOCATOR_NODE_LENGTH;
+		func_bits_length = chunk->function_bits_length ?: BGP_PREFIX_SID_SRV6_FUNCTION_LENGTH;
+		arg_bits_length = chunk->argument_bits_length ?: BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH;
+		is_usid = CHECK_FLAG(chunk->flags, SRV6_LOCATOR_USID);
+	}
+	sid_structure.block_bits_length = block_bits_length;
+	sid_structure.node_bits_length = node_bits_length;
+	sid_structure.function_bits_length = func_bits_length;
+	sid_structure.argument_bits_length = arg_bits_length;
+	act = is_usid ? ZEBRA_SEG6_LOCAL_ACTION_UDT46 : ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
+	zclient_send_localsid(zclient, tovpn_sid, bgp->vrf_id, act, &ctx,
+		&sid_structure);
 
 	tovpn_sid_ls = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
 	*tovpn_sid_ls = *tovpn_sid;
@@ -502,7 +575,7 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_af(struct bgp *bgp, afi_t afi)
 
 	zclient_send_localsid(zclient,
 		bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent,
-		bgp->vrf_id, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, NULL);
+		bgp->vrf_id, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, NULL, NULL);
 	XFREE(MTYPE_BGP_SRV6_SID,
 	      bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent);
 }
@@ -528,7 +601,7 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_vrf(struct bgp *bgp)
 
 	zclient_send_localsid(zclient,
 		bgp->tovpn_zebra_vrf_sid_last_sent,
-		bgp->vrf_id, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, NULL);
+		bgp->vrf_id, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, NULL, NULL);
 	XFREE(MTYPE_BGP_SRV6_SID,
 	      bgp->tovpn_zebra_vrf_sid_last_sent);
 }
@@ -825,7 +898,7 @@ void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
 	/* sid per-vrf */
 	if (bgp_vrf->tovpn_sid_index != 0 || CHECK_FLAG(bgp_vrf->vrf_flags,
 				    BGP_CONFIG_VRF_TOVPN_SID_AUTO))
-		return ensure_vrf_tovpn_sid_per_vrf(bgp_vpn, bgp_vrf);
+			return ensure_vrf_tovpn_sid_per_vrf(bgp_vpn, bgp_vrf);
 }
 
 /*

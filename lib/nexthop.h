@@ -81,7 +81,7 @@ struct nexthop {
 
 	enum nexthop_types_t type;
 
-	uint8_t flags;
+	uint16_t flags;
 #define NEXTHOP_FLAG_ACTIVE     (1 << 0) /* This nexthop is alive. */
 #define NEXTHOP_FLAG_FIB        (1 << 1) /* FIB nexthop. */
 #define NEXTHOP_FLAG_RECURSIVE  (1 << 2) /* Recursive nexthop. */
@@ -94,6 +94,7 @@ struct nexthop {
 #define NEXTHOP_FLAG_RNH_FILTERED  (1 << 5) /* rmap filtered, used by rnh */
 #define NEXTHOP_FLAG_HAS_BACKUP (1 << 6)    /* Backup nexthop index is set */
 #define NEXTHOP_FLAG_SRTE       (1 << 7) /* SR-TE color used for BGP traffic */
+#define NEXTHOP_FLAG_SEG6LOCAL_HAS_SID_FORMAT (1 << 8)
 
 #define NEXTHOP_IS_ACTIVE(flags)                                               \
 	(CHECK_FLAG(flags, NEXTHOP_FLAG_ACTIVE)                                \
@@ -162,7 +163,8 @@ void nexthop_add_labels(struct nexthop *nexthop, enum lsp_types_t ltype,
 			uint8_t num_labels, const mpls_label_t *labels);
 void nexthop_del_labels(struct nexthop *);
 void nexthop_add_srv6_seg6local(struct nexthop *nexthop, uint32_t action,
-				const struct seg6local_context *ctx);
+				const struct seg6local_context *ctx,
+				const struct srv6_sid_structure *sid_structure);
 void nexthop_del_srv6_seg6local(struct nexthop *nexthop);
 void nexthop_add_srv6_seg6(struct nexthop *nexthop,
 			   const struct in6_addr *segs);

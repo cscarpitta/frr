@@ -435,6 +435,7 @@ struct zapi_nexthop {
 	/* SRv6 localsid info for Endpoint-behaviour */
 	uint32_t seg6local_action;
 	struct seg6local_context seg6local_ctx;
+	struct srv6_sid_structure seg6local_structure;
 
 	/* SRv6 Headend-behaviour */
 	struct in6_addr seg6_segs;
@@ -452,6 +453,7 @@ struct zapi_nexthop {
 #define ZAPI_NEXTHOP_FLAG_HAS_BACKUP	0x08 /* Nexthop has a backup */
 #define ZAPI_NEXTHOP_FLAG_SEG6		0x10
 #define ZAPI_NEXTHOP_FLAG_SEG6LOCAL	0x20
+#define ZAPI_NEXTHOP_FLAG_SEG6LOCAL_HAS_SID_FORMAT 0x40
 
 /*
  * ZAPI Nexthop Group. For use with protocol creation of nexthop groups.
@@ -898,7 +900,8 @@ zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id, afi_t afi,
 extern enum zclient_send_status
 zclient_send_localsid(struct zclient *zclient, const struct in6_addr *sid,
 		      ifindex_t oif, enum seg6local_action_t action,
-		      const struct seg6local_context *context);
+		      const struct seg6local_context *context,
+			  const struct srv6_sid_structure *sid_structure);
 
 extern void zclient_send_reg_requests(struct zclient *, vrf_id_t);
 extern void zclient_send_dereg_requests(struct zclient *, vrf_id_t);

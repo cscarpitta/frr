@@ -135,10 +135,18 @@ enum srv6_behavior_codepoint_t {
 	SRV6_BEHAVIOR_OPAQUE             = 0xFFFF,
 };
 
+struct srv6_sid_structure {
+	uint8_t block_bits_length;
+	uint8_t node_bits_length;
+	uint8_t function_bits_length;
+	uint8_t argument_bits_length;
+};
+
 struct nexthop_srv6 {
 	/* SRv6 localsid info for Endpoint-behaviour */
 	enum seg6local_action_t seg6local_action;
 	struct seg6local_context seg6local_ctx;
+	struct srv6_sid_structure seg6local_structure;
 
 	/* SRv6 Headend-behaviour */
 	struct in6_addr seg6_segs;

@@ -93,6 +93,12 @@ static int _nexthop_srv6_cmp(const struct nexthop *nh1,
 	if (ret != 0)
 		return ret;
 
+	ret = memcmp(&nh1->nh_srv6->seg6local_structure,
+		     &nh2->nh_srv6->seg6local_structure,
+		     sizeof(struct srv6_sid_structure));
+	if (ret != 0)
+		return ret;
+
 	ret = memcmp(&nh1->nh_srv6->seg6_segs,
 		     &nh2->nh_srv6->seg6_segs,
 		     sizeof(struct in6_addr));
@@ -565,7 +571,8 @@ void nexthop_del_labels(struct nexthop *nexthop)
 }
 
 void nexthop_add_srv6_seg6local(struct nexthop *nexthop, uint32_t action,
-				const struct seg6local_context *ctx)
+				const struct seg6local_context *ctx,
+				const struct srv6_sid_structure *sid_structure)
 {
 	if (action == ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
 		return;
@@ -576,6 +583,8 @@ void nexthop_add_srv6_seg6local(struct nexthop *nexthop, uint32_t action,
 
 	nexthop->nh_srv6->seg6local_action = action;
 	nexthop->nh_srv6->seg6local_ctx = *ctx;
+	if (sid_structure)
+		memcpy(&nexthop->nh_srv6->seg6local_structure, sid_structure, sizeof(struct srv6_sid_structure));
 }
 
 void nexthop_del_srv6_seg6local(struct nexthop *nexthop)
@@ -761,6 +770,8 @@ uint32_t nexthop_hash_quick(const struct nexthop *nexthop)
 		key = jhash_1word(nexthop->nh_srv6->seg6local_action, key);
 		key = jhash(&nexthop->nh_srv6->seg6local_ctx,
 			    sizeof(nexthop->nh_srv6->seg6local_ctx), key);
+		key = jhash(&nexthop->nh_srv6->seg6local_structure,
+			    sizeof(nexthop->nh_srv6->seg6local_structure), key);
 		key = jhash(&nexthop->nh_srv6->seg6_segs,
 			    sizeof(nexthop->nh_srv6->seg6_segs), key);
 	}
@@ -823,7 +834,8 @@ void nexthop_copy_no_recurse(struct nexthop *copy,
 		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
 			nexthop_add_srv6_seg6local(copy,
 				nexthop->nh_srv6->seg6local_action,
-				&nexthop->nh_srv6->seg6local_ctx);
+				&nexthop->nh_srv6->seg6local_ctx,
+				&nexthop->nh_srv6->seg6local_structure);
 		if (!sid_zero(&nexthop->nh_srv6->seg6_segs))
 			nexthop_add_srv6_seg6(copy,
 				&nexthop->nh_srv6->seg6_segs);
