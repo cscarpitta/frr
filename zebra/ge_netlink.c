@@ -109,4 +109,125 @@ int genl_resolve_family(const char *family, struct zebra_dplane_ctx *ctx)
 			    false);
 }
 
+/*
+ * sr tunsrc change via netlink interface, using a dataplane context object
+ *
+ * Returns -1 on failure, 0 when the msg doesn't fit entirely in the buffer
+ * otherwise the number of bytes written to buf.
+ */
+ssize_t netlink_sr_tunsrc_set_msg_encode(int cmd,
+					   struct zebra_dplane_ctx *ctx,
+					   void *buf, size_t buflen)
+{
+	struct nlsock *nl;
+    const struct in6_addr *tunsrc_addr;
+
+	struct {
+		struct nlmsghdr n;
+		struct genlmsghdr g;
+		char buf[1024];
+	} *req = buf;
+
+    tunsrc_addr = dplane_ctx_get_sr_tunsrc_addr(ctx);
+
+	if (buflen < sizeof(*req))
+		return 0;
+
+ 	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+
+    memset(req, 0, sizeof(*req));
+
+    req->n.nlmsg_len = NLMSG_LENGTH(GENL_HDRLEN);
+    req->n.nlmsg_flags = NLM_F_REQUEST;
+
+    if (genl_family < 0)
+        if (genl_resolve_family("SEG6", ctx)) {
+        zlog_err(
+            "%s: generic netlink resolve family failed",
+            __func__);
+        return -1;
+		}
+
+    req->n.nlmsg_type = genl_family;
+
+ 	req->n.nlmsg_pid = nl->snl.nl_pid;
+
+    req->g.cmd = cmd;
+    req->g.version = SEG6_GENL_VERSION;
+
+    switch (cmd) {
+    case SEG6_CMD_SET_TUNSRC:
+        if (!nl_attr_put(&req->n, buflen, SEG6_ATTR_DST,
+                    tunsrc_addr,
+                    sizeof(struct in6_addr)))
+            return 0;
+        break;
+    default:
+        zlog_err(
+            "%s: unsupported command (%u)",
+            __func__, cmd);
+        return -1;
+    }
+
+    return NLMSG_ALIGN(req->n.nlmsg_len);
+}
+
+ssize_t netlink_sr_tunsrc_set_msg_encoder(struct zebra_dplane_ctx *ctx,
+                void *buf, size_t buflen)
+{
+	enum dplane_op_e op;
+	int cmd = 0;
+
+	op = dplane_ctx_get_op(ctx);
+
+	/* Call to netlink layer based on type of operation */
+    switch (op) {
+    case DPLANE_OP_SR_TUNSRC_SET:
+		/* Validate */
+		if (dplane_ctx_get_sr_tunsrc_addr(ctx) == NULL) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+                    "sr tunsrc set failed: SRv6 encap source address not set");
+			return -1;
+		}
+
+		cmd = SEG6_CMD_SET_TUNSRC;
+
+        break;
+    default:
+		/* Invalid op */
+        zlog_err(
+            "%s: context received for kernel sr tunsrc update with incorrect OP code (%u)",
+			__func__, op);
+		return -1;
+    }
+
+	return netlink_sr_tunsrc_set_msg_encode(cmd, ctx, buf, buflen);
+}
+
+enum netlink_msg_status netlink_put_sr_tunsrc_set_msg(struct nl_batch *bth,
+						   struct zebra_dplane_ctx *ctx)
+{
+	enum dplane_op_e op;
+	struct zebra_ns *zns;
+
+	op = dplane_ctx_get_op(ctx);
+	assert(op == DPLANE_OP_SR_TUNSRC_SET);
+
+	struct {
+		struct nlmsghdr n;
+		struct genlmsghdr g;
+		char buf[1024];
+	} req;
+
+	netlink_sr_tunsrc_set_msg_encoder(ctx, &req, sizeof(req));
+
+	zns = zebra_ns_lookup(dplane_ctx_get_ns_sock(ctx));
+
+
+
+	return ge_netlink_talk(netlink_talk_filter, &req.n, zns,
+			    false);
+}
+
 #endif /* HAVE_NETLINK */
