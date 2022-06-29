@@ -458,6 +458,8 @@ static int zebra_sr_config(struct vty *vty)
 			inet_ntop(AF_INET6, &locator->prefix.prefix,
 				  str, sizeof(str));
 			vty_out(vty, "   locator %s\n", locator->name);
+			if (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
+				vty_out(vty, "    behavior usid\n");
 			vty_out(vty, "    prefix %s/%u", str,
 				locator->prefix.prefixlen);
 			if (locator->block_bits_length)
