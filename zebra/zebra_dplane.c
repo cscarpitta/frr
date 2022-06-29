@@ -307,6 +307,10 @@ struct dplane_netconf_info {
 	enum dplane_netconf_status_e mcast_val;
 };
 
+struct dplane_sr_tunsrc_ctx {
+	struct in6_addr addr;
+};
+
 /*
  * The context block used to exchange info about route updates across
  * the boundary between the zebra main context (and pthread) and the
@@ -365,6 +369,7 @@ struct zebra_dplane_ctx {
 		struct dplane_neigh_table neightable;
 		struct dplane_gre_ctx gre;
 		struct dplane_netconf_info netconf;
+		struct dplane_sr_tunsrc_ctx sr_tunsrc;
 	} u;
 
 	/* Namespace info, used especially for netlink kernel communication */
@@ -531,6 +536,9 @@ static struct zebra_dplane_globals {
 
 	_Atomic uint32_t dg_intfs_in;
 	_Atomic uint32_t dg_intf_errors;
+
+	_Atomic uint32_t dg_sr_tunsrc_set_in;
+	_Atomic uint32_t dg_sr_tunsrc_set_errors;
 
 	/* Dataplane pthread */
 	struct frr_pthread *dg_pthread;
@@ -795,6 +803,7 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 		break;
 	case DPLANE_OP_GRE_SET:
 	case DPLANE_OP_INTF_NETCONFIG:
+	case DPLANE_OP_SR_TUNSRC_SET:
 		break;
 	}
 }
@@ -1091,6 +1100,10 @@ const char *dplane_op2str(enum dplane_op_e op)
 		break;
 	case DPLANE_OP_INTF_DELETE:
 		ret = "INTF_DELETE";
+		break;
+
+	case DPLANE_OP_SR_TUNSRC_SET:
+		ret = "SR_TUNSRC_SET";
 		break;
 	}
 
@@ -1860,6 +1873,15 @@ const struct prefix *dplane_ctx_get_intf_addr(
 	DPLANE_CTX_VALID(ctx);
 
 	return &(ctx->u.intf.prefix);
+}
+
+
+const struct in6_addr *dplane_ctx_get_sr_tunsrc_addr(
+	const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.sr_tunsrc.addr);
 }
 
 void dplane_ctx_set_intf_addr(struct zebra_dplane_ctx *ctx,
@@ -4756,6 +4778,59 @@ dplane_gre_set(struct interface *ifp, struct interface *ifp_link,
 }
 
 /*
+ * Common helper api for SR TUNSRC set
+ */
+enum zebra_dplane_result
+dplane_sr_tunsrc_set(const struct in6_addr *addr, ns_id_t ns_id)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	struct zebra_dplane_ctx *ctx;
+	enum dplane_op_e op = DPLANE_OP_SR_TUNSRC_SET;
+	int ret;
+	struct zebra_ns *zns;
+    char buf[INET6_ADDRSTRLEN + 8];
+	ctx = dplane_ctx_alloc();
+
+	if (!addr)
+		return result;
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+		zlog_debug("init dplane ctx %s: addr %s",
+			   dplane_op2str(op), inet_ntop(AF_INET6, &addr, buf, sizeof(buf)));
+	}
+
+	ctx->zd_op = op;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	zns = zebra_ns_lookup(ns_id);
+	if (!zns)
+		return result;
+	dplane_ctx_ns_init(ctx, zns, false);
+
+	memcpy(&ctx->u.sr_tunsrc.addr, addr, sizeof(ctx->u.sr_tunsrc.addr));
+
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+
+	/* Enqueue context for processing */
+	ret = dplane_update_enqueue(ctx);
+
+	/* Update counter */
+	atomic_fetch_add_explicit(&zdplane_info.dg_sr_tunsrc_set_in, 1,
+				  memory_order_relaxed);
+
+	if (ret == AOK) 
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		atomic_fetch_add_explicit(
+			&zdplane_info.dg_sr_tunsrc_set_errors, 1,
+			memory_order_relaxed);
+		if (ctx)
+			dplane_ctx_free(&ctx);
+		result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	}
+	return result;
+}
+
+/*
  * Handler for 'show dplane'
  */
 int dplane_show_helper(struct vty *vty, bool detailed)
@@ -5302,6 +5377,7 @@ void dplane_provider_enqueue_to_zebra(struct zebra_dplane_ctx *ctx)
 static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 {
 	char buf[PREFIX_STRLEN];
+	char buf1[INET6_ADDRSTRLEN + 8];
 
 	switch (dplane_ctx_get_op(ctx)) {
 
@@ -5451,6 +5527,12 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 			   dplane_op2str(dplane_ctx_get_op(ctx)),
 			   dplane_ctx_get_ifindex(ctx),
 			   dplane_ctx_intf_is_protodown(ctx));
+		break;
+
+	case DPLANE_OP_SR_TUNSRC_SET:
+		zlog_debug("Dplane sr tunsrc set op %s, addr %s",
+			   dplane_op2str(dplane_ctx_get_op(ctx)),
+			   inet_ntop(AF_INET6, &ctx->u.sr_tunsrc.addr, buf1, sizeof(buf1)));
 		break;
 	}
 }
@@ -5607,6 +5689,13 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_INTF_ADDR_ADD:
 	case DPLANE_OP_INTF_ADDR_DEL:
 	case DPLANE_OP_INTF_NETCONFIG:
+		break;
+
+	case DPLANE_OP_SR_TUNSRC_SET:
+		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
+			atomic_fetch_add_explicit(
+				&zdplane_info.dg_sr_tunsrc_set_errors, 1,
+				memory_order_relaxed);
 		break;
 
 	case DPLANE_OP_NONE:
