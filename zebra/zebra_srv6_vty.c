@@ -375,11 +375,11 @@ DEFPY (locator_behavior,
        "Specify SRv6 behavior uSID\n")
 {
 	VTY_DECLVAR_CONTEXT(srv6_locator, locator);
-	
-	if (no)
-		UNSET_FLAG(locator->flags, SRV6_LOCATOR_USID);
-	else
+
+	if (!no)
 		SET_FLAG(locator->flags, SRV6_LOCATOR_USID);
+	else
+		UNSET_FLAG(locator->flags, SRV6_LOCATOR_USID);
 
 	return CMD_SUCCESS;
 }
