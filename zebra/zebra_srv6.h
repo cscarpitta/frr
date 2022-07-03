@@ -58,6 +58,10 @@ DECLARE_HOOK(srv6_manager_release_chunk,
 	      const char *locator_name,
 	      vrf_id_t vrf_id),
 	     (client, locator_name, vrf_id));
+DECLARE_HOOK(zebra_srv6_sid_list_update,
+	     (struct nexthop_srv6 * nh_srv6, bool delete,
+	      const char *reason),
+	     (nh_srv6, delete, reason));
 
 
 extern void zebra_srv6_locator_add(struct srv6_locator *locator);
