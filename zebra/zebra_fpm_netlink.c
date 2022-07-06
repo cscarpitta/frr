@@ -737,7 +737,7 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 				nl_attr_put(&req->n, in_buf_len,
 						   FPM_SRV6_LOCALSID_VRFNAME,
 						   localsid_ctx->vrf_name,
-						   strlen(localsid_ctx->vrf_name));
+						   strlen(localsid_ctx->vrf_name) + 1);
 				break;
 			case FPM_SRV6_LOCALSID_ACTION_END_DX4:
 				nl_attr_put32(&req->n, in_buf_len,
@@ -754,7 +754,7 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 				nl_attr_put(&req->n, in_buf_len,
 						   FPM_SRV6_LOCALSID_VRFNAME,
 						   localsid_ctx->vrf_name,
-						   strlen(localsid_ctx->vrf_name));
+						   strlen(localsid_ctx->vrf_name) + 1);
 				break;
 			case FPM_SRV6_LOCALSID_ACTION_END_DT4:
 				nl_attr_put32(&req->n, in_buf_len,
@@ -763,7 +763,7 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 				nl_attr_put(&req->n, in_buf_len,
 						   FPM_SRV6_LOCALSID_VRFNAME,
 						   localsid_ctx->vrf_name,
-						   strlen(localsid_ctx->vrf_name));
+						   strlen(localsid_ctx->vrf_name) + 1);
 				break;
 			case FPM_SRV6_LOCALSID_ACTION_END_DT46:
 				nl_attr_put32(&req->n, in_buf_len,
@@ -772,7 +772,7 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 				nl_attr_put(&req->n, in_buf_len,
 						   FPM_SRV6_LOCALSID_VRFNAME,
 						   localsid_ctx->vrf_name,
-						   strlen(localsid_ctx->vrf_name));
+						   strlen(localsid_ctx->vrf_name) + 1);
 				break;
 			case FPM_SRV6_LOCALSID_ACTION_UDT6:
 				nl_attr_put32(&req->n, in_buf_len,
@@ -781,7 +781,7 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 				nl_attr_put(&req->n, in_buf_len,
 						   FPM_SRV6_LOCALSID_VRFNAME,
 						   localsid_ctx->vrf_name,
-						   strlen(localsid_ctx->vrf_name));
+						   strlen(localsid_ctx->vrf_name) + 1);
 				break;
 			case FPM_SRV6_LOCALSID_ACTION_UDT4:
 				nl_attr_put32(&req->n, in_buf_len,
@@ -790,7 +790,7 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 				nl_attr_put(&req->n, in_buf_len,
 						   FPM_SRV6_LOCALSID_VRFNAME,
 						   localsid_ctx->vrf_name,
-						   strlen(localsid_ctx->vrf_name));
+						   strlen(localsid_ctx->vrf_name) + 1);
 				break;
 			case FPM_SRV6_LOCALSID_ACTION_UDT46:
 				nl_attr_put32(&req->n, in_buf_len,
@@ -799,7 +799,7 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 				nl_attr_put(&req->n, in_buf_len,
 						   FPM_SRV6_LOCALSID_VRFNAME,
 						   localsid_ctx->vrf_name,
-						   strlen(localsid_ctx->vrf_name));
+						   strlen(localsid_ctx->vrf_name) + 1);
 				break;
 			default:
 				zlog_err("%s: unsupport localsid behaviour action=%u",
