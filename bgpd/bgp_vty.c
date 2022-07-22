@@ -333,8 +333,7 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 		/* refresh per-vrf tovpn_sid */
 		tovpn_sid = bgp_vrf->tovpn_sid;
 		if (tovpn_sid)
-			XFREE(MTYPE_BGP_SRV6_SID,
-			      bgp_vrf->tovpn_sid);
+			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
 	}
 
 	/* update vpn bgp processes */
@@ -8689,8 +8688,10 @@ DEFPY (af_sid_vpn_export,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (bgp->tovpn_sid_index != 0 || CHECK_FLAG(bgp->vrf_flags, BGP_CONFIG_VRF_TOVPN_SID_AUTO)) {
-		vty_out(vty, "per-vrf sid and per-af sid are mutually exclusive\n"
+	if (bgp->tovpn_sid_index != 0 ||
+	    CHECK_FLAG(bgp->vrf_flags, BGP_CONFIG_VRF_TOVPN_SID_AUTO)) {
+		vty_out(vty,
+			"per-vrf sid and per-af sid are mutually exclusive\n"
 			"Failed: per-vrf sid is configured. Remove per-vrf sid before configuring per-af sid\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -8751,7 +8752,7 @@ DEFPY (bgp_sid_vpn_export,
 	int debug = 0;
 	int idx = 0;
 	bool yes = true;
-	
+
 	if (argv_find(argv, argc, "no", &idx))
 		yes = false;
 	debug = (BGP_DEBUG(vpn, VPN_LEAK_TO_VRF) |
@@ -8763,42 +8764,47 @@ DEFPY (bgp_sid_vpn_export,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if (bgp->vpn_policy[AFI_IP].tovpn_sid_index != 0 || CHECK_FLAG(bgp->vpn_policy[AFI_IP].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO) || bgp->vpn_policy[AFI_IP6].tovpn_sid_index != 0 || CHECK_FLAG(bgp->vpn_policy[AFI_IP6].flags, BGP_VPN_POLICY_TOVPN_SID_AUTO)) {
-		vty_out(vty, "per-vrf sid and per-af sid are mutually exclusive\n"
+	if (bgp->vpn_policy[AFI_IP].tovpn_sid_index != 0 ||
+	    CHECK_FLAG(bgp->vpn_policy[AFI_IP].flags,
+		       BGP_VPN_POLICY_TOVPN_SID_AUTO) ||
+	    bgp->vpn_policy[AFI_IP6].tovpn_sid_index != 0 ||
+	    CHECK_FLAG(bgp->vpn_policy[AFI_IP6].flags,
+		       BGP_VPN_POLICY_TOVPN_SID_AUTO)) {
+		vty_out(vty,
+			"per-vrf sid and per-af sid are mutually exclusive\n"
 			"Failed: per-af sid is configured. Remove per-af sid before configuring per-vrf sid\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	/* skip when it's already configured */
-	if ((sid_idx != 0 && bgp->tovpn_sid_index != 0)
-	    || (sid_auto && CHECK_FLAG(bgp->vrf_flags,
-				       BGP_CONFIG_VRF_TOVPN_SID_AUTO)))
+	if ((sid_idx != 0 && bgp->tovpn_sid_index != 0) ||
+	    (sid_auto &&
+	     CHECK_FLAG(bgp->vrf_flags, BGP_CONFIG_VRF_TOVPN_SID_AUTO)))
 		return CMD_SUCCESS;
 
 	/*
 	 * mode change between sid_idx and sid_auto isn't supported.
 	 * user must negate sid vpn export when they want to change the mode
 	 */
-	if ((sid_auto && bgp->tovpn_sid_index != 0)
-	    || (sid_idx != 0 && CHECK_FLAG(bgp->vrf_flags,
-					   BGP_CONFIG_VRF_TOVPN_SID_AUTO))) {
+	if ((sid_auto && bgp->tovpn_sid_index != 0) ||
+	    (sid_idx != 0 &&
+	     CHECK_FLAG(bgp->vrf_flags, BGP_CONFIG_VRF_TOVPN_SID_AUTO))) {
 		vty_out(vty, "it's already configured as %s.\n",
 			sid_auto ? "auto-mode" : "idx-mode");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	/* pre-change */
-	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP,
-			   bgp_get_default(), bgp);
-	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6,
-			   bgp_get_default(), bgp);
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(),
+			   bgp);
+	vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp_get_default(),
+			   bgp);
 
 	if (sid_auto) {
 		/* SID allocation auto-mode */
 		if (debug)
 			zlog_debug("%s: auto sid alloc.", __func__);
-		SET_FLAG(bgp->vrf_flags,
-			 BGP_CONFIG_VRF_TOVPN_SID_AUTO);
+		SET_FLAG(bgp->vrf_flags, BGP_CONFIG_VRF_TOVPN_SID_AUTO);
 	} else {
 		/* SID allocation index-mode */
 		if (debug)
@@ -8807,8 +8813,8 @@ DEFPY (bgp_sid_vpn_export,
 	}
 
 	/* post-change */
-	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP,
-			    bgp_get_default(), bgp);
+	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp_get_default(),
+			    bgp);
 	vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6,
 			    bgp_get_default(), bgp);
 
@@ -9541,7 +9547,8 @@ DEFPY (show_bgp_srv6,
 		vty_out(vty, "- %s\n", buf);
 		vty_out(vty, "  block-length: %d\n", chunk->block_bits_length);
 		vty_out(vty, "  node-length: %d\n", chunk->node_bits_length);
-		vty_out(vty, "  func-length: %d\n", chunk->function_bits_length);
+		vty_out(vty, "  func-length: %d\n",
+			chunk->function_bits_length);
 		vty_out(vty, "  arg-length: %d\n", chunk->argument_bits_length);
 	}
 

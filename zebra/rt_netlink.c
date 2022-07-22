@@ -2655,14 +2655,14 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						break;
 					case SEG6_LOCAL_ACTION_END_DT46:
 						if (!nl_attr_put32(
-						    &req->n, buflen,
-						    SEG6_LOCAL_ACTION,
-						    SEG6_LOCAL_ACTION_END_DT46))
+							    &req->n, buflen,
+							    SEG6_LOCAL_ACTION,
+							    SEG6_LOCAL_ACTION_END_DT46))
 							return 0;
 						if (!nl_attr_put32(
-						    &req->n, buflen,
-							SEG6_LOCAL_VRFTABLE,
-							ctx->table))
+							    &req->n, buflen,
+							    SEG6_LOCAL_VRFTABLE,
+							    ctx->table))
 							return 0;
 						break;
 					default:

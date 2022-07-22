@@ -270,17 +270,17 @@ DEFUN (no_srv6_locator,
 }
 
 DEFPY (locator_prefix,
-       locator_prefix_cmd,
-       "prefix X:X::X:X/M$prefix [func-bits (16-64)$func_bit_len] \
+	   locator_prefix_cmd,
+      "prefix X:X::X:X/M$prefix [func-bits (16-64)$func_bit_len] \
 	       [block-len (16-64)$block_bit_len] [node-len (16-64)$node_bit_len]",
-       "Configure SRv6 locator prefix\n"
-       "Specify SRv6 locator prefix\n"
-       "Configure SRv6 locator function length in bits\n"
-       "Specify SRv6 locator function length in bits\n"
-       "Configure SRv6 locator block length in bits\n"
-       "Specify SRv6 locator block length in bits\n"
-       "Configure SRv6 locator node length in bits\n"
-       "Specify SRv6 locator node length in bits\n")
+      "Configure SRv6 locator prefix\n"
+      "Specify SRv6 locator prefix\n"
+      "Configure SRv6 locator function length in bits\n"
+      "Specify SRv6 locator function length in bits\n"
+      "Configure SRv6 locator block length in bits\n"
+      "Specify SRv6 locator block length in bits\n"
+      "Configure SRv6 locator node length in bits\n"
+      "Specify SRv6 locator node length in bits\n")
 {
 	VTY_DECLVAR_CONTEXT(srv6_locator, locator);
 	struct srv6_locator_chunk *chunk = NULL;
@@ -289,7 +289,8 @@ DEFPY (locator_prefix,
 	locator->prefix = *prefix;
 
 	if (block_bit_len == 0 && node_bit_len == 0) {
-		block_bit_len = block_bit_len ? block_bit_len : prefix->prefixlen - 24;
+		block_bit_len =
+			block_bit_len ? block_bit_len : prefix->prefixlen - 24;
 		node_bit_len = node_bit_len ? node_bit_len : 24;
 	} else if (block_bit_len == 0) {
 		block_bit_len = prefix->prefixlen - node_bit_len;
@@ -297,7 +298,8 @@ DEFPY (locator_prefix,
 		node_bit_len = prefix->prefixlen - block_bit_len;
 	} else {
 		if (block_bit_len + node_bit_len != prefix->prefixlen) {
-			vty_out(vty, "%% node-bits + block-bits must be equal to the prefix length\n");
+			vty_out(vty,
+				"%% node-bits + block-bits must be equal to the prefix length\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}

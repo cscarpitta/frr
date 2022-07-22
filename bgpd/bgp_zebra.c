@@ -3270,8 +3270,7 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 			tmp_prefi.prefix = *tovpn_sid;
 			if (prefix_match((struct prefix *)&loc.prefix,
 					 (struct prefix *)&tmp_prefi))
-				XFREE(MTYPE_BGP_SRV6_SID,
-				      bgp_vrf->tovpn_sid);
+				XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
 		}
 	}
 

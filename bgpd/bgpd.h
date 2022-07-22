@@ -720,7 +720,7 @@ struct bgp {
 #define BGP_VRF_RD_CFGD                     (1 << 3)
 #define BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY    (1 << 4)
 /* vrf to vpn sid */
-#define BGP_CONFIG_VRF_TOVPN_SID_AUTO       (1 << 5)
+#define BGP_CONFIG_VRF_TOVPN_SID_AUTO (1 << 5)
 
 	/* unique ID for auto derivation of RD for this vrf */
 	uint16_t vrf_rd_id;

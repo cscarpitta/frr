@@ -112,10 +112,6 @@ const char *seg6local_context2str(char *str, size_t size,
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
 		snprintf(str, size, "table %u", ctx->table);
 		return str;
-		
-	// case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
-	// 	snprintf(str, size, "vrftable %u", ctx->table);
-	// 	return str;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
