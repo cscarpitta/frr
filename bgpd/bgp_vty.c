@@ -9777,6 +9777,7 @@ DEFPY (show_bgp_srv6,
 			tovpn4_sid ? buf_tovpn4_sid : "none");
 		vty_out(vty, "  vpn_policy[AFI_IP6].tovpn_sid: %s\n",
 			tovpn6_sid ? buf_tovpn6_sid : "none");
+		vty_out(vty, "  per-vrf tovpn_sid: %pI6\n", bgp->tovpn_sid);
 	}
 
 	return CMD_SUCCESS;
