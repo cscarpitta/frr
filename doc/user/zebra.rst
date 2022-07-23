@@ -738,7 +738,7 @@ and this section also helps that case.
    Create a new locator. If the name of an existing locator is specified,
    move to specified locator's configuration node to change the settings it.
 
-.. clicmd:: prefix X:X::X:X/M [func-bits 32]
+.. clicmd:: prefix X:X::X:X/M [func-bits 32] [block-len 40] [node-len 24]
 
    Set the ipv6 prefix block of the locator. SRv6 locator is defined by
    RFC8986. The actual routing protocol specifies the locator and allocates a
@@ -757,9 +757,19 @@ and this section also helps that case.
    configure the locator's prefix as ``2001:db8:1:1::/64``, then default SID
    will be ``2001:db8:1:1:1::``)
 
+   This command takes three optional parameters: ``func-bits``, ``block-len``
+   and ``node-len``.
+
    The function bits range is 16bits by default.  If operator want to change
    function bits range, they can configure with ``func-bits``
    option.
+
+   The ``block-len`` parameter allows the user to configure the length of the
+   Node part of the locator (in bits). The block bits length is 24 bits by default.
+
+   The ``node-len`` parameter allows the user to configure the length of the
+   Block part of the locator (in bits). The node bits length is prefix_len-24 bits
+   by default.
 
 ::
 
