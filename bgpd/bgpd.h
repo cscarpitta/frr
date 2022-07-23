@@ -757,6 +757,8 @@ struct bgp {
 #define BGP_VRF_EXPORT_RT_CFGD              (1 << 2)
 #define BGP_VRF_RD_CFGD                     (1 << 3)
 #define BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY    (1 << 4)
+/* per-VRF toVPN SID */
+#define BGP_VRF_TOVPN_SID_AUTO              (1 << 5)
 
 	/* unique ID for auto derivation of RD for this vrf */
 	uint16_t vrf_rd_id;
@@ -804,6 +806,12 @@ struct bgp {
 	char srv6_locator_name[SRV6_LOCNAME_SIZE];
 	struct list *srv6_locator_chunks;
 	struct list *srv6_functions;
+	uint32_t tovpn_sid_index; /* unset => set to 0 */
+	struct in6_addr *tovpn_sid;
+	struct srv6_locator_chunk *tovpn_sid_locator;
+	uint32_t tovpn_sid_transpose_label;
+	struct in6_addr *tovpn_zebra_vrf_sid_last_sent;
+
 	/* TCP keepalive parameters for BGP connection */
 	uint16_t tcp_keepalive_idle;
 	uint16_t tcp_keepalive_intvl;
