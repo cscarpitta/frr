@@ -1427,7 +1427,54 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 	static_attr.originator_id = to_bgp->router_id;
 
 	/* Set SID for SRv6 VPN */
-	if (from_bgp->vpn_policy[afi].tovpn_sid_locator) {
+	if (from_bgp->vpn_policy[afi].tovpn_sid_locator) { /* per-AF SID */
+		struct listnode *node;
+		struct srv6_locator_chunk *chunk;
+		uint8_t block_bits_length =
+			BGP_PREFIX_SID_SRV6_LOCATOR_BLOCK_LENGTH;
+		uint8_t node_bits_length =
+			BGP_PREFIX_SID_SRV6_LOCATOR_NODE_LENGTH;
+		uint8_t func_bits_length = BGP_PREFIX_SID_SRV6_FUNCTION_LENGTH;
+		uint8_t arg_bits_length = BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH;
+		uint8_t transposition_offset =
+			BGP_PREFIX_SID_SRV6_TRANSPOSITION_OFFSET;
+		uint8_t transposition_length =
+			BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH;
+		bool found = false;
+
+		/* Perform SRv6 locator lookup */
+		if (to_bgp->srv6_locator_chunks) {
+			for (ALL_LIST_ELEMENTS_RO(to_bgp->srv6_locator_chunks,
+						  node, chunk)) {
+				if (sid_same(from_bgp->vpn_policy[afi]
+						     .tovpn_sid_locator,
+					     &chunk->prefix.prefix)) {
+					found = true;
+					break;
+				}
+			}
+		}
+
+		/*
+		 * If the SRv6 locator exists, we use the bits length parameters
+		 * of the SRv6 locator instead of using the default values
+		 */
+		if (found) {
+			if (chunk->block_bits_length)
+				block_bits_length = chunk->block_bits_length;
+			if (chunk->node_bits_length)
+				node_bits_length = chunk->node_bits_length;
+			if (chunk->function_bits_length)
+				func_bits_length = chunk->function_bits_length;
+			if (chunk->argument_bits_length)
+				arg_bits_length = chunk->argument_bits_length;
+			transposition_offset =
+				block_bits_length + node_bits_length;
+			if (chunk->function_bits_length)
+				transposition_length =
+					chunk->function_bits_length;
+		}
+
 		encode_label(
 			from_bgp->vpn_policy[afi].tovpn_sid_transpose_label,
 			&label);
@@ -1435,40 +1482,78 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 				sizeof(struct bgp_attr_srv6_l3vpn));
 		static_attr.srv6_l3vpn->sid_flags = 0x00;
 		static_attr.srv6_l3vpn->endpoint_behavior = 0xffff;
-		static_attr.srv6_l3vpn->loc_block_len =
-			BGP_PREFIX_SID_SRV6_LOCATOR_BLOCK_LENGTH;
-		static_attr.srv6_l3vpn->loc_node_len =
-			BGP_PREFIX_SID_SRV6_LOCATOR_NODE_LENGTH;
-		static_attr.srv6_l3vpn->func_len =
-			BGP_PREFIX_SID_SRV6_FUNCTION_LENGTH;
-		static_attr.srv6_l3vpn->arg_len =
-			BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH;
+		static_attr.srv6_l3vpn->loc_block_len = block_bits_length;
+		static_attr.srv6_l3vpn->loc_node_len = node_bits_length;
+		static_attr.srv6_l3vpn->func_len = func_bits_length;
+		static_attr.srv6_l3vpn->arg_len = arg_bits_length;
 		static_attr.srv6_l3vpn->transposition_len =
-			BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH;
+			transposition_length;
 		static_attr.srv6_l3vpn->transposition_offset =
-			BGP_PREFIX_SID_SRV6_TRANSPOSITION_OFFSET;
+			transposition_offset;
 		memcpy(&static_attr.srv6_l3vpn->sid,
 		       from_bgp->vpn_policy[afi].tovpn_sid_locator,
 		       sizeof(struct in6_addr));
-	} else if (from_bgp->tovpn_sid_locator) {
+	} else if (from_bgp->tovpn_sid_locator) { /* per-VRF SID */
+		struct listnode *node;
+		struct srv6_locator_chunk *chunk;
+		uint8_t block_bits_length =
+			BGP_PREFIX_SID_SRV6_LOCATOR_BLOCK_LENGTH;
+		uint8_t node_bits_length =
+			BGP_PREFIX_SID_SRV6_LOCATOR_NODE_LENGTH;
+		uint8_t func_bits_length = BGP_PREFIX_SID_SRV6_FUNCTION_LENGTH;
+		uint8_t arg_bits_length = BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH;
+		uint8_t transposition_offset =
+			BGP_PREFIX_SID_SRV6_TRANSPOSITION_OFFSET;
+		uint8_t transposition_length =
+			BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH;
+		bool found = false;
+
+		/* Perform SRv6 locator lookup */
+		if (to_bgp->srv6_locator_chunks) {
+			for (ALL_LIST_ELEMENTS_RO(to_bgp->srv6_locator_chunks,
+						  node, chunk)) {
+				if (sid_same(from_bgp->tovpn_sid_locator,
+					     &chunk->prefix.prefix)) {
+					found = true;
+					break;
+				}
+			}
+		}
+
+		/*
+		 * If the SRv6 locator exists, we use the bits length parameters
+		 * of the SRv6 locator instead of using the default values
+		 */
+		if (found) {
+			if (chunk->block_bits_length)
+				block_bits_length = chunk->block_bits_length;
+			if (chunk->node_bits_length)
+				node_bits_length = chunk->node_bits_length;
+			if (chunk->function_bits_length)
+				func_bits_length = chunk->function_bits_length;
+			if (chunk->argument_bits_length)
+				arg_bits_length = chunk->argument_bits_length;
+			transposition_offset =
+				block_bits_length + node_bits_length;
+			if (chunk->function_bits_length)
+				transposition_length =
+					chunk->function_bits_length;
+		}
+
 		encode_label(from_bgp->tovpn_sid_transpose_label, &label);
 		static_attr.srv6_l3vpn =
 			XCALLOC(MTYPE_BGP_SRV6_L3VPN,
 				sizeof(struct bgp_attr_srv6_l3vpn));
 		static_attr.srv6_l3vpn->sid_flags = 0x00;
 		static_attr.srv6_l3vpn->endpoint_behavior = 0xffff;
-		static_attr.srv6_l3vpn->loc_block_len =
-			BGP_PREFIX_SID_SRV6_LOCATOR_BLOCK_LENGTH;
-		static_attr.srv6_l3vpn->loc_node_len =
-			BGP_PREFIX_SID_SRV6_LOCATOR_NODE_LENGTH;
-		static_attr.srv6_l3vpn->func_len =
-			BGP_PREFIX_SID_SRV6_FUNCTION_LENGTH;
-		static_attr.srv6_l3vpn->arg_len =
-			BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH;
+		static_attr.srv6_l3vpn->loc_block_len = block_bits_length;
+		static_attr.srv6_l3vpn->loc_node_len = node_bits_length;
+		static_attr.srv6_l3vpn->func_len = func_bits_length;
+		static_attr.srv6_l3vpn->arg_len = arg_bits_length;
 		static_attr.srv6_l3vpn->transposition_len =
-			BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH;
+			transposition_length;
 		static_attr.srv6_l3vpn->transposition_offset =
-			BGP_PREFIX_SID_SRV6_TRANSPOSITION_OFFSET;
+			transposition_offset;
 		memcpy(&static_attr.srv6_l3vpn->sid,
 		       from_bgp->tovpn_sid_locator, sizeof(struct in6_addr));
 	}
