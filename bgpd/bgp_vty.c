@@ -297,7 +297,7 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 	struct srv6_locator_chunk *chunk;
 	struct bgp_srv6_function *func;
 	struct bgp *bgp_vrf;
-	struct in6_addr *tovpn_sid;
+	struct in6_addr *tovpn_sid, *tovpn_sid_locator;
 
 	/* release chunk notification via ZAPI */
 	ret = bgp_zebra_srv6_manager_release_locator_chunk(
@@ -306,12 +306,16 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 		return -1;
 
 	/* refresh chunks */
-	for (ALL_LIST_ELEMENTS(bgp->srv6_locator_chunks, node, nnode, chunk))
+	for (ALL_LIST_ELEMENTS(bgp->srv6_locator_chunks, node, nnode, chunk)) {
 		listnode_delete(bgp->srv6_locator_chunks, chunk);
+		srv6_locator_chunk_free(chunk);
+	}
 
 	/* refresh functions */
-	for (ALL_LIST_ELEMENTS(bgp->srv6_functions, node, nnode, func))
+	for (ALL_LIST_ELEMENTS(bgp->srv6_functions, node, nnode, func)) {
 		listnode_delete(bgp->srv6_functions, func);
+		XFREE(MTYPE_BGP_SRV6_FUNCTION, func);
+	}
 
 	/* refresh tovpn_sid */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
@@ -324,16 +328,33 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 			XFREE(MTYPE_BGP_SRV6_SID,
 			      bgp_vrf->vpn_policy[AFI_IP].tovpn_sid);
 
+		/* refresh vpnv4 tovpn_sid_locator */
+		tovpn_sid_locator = bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator;
+		if (tovpn_sid_locator)
+			XFREE(MTYPE_BGP_SRV6_SID,
+			      bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator);
+
 		/* refresh vpnv6 tovpn_sid */
 		tovpn_sid = bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid;
 		if (tovpn_sid)
 			XFREE(MTYPE_BGP_SRV6_SID,
 			      bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
 
+		/* refresh vpnv6 tovpn_sid_locator */
+		tovpn_sid_locator = bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator;
+		if (tovpn_sid_locator)
+			XFREE(MTYPE_BGP_SRV6_SID,
+			      bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator);
+
 		/* refresh per-vrf tovpn_sid */
 		tovpn_sid = bgp_vrf->tovpn_sid;
 		if (tovpn_sid)
 			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
+
+		/* refresh per-vrf tovpn_sid_locator */
+		tovpn_sid_locator = bgp_vrf->tovpn_sid_locator;
+		if (tovpn_sid_locator)
+			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid_locator);
 	}
 
 	/* update vpn bgp processes */

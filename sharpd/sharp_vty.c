@@ -234,6 +234,8 @@ DEFPY (install_routes,
 
 	memset(&prefix, 0, sizeof(prefix));
 	memset(&sg.r.orig_prefix, 0, sizeof(sg.r.orig_prefix));
+	nexthop_del_srv6_seg6local(&sg.r.nhop);
+	nexthop_del_srv6_seg6(&sg.r.nhop);
 	memset(&sg.r.nhop, 0, sizeof(sg.r.nhop));
 	memset(&sg.r.nhop_group, 0, sizeof(sg.r.nhop_group));
 	memset(&sg.r.backup_nhop, 0, sizeof(sg.r.nhop));
@@ -376,6 +378,8 @@ DEFPY (install_seg6_routes,
 
 	memset(&prefix, 0, sizeof(prefix));
 	memset(&sg.r.orig_prefix, 0, sizeof(sg.r.orig_prefix));
+	nexthop_del_srv6_seg6local(&sg.r.nhop);
+	nexthop_del_srv6_seg6(&sg.r.nhop);
 	memset(&sg.r.nhop, 0, sizeof(sg.r.nhop));
 	memset(&sg.r.nhop_group, 0, sizeof(sg.r.nhop_group));
 	memset(&sg.r.backup_nhop, 0, sizeof(sg.r.nhop));
@@ -470,6 +474,8 @@ DEFPY (install_seg6local_routes,
 		sg.r.repeat = 0;
 
 	memset(&sg.r.orig_prefix, 0, sizeof(sg.r.orig_prefix));
+	nexthop_del_srv6_seg6local(&sg.r.nhop);
+	nexthop_del_srv6_seg6(&sg.r.nhop);
 	memset(&sg.r.nhop, 0, sizeof(sg.r.nhop));
 	memset(&sg.r.nhop_group, 0, sizeof(sg.r.nhop_group));
 	memset(&sg.r.backup_nhop, 0, sizeof(sg.r.nhop));
@@ -1099,9 +1105,18 @@ DEFPY (sharp_srv6_manager_release_locator_chunk,
 
 	for (ALL_LIST_ELEMENTS_RO(sg.srv6_locators, loc_node, loc)) {
 		if (!strcmp(loc->name, locator_name)) {
-			list_delete_all_node(loc->chunks);
+			struct listnode *node, *nnode;
+			struct prefix_ipv6 *chunk = NULL;
+
+			for (ALL_LIST_ELEMENTS(loc->chunks,
+					       node, nnode, chunk)) {
+				list_delete_node(loc->chunks, node);
+				prefix_ipv6_free((struct prefix_ipv6 **)&chunk);
+			}
+
 			list_delete(&loc->chunks);
 			listnode_delete(sg.srv6_locators, loc);
+			XFREE(MTYPE_SRV6_LOCATOR, loc);
 			break;
 		}
 	}
