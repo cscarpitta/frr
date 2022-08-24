@@ -46,13 +46,6 @@
 
 #include "zebra/zebra_srv6.h"
 
-#include "linux/nexthop.h"
-
-DEFINE_HOOK(zebra_srv6_sid_list_update,
-	     (struct nexthop_srv6 * nh_srv6, bool delete,
-	      const char *reason),
-	     (nh_srv6, delete, reason));
-
 /*
  * af_addr_size
  *
@@ -82,7 +75,6 @@ enum fpm_nh_encap_type_t {
 	FPM_NH_ENCAP_VXLAN = 100,
 	FPM_NH_ENCAP_SRV6_ROUTE = 101,
 	FPM_NH_ENCAP_SRV6_LOCAL_SID = 102,
-	FPM_NH_ENCAP_SRV6_SIDLIST = 103,
 	FPM_NH_ENCAP_MAX,
 };
 
@@ -103,9 +95,6 @@ static const char *fpm_nh_encap_type_to_str(enum fpm_nh_encap_type_t encap_type)
 
 	case FPM_NH_ENCAP_SRV6_ROUTE:
 		return "srv6 route";
-
-	case FPM_NH_ENCAP_SRV6_SIDLIST:
-		return "srv6 sid list";
 
 	case FPM_NH_ENCAP_MAX:
 		return "invalid";
@@ -170,18 +159,10 @@ enum {
 enum {
 	FPM_SRV6_ROUTE_UNSPEC            = 0,
 	FPM_SRV6_ROUTE_ENCAP_SRC_ADDR    = 100,
-	FPM_SRV6_ROUTE_SIDLIST_NAME      = 101,
+	FPM_SRV6_ROUTE_OVERLAY_SID       = 101,
 	__FPM_SRV6_ROUTE_MAX,
 };
 #define FPM_SRV6_ROUTE_MAX (__FPM_SRV6_ROUTE_MAX - 1)
-
-enum {
-	FPM_SRV6_SIDLIST_UNSPEC            = 0,
-	FPM_SRV6_SIDLIST_NAME              = 100,
-	FPM_SRV6_SIDLIST_SEGMENTS          = 101,
-	__FPM_SRV6_SIDLIST_MAX,
-};
-#define FPM_SRV6_SIDLIST_MAX (__FPM_SRV6_SIDLIST_MAX - 1)
 
 
 struct srv6_localsid_format {
@@ -208,8 +189,8 @@ struct srv6_route_encap_info_t {
 	/* Source address for SRv6 encapsulation */
 	struct in6_addr encap_src_addr;
 
-	/* Segment list */
-	struct in6_addr srv6_segs;
+	/* Overlay SID for BGP SRv6-L3VPN*/
+	struct in6_addr overlay_sid;
 };
 
 struct fpm_nh_encap_info_t {
@@ -447,15 +428,13 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
 
 			nhi.encap_info.encap_type = FPM_NH_ENCAP_SRV6_ROUTE;
 
-			memcpy(&nhi.encap_info.srv6_route_encap.srv6_segs,
+			memcpy(&nhi.encap_info.srv6_route_encap.overlay_sid,
 				&nexthop->nh_srv6->seg6_segs,
 				sizeof(struct in6_addr));
 
 			memcpy(&nhi.encap_info.srv6_route_encap.encap_src_addr,
 				&srv6->encap_src_addr,
 				sizeof(struct in6_addr));
-
-			hook_call(zebra_srv6_sid_list_update, nexthop->nh_srv6, false, "installing sid list");
 		}
 	}
 
@@ -811,8 +790,6 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 			break;
 		}
 		case FPM_NH_ENCAP_SRV6_ROUTE: {
-			char sid_list_name[40] = {0};
-
 		 	nl_attr_put16(&req->n, in_buf_len, RTA_ENCAP_TYPE,
 		 			  FPM_NH_ENCAP_SRV6_ROUTE);
 
@@ -821,19 +798,13 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 			nl_attr_put(&req->n, in_buf_len, FPM_SRV6_ROUTE_ENCAP_SRC_ADDR,
 						&nhi->encap_info.srv6_route_encap.encap_src_addr, 16);
 
-			inet_ntop(AF_INET6, &nhi->encap_info.srv6_route_encap.srv6_segs, sid_list_name, 39);
-			
-			nl_attr_put(&req->n, in_buf_len, FPM_SRV6_ROUTE_SIDLIST_NAME,
-						sid_list_name, strlen(sid_list_name) + 1);
+			nl_attr_put(&req->n, in_buf_len, FPM_SRV6_ROUTE_OVERLAY_SID,
+						&nhi->encap_info.srv6_route_encap.overlay_sid, 16);
 
 			nl_attr_nest_end(&req->n, nest);
 
 			break;
 		}
-		case FPM_NH_ENCAP_SRV6_SIDLIST: 
-			zlog_err("%s: FPM_NH_ENCAP_SRV6_SIDLIST not expected here",
-					__func__);
-			break;
 		}
 
 		goto done;
@@ -863,7 +834,6 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 		case FPM_NH_ENCAP_NONE:
 		case FPM_NH_ENCAP_SRV6_ROUTE:
 		case FPM_NH_ENCAP_SRV6_LOCAL_SID:
-		case FPM_NH_ENCAP_SRV6_SIDLIST:
 		case FPM_NH_ENCAP_MAX:
 			break;
 		case FPM_NH_ENCAP_VXLAN:
@@ -926,58 +896,6 @@ static void zfpm_log_route_info(struct netlink_route_info *ri,
 			   fpm_nh_encap_type_to_str(nhi->encap_info.encap_type)
 			   );
 	}
-}
-
-/*
- * zfpm_netlink_encode_srv6_sid_list
- *
- * Create a netlink message corresponding to the given SRv6 SID list in the
- * given buffer space.
- *
- * Returns the number of bytes written to the buffer. 0 or a negative
- * value indicates an error.
- */
-int zfpm_netlink_encode_srv6_sid_list(struct fpm_srv6_sid_list_info_t *sid_list,
-				     char *in_buf, size_t in_buf_len)
-{
-	size_t buf_offset;
-	struct rtattr *nest;
-
-	struct {
-		struct nlmsghdr n;
-		struct nhmsg nhm;
-		char buf[1];
-	} * req;
-
-	req = (void *)in_buf;
-
-	buf_offset = ((char *)req->buf) - ((char *)req);
-
-	if (in_buf_len < buf_offset) {
-		assert(0);
-		return 0;
-	}
-
-	memset(req, 0, buf_offset);
-
-	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct nhmsg));
-	req->n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
-	req->n.nlmsg_type = CHECK_FLAG(sid_list->fpm_flags, ZEBRA_SRV6_SID_LIST_DELETE_FPM) ?
-				RTM_DELNEXTHOP : RTM_NEWNEXTHOP;
-
-	req->nhm.nh_family = AF_UNSPEC;
-
-	nl_attr_put16(&req->n, in_buf_len, NHA_ENCAP_TYPE,
-				FPM_NH_ENCAP_SRV6_SIDLIST);
-	nest = nl_attr_nest(&req->n, in_buf_len, NHA_ENCAP);
-	nl_attr_put(&req->n, in_buf_len, FPM_SRV6_SIDLIST_NAME,
-				sid_list->sid_list_name, strlen(sid_list->sid_list_name) + 1);
-	nl_attr_put(&req->n, in_buf_len, FPM_SRV6_SIDLIST_SEGMENTS,
-				&sid_list->sid_list_segs, 16);
-	nl_attr_nest_end(&req->n, nest);
-
-	assert(req->n.nlmsg_len < in_buf_len);
-	return req->n.nlmsg_len;
 }
 
 /*

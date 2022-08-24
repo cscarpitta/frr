@@ -42,10 +42,8 @@
 #include "zebra_fpm_private.h"
 #include "zebra/zebra_router.h"
 #include "zebra_vxlan_private.h"
-#include "zebra_srv6.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, FPM_MAC_INFO, "FPM_MAC_INFO");
-DEFINE_MTYPE_STATIC(ZEBRA, FPM_SRV6_SID_LIST_INFO, "FPM_SRV6_SID_LIST_INFO");
 
 /*
  * Interval at which we attempt to connect to the FPM.
@@ -194,11 +192,6 @@ struct zfpm_glob {
 	TAILQ_HEAD(zfpm_mac_q, fpm_mac_info_t) mac_q;
 
 	/*
-	 * List of fpm_srv6_sid_list_info structures to be processed
-	 */
-	TAILQ_HEAD(zfpm_srv6_sid_list_q, fpm_srv6_sid_list_info_t) srv6_sid_list_q;
-
-	/*
 	 * Hash table of fpm_mac_info_t entries
 	 *
 	 * While adding fpm_mac_info_t for a MAC to the mac_q,
@@ -211,20 +204,6 @@ struct zfpm_glob {
 	 * in the mac_q.
 	 */
 	struct hash *fpm_mac_info_table;
-
-	/*
-	 * Hash table of fpm_srv6_sid_list_info_t entries
-	 *
-	 * While adding fpm_srv6_sid_list_info_t for a SRv6 SID list to the srv6_sid_list_q,
-	 * it is possible that another fpm_srv6_sid_list_info_t node for the this SID list
-	 * is already present in the queue.
-	 * This is possible in the case of consecutive add->delete operations.
-	 * To avoid such duplicate insertions in the srv6_sid_list_q,
-	 * define a hash table for fpm_srv6_sid_list_info_t which can be looked up
-	 * to see if an fpm_srv6_sid_list_info_t node for a SID list is already present
-	 * in the srv6_sid_list_q.
-	 */
-	struct hash *fpm_srv6_sid_list_info_table;
 
 	/*
 	 * Stream socket to the FPM.
@@ -312,7 +291,6 @@ static void zfpm_set_state(enum zfpm_state state, const char *reason);
 static void zfpm_start_connect_timer(const char *reason);
 static void zfpm_start_stats_timer(void);
 static void zfpm_mac_info_del(struct fpm_mac_info_t *fpm_mac);
-static void zfpm_srv6_sid_list_info_del(struct fpm_srv6_sid_list_info_t *fpm_srv6_sid_list);
 
 static const char ipv4_ll_buf[16] = "169.254.0.1";
 union g_addr ipv4ll_gateway;
@@ -885,41 +863,6 @@ static int zfpm_writes_pending(void)
 }
 
 /*
- * zfpm_encode_srv6_sid_list
- *
- * Encode a message to the FPM with information about the given SRv6 SID list.
- *
- * Returns the number of bytes written to the buffer. 0 or a negative
- * value indicates an error.
- */
-static inline int zfpm_encode_srv6_sid_list(struct fpm_srv6_sid_list_info_t *sid_list,
-				    char *in_buf, size_t in_buf_len,
-				    fpm_msg_type_e *msg_type)
-{
-	size_t len = 0;
-
-	*msg_type = FPM_MSG_TYPE_NONE;
-
-	switch (zfpm_g->message_format) {
-
-	case ZFPM_MSG_FORMAT_NETLINK:
-#ifdef HAVE_NETLINK
-		*msg_type = FPM_MSG_TYPE_NETLINK;
-		len = zfpm_netlink_encode_srv6_sid_list(sid_list, in_buf,
-						in_buf_len);
-		assert(fpm_msg_align(len) == len);
-		*msg_type = FPM_MSG_TYPE_NETLINK;
-#endif /* HAVE_NETLINK */
-		break;
-
-	default:
-		break;
-	}
-
-	return len;
-}
-
-/*
  * zfpm_encode_route
  *
  * Encode a message to the FPM with information about the given route.
@@ -994,82 +937,6 @@ enum {
 };
 
 #define FPM_QUEUE_PROCESS_LIMIT 10000
-
-/*
- * zfpm_build_srv6_sid_list_updates
- *
- * Process the srv6_sid_list_q queue and write FPM messages to the outbound buffer.
- */
-static int zfpm_build_srv6_sid_list_updates(void)
-{
-	struct stream *s;
-	struct fpm_srv6_sid_list_info_t *sid_list;
-	unsigned char *buf, *data, *buf_end;
-	size_t msg_len;
-	size_t data_len;
-	fpm_msg_hdr_t *hdr;
-	fpm_msg_type_e msg_type;
-	uint16_t q_limit;
-
-	if (TAILQ_EMPTY(&zfpm_g->srv6_sid_list_q))
-		return FPM_GOTO_NEXT_Q;
-
-	s = zfpm_g->obuf;
-	q_limit = FPM_QUEUE_PROCESS_LIMIT;
-
-	do  {
-		/*
-		 * Make sure there is enough space to write another message.
-		 */
-		if (STREAM_WRITEABLE(s) < FPM_MAX_MSG_LEN)
-			return FPM_WRITE_STOP;
-
-		buf = STREAM_DATA(s) + stream_get_endp(s);
-		buf_end = buf + STREAM_WRITEABLE(s);
-
-		sid_list = TAILQ_FIRST(&zfpm_g->srv6_sid_list_q);
-		if (!sid_list)
-			return FPM_GOTO_NEXT_Q;
-
-		/* Check for no-op */
-		if (!CHECK_FLAG(sid_list->fpm_flags, ZEBRA_SRV6_SID_LIST_UPDATE_FPM)) {
-			zfpm_g->stats.nop_deletes_skipped++;
-			zfpm_srv6_sid_list_info_del(sid_list);
-			continue;
-		}
-
-		hdr = (fpm_msg_hdr_t *)buf;
-		hdr->version = FPM_PROTO_VERSION;
-
-		data = fpm_msg_data(hdr);
-		data_len = zfpm_encode_srv6_sid_list(sid_list, (char *)data,
-							buf_end - data, &msg_type);
-
-		if (data_len) {
-			hdr->msg_type = msg_type;
-			msg_len = fpm_data_len_to_msg_len(data_len);
-			hdr->msg_len = htons(msg_len);
-			stream_forward_endp(s, msg_len);
-		} else {
-			zlog_err("%s: Encoding SID list: %s No valid segments",
-					__func__, sid_list->sid_list_name);
-		}
-
-		/*
-		 * Remove the SRv6 SID list from the queue, and delee it.
-		 */
-		zfpm_srv6_sid_list_info_del(sid_list);
-
-		q_limit--;
-		if (q_limit == 0) {
-			/*
-			 * We have processed enough updates in this queue.
-			 * Now yield for other queues.
-			 */
-			return FPM_GOTO_NEXT_Q;
-		}
-	} while (true);
-}
 
 /*
  * zfpm_build_route_updates
@@ -1294,8 +1161,6 @@ static void zfpm_build_updates(void)
 		if (zfpm_build_mac_updates() == FPM_WRITE_STOP)
 			break;
 		if (zfpm_build_route_updates() == FPM_WRITE_STOP)
-			break;
-		if (zfpm_build_srv6_sid_list_updates() == FPM_WRITE_STOP)
 			break;
 	} while (zfpm_updates_pending());
 }
@@ -1643,47 +1508,11 @@ static bool zfpm_mac_info_cmp(const void *p1, const void *p2)
 }
 
 /*
- * Generate Key for FPM SRv6 SID list info hash entry
- */
-static unsigned int zfpm_srv6_sid_list_info_hash_keymake(const void *p)
-{
-	struct fpm_srv6_sid_list_info_t *fpm_srv6_sid_list = (struct fpm_srv6_sid_list_info_t *)p;
-	uint32_t srv6_sid_list_key;
-
-	srv6_sid_list_key = jhash(fpm_srv6_sid_list->sid_list_name, sizeof(fpm_srv6_sid_list->sid_list_name), 0xa5a5a55a);
-
-	return srv6_sid_list_key;
-}
-
-/*
- * Compare function for FPM SRv6 SID list info hash lookup
- */
-static bool zfpm_srv6_sid_list_info_cmp(const void *p1, const void *p2)
-{
-	const struct fpm_srv6_sid_list_info_t *fpm_srv6_sid_list_1 = p1;
-	const struct fpm_srv6_sid_list_info_t *fpm_srv6_sid_list_2 = p2;
-
-	if (memcmp(fpm_srv6_sid_list_1->sid_list_name, fpm_srv6_sid_list_2->sid_list_name, strlen(fpm_srv6_sid_list_1->sid_list_name))
-			!= 0)
-		return false;
-
-	return true;
-}
-
-/*
  * Lookup FPM MAC info hash entry.
  */
 static struct fpm_mac_info_t *zfpm_mac_info_lookup(struct fpm_mac_info_t *key)
 {
 	return hash_lookup(zfpm_g->fpm_mac_info_table, key);
-}
-
-/*
- * Lookup FPM SRv6 SID list info hash entry.
- */
-static struct fpm_srv6_sid_list_info_t *zfpm_srv6_sid_list_info_lookup(struct fpm_srv6_sid_list_info_t *key)
-{
-	return hash_lookup(zfpm_g->fpm_srv6_sid_list_info_table, key);
 }
 
 /*
@@ -1710,107 +1539,6 @@ static void zfpm_mac_info_del(struct fpm_mac_info_t *fpm_mac)
 	hash_release(zfpm_g->fpm_mac_info_table, fpm_mac);
 	TAILQ_REMOVE(&zfpm_g->mac_q, fpm_mac, fpm_mac_q_entries);
 	XFREE(MTYPE_FPM_MAC_INFO, fpm_mac);
-}
-
-/*
- * Callback to allocate fpm_srv6_sid_list_info_t structure.
- */
-static void *zfpm_srv6_sid_list_info_alloc(void *p)
-{
-	const struct fpm_srv6_sid_list_info_t *key = p;
-	struct fpm_srv6_sid_list_info_t *fpm_srv6_sid_list;
-
-	fpm_srv6_sid_list = XCALLOC(MTYPE_FPM_SRV6_SID_LIST_INFO, sizeof(struct fpm_srv6_sid_list_info_t));
-
-	strcpy(fpm_srv6_sid_list->sid_list_name, key->sid_list_name);
-
-	return (void *)fpm_srv6_sid_list;
-}
-
-/*
- * Delink and free fpm_srv6_sid_list_info_t.
- */
-static void zfpm_srv6_sid_list_info_del(struct fpm_srv6_sid_list_info_t *fpm_srv6_sid_list)
-{
-	hash_release(zfpm_g->fpm_mac_info_table, fpm_srv6_sid_list);
-	TAILQ_REMOVE(&zfpm_g->srv6_sid_list_q, fpm_srv6_sid_list, fpm_srv6_sid_list_q_entries);
-	XFREE(MTYPE_FPM_SRV6_SID_LIST_INFO, fpm_srv6_sid_list);
-}
-
-/*
- * zfpm_trigger_srv6_sid_list_update
- *
- * Zebra code invokes this function to indicate that we should
- * send an update to FPM for given SRv6 SID list entry.
- *
- * This function checks if we already have enqueued an update for this sid list,
- * If yes, update the same fpm_mac_info_t. Else, create and enqueue an update.
- */
-static int zfpm_trigger_srv6_sid_list_update(struct nexthop_srv6 *nh_srv6,
-				    bool delete, const char *reason)
-{
-	struct fpm_srv6_sid_list_info_t *sid_list, key;
-	bool sid_list_found = false;
-
-	/*
-	 * Ignore if the connection is down. We will update the FPM about
-	 * all destinations once the connection comes up.
-	 */
-	if (!zfpm_conn_is_up())
-		return 0;
-
-	if (reason) {
-		zfpm_debug("triggering update to FPM - Reason: %s - %pEA",
-			   reason, &nh_srv6->seg6_segs);
-	}
-
-	memset(&key, 0, sizeof(key));
-
-	inet_ntop(AF_INET6, &nh_srv6->seg6_segs, key.sid_list_name, sizeof(key.sid_list_name) - 1);
-
-	//snprintf(key.sid_list_name, 128, "%s", inet_ntop(AF_INET6, &nh_srv6->seg6_segs, buf, sizeof(buf)));
-
-	/* Check if this SRv6 SID list is already present in the queue. */
-	sid_list = zfpm_srv6_sid_list_info_lookup(&key);
-
-	if (sid_list) {
-		sid_list_found = true;
-
-		/*
-		 * If the enqueued op is "add" and current op is "delete",
-		 * this is a noop. So, Unset ZEBRA_SRV6_SID_LIST_UPDATE_FPM flag.
-		 * While processing FPM queue, we will silently delete this
-		 * SRv6 SID list entry without sending any update for this SID list.
-		 */
-		if (!CHECK_FLAG(sid_list->fpm_flags, ZEBRA_SRV6_SID_LIST_DELETE_FPM) &&
-		    delete == 1) {
-			SET_FLAG(sid_list->fpm_flags, ZEBRA_SRV6_SID_LIST_DELETE_FPM);
-			UNSET_FLAG(sid_list->fpm_flags, ZEBRA_SRV6_SID_LIST_UPDATE_FPM);
-			return 0;
-		}
-	} else
-		sid_list = hash_get(zfpm_g->fpm_srv6_sid_list_info_table, &key,
-				   zfpm_srv6_sid_list_info_alloc);
-
-	memcpy(&sid_list->sid_list_segs, &nh_srv6->seg6_segs, sizeof(struct in6_addr));
-
-	SET_FLAG(sid_list->fpm_flags, ZEBRA_SRV6_SID_LIST_UPDATE_FPM);
-	if (delete)
-		SET_FLAG(sid_list->fpm_flags, ZEBRA_SRV6_SID_LIST_DELETE_FPM);
-	else
-		UNSET_FLAG(sid_list->fpm_flags, ZEBRA_SRV6_SID_LIST_DELETE_FPM);
-
-	if (!sid_list_found)
-		TAILQ_INSERT_TAIL(&zfpm_g->srv6_sid_list_q, sid_list, fpm_srv6_sid_list_q_entries);
-
-	zfpm_g->stats.updates_triggered++;
-
-	/* If writes are already enabled, return. */
-	if (zfpm_g->t_write)
-		return 0;
-
-	zfpm_write_on();
-	return 0;
 }
 
 /*
@@ -2244,17 +1972,11 @@ static int zfpm_init(struct thread_master *master)
 	zfpm_g->master = master;
 	TAILQ_INIT(&zfpm_g->dest_q);
 	TAILQ_INIT(&zfpm_g->mac_q);
-	TAILQ_INIT(&zfpm_g->srv6_sid_list_q);
 
 	/* Create hash table for fpm_mac_info_t enties */
 	zfpm_g->fpm_mac_info_table = hash_create(zfpm_mac_info_hash_keymake,
 						 zfpm_mac_info_cmp,
 						 "FPM MAC info hash table");
-
-	/* Create hash table for fpm_srv6_sid_list_info_t entities */
-	zfpm_g->fpm_srv6_sid_list_info_table = hash_create(zfpm_srv6_sid_list_info_hash_keymake,
-						 zfpm_srv6_sid_list_info_cmp,
-						 "FPM SRv6 SID list info hash table");
 
 	zfpm_g->sock = -1;
 	zfpm_g->state = ZFPM_STATE_IDLE;
@@ -2315,7 +2037,6 @@ static int zebra_fpm_module_init(void)
 {
 	hook_register(rib_update, zfpm_trigger_update);
 	hook_register(zebra_rmac_update, zfpm_trigger_rmac_update);
-	hook_register(zebra_srv6_sid_list_update, zfpm_trigger_srv6_sid_list_update);
 	hook_register(frr_late_init, zfpm_init);
 	hook_register(frr_early_fini, zfpm_fini);
 	return 0;
