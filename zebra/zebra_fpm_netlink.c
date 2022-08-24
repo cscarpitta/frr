@@ -158,8 +158,8 @@ enum {
 
 enum {
 	FPM_SRV6_ROUTE_UNSPEC            = 0,
-	FPM_SRV6_ROUTE_ENCAP_SRC_ADDR    = 100,
-	FPM_SRV6_ROUTE_OVERLAY_SID       = 101,
+	FPM_SRV6_ROUTE_VPN_SID           = 100,
+	FPM_SRV6_ROUTE_ENCAP_SRC_ADDR    = 101,
 	__FPM_SRV6_ROUTE_MAX,
 };
 #define FPM_SRV6_ROUTE_MAX (__FPM_SRV6_ROUTE_MAX - 1)
@@ -186,11 +186,11 @@ struct srv6_localsid_encap_info_t {
 };
 
 struct srv6_route_encap_info_t {
+	/* VPN SID for BGP SRv6-L3VPN */
+	struct in6_addr vpn_sid;
+
 	/* Source address for SRv6 encapsulation */
 	struct in6_addr encap_src_addr;
-
-	/* Overlay SID for BGP SRv6-L3VPN*/
-	struct in6_addr overlay_sid;
 };
 
 struct fpm_nh_encap_info_t {
@@ -428,7 +428,7 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
 
 			nhi.encap_info.encap_type = FPM_NH_ENCAP_SRV6_ROUTE;
 
-			memcpy(&nhi.encap_info.srv6_route_encap.overlay_sid,
+			memcpy(&nhi.encap_info.srv6_route_encap.vpn_sid,
 				&nexthop->nh_srv6->seg6_segs,
 				sizeof(struct in6_addr));
 
@@ -489,7 +489,7 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 		ri->nlmsg_pid = zvrf->zns->netlink_dplane_out.snl.nl_pid;
 
 	ri->nlmsg_type = cmd;
-	ri->rtm_table = table_info->table_id;
+	ri->rtm_table = zvrf_id(rib_dest_vrf(dest));
 	ri->rtm_protocol = RTPROT_UNSPEC;
 
 	/*
@@ -798,8 +798,8 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 			nl_attr_put(&req->n, in_buf_len, FPM_SRV6_ROUTE_ENCAP_SRC_ADDR,
 						&nhi->encap_info.srv6_route_encap.encap_src_addr, 16);
 
-			nl_attr_put(&req->n, in_buf_len, FPM_SRV6_ROUTE_OVERLAY_SID,
-						&nhi->encap_info.srv6_route_encap.overlay_sid, 16);
+			nl_attr_put(&req->n, in_buf_len, FPM_SRV6_ROUTE_VPN_SID,
+						&nhi->encap_info.srv6_route_encap.vpn_sid, 16);
 
 			nl_attr_nest_end(&req->n, nest);
 
