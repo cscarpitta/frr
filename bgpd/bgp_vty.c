@@ -344,18 +344,12 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 			continue;
 
 		/* refresh vpnv4 tovpn_sid_locator */
-		tovpn_sid_locator =
-			bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator;
-		if (tovpn_sid_locator)
-			XFREE(MTYPE_BGP_SRV6_SID,
-			      bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator);
+		XFREE(MTYPE_BGP_SRV6_SID,
+		      bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator);
 
 		/* refresh vpnv6 tovpn_sid_locator */
-		tovpn_sid_locator =
-			bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator;
-		if (tovpn_sid_locator)
-			XFREE(MTYPE_BGP_SRV6_SID,
-			      bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator);
+		XFREE(MTYPE_BGP_SRV6_SID,
+		      bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator);
 	}
 
 	/* clear locator name */

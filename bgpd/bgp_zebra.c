@@ -3277,7 +3277,7 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 			bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_locator;
 		if (tovpn_sid_locator) {
 			tmp_prefi.family = AF_INET6;
-			tmp_prefi.prefixlen = 128;
+			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
 			tmp_prefi.prefix = *tovpn_sid_locator;
 			if (prefix_match((struct prefix *)&loc.prefix,
 					 (struct prefix *)&tmp_prefi))
@@ -3291,7 +3291,7 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 			bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_locator;
 		if (tovpn_sid_locator) {
 			tmp_prefi.family = AF_INET6;
-			tmp_prefi.prefixlen = 128;
+			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
 			tmp_prefi.prefix = *tovpn_sid_locator;
 			if (prefix_match((struct prefix *)&loc.prefix,
 					 (struct prefix *)&tmp_prefi))
