@@ -651,6 +651,8 @@ static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
 	int label = 0;
 	uint8_t offset = 0;
 	uint8_t len = 0;
+	uint8_t locator_bits_length = 0;
+	uint8_t function_bits_length = 0;
 
 	if (!bgp || !sid_locator || !sid)
 		return false;
@@ -658,8 +660,29 @@ static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
 	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
 		*sid_locator = chunk->prefix.prefix;
 		*sid = chunk->prefix.prefix;
-		offset = chunk->block_bits_length + chunk->node_bits_length;
-		len = chunk->function_bits_length ?: 16;
+		locator_bits_length =
+			chunk->block_bits_length + chunk->node_bits_length;
+		function_bits_length = chunk->function_bits_length ?: 16;
+
+		/* The size of the MPLS Label field limits the bits transposed
+		 * from the SRv6 SID value into it. In an MP_REACH_NLRI
+		 * attribute, the MPLS Label field is 20 bits long. According to
+		 * RFC 9252, for an SRv6 SID for which the Function Length is
+		 * greater than 20 bits we only transpose the lower order 20
+		 * bits and we set the Transposition Length to 20 (i.e., the
+		 * number of bits that have been taken out of the SRv6 SID value
+		 * and encoded in the MPLS Label field) and the Transposition
+		 * Offset to Block Length + Node Length + Function Length - 20
+		 * (i.e., the offset position in bits for the part of the SID
+		 * that has been transposed into an MPLS Label field. */
+		if (function_bits_length <= 20) {
+			offset = locator_bits_length;
+			len = function_bits_length;
+		} else {
+			offset =
+				locator_bits_length + function_bits_length - 20;
+			len = 20;
+		}
 
 		if (index != 0) {
 			label = index << 12;
@@ -1528,6 +1551,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 			BGP_PREFIX_SID_SRV6_TRANSPOSITION_OFFSET;
 		uint8_t transposition_length =
 			BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH;
+		uint8_t locator_bits_length = 0;
 		bool found = false;
 
 		/* Perform SRv6 locator lookup */
@@ -1556,11 +1580,31 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 				func_bits_length = chunk->function_bits_length;
 			if (chunk->argument_bits_length)
 				arg_bits_length = chunk->argument_bits_length;
-			transposition_offset =
+
+			locator_bits_length =
 				block_bits_length + node_bits_length;
-			if (chunk->function_bits_length)
-				transposition_length =
-					chunk->function_bits_length;
+
+			/* The size of the MPLS Label field limits the bits
+			 * transposed from the SRv6 SID value into it. In an
+			 * MP_REACH_NLRI attribute, the MPLS Label field is 20
+			 * bits long. According to RFC 9252, for an SRv6 SID for
+			 * which the Function Length is greater than 20 bits we
+			 * only transpose the lower order 20 bits and we set the
+			 * Transposition Length to 20 (i.e., the number of bits
+			 * that have been taken out of the SRv6 SID value and
+			 * encoded in the MPLS Label field) and the
+			 * Transposition Offset to Block Length + Node Length +
+			 * Function Length - 20 (i.e., the offset position in
+			 * bits for the part of the SID
+			 * that has been transposed into an MPLS Label field. */
+			if (func_bits_length <= 20) {
+				transposition_offset = locator_bits_length;
+				transposition_length = func_bits_length;
+			} else {
+				transposition_offset = locator_bits_length +
+						       func_bits_length - 20;
+				transposition_length = 20;
+			}
 		}
 
 		encode_label(
@@ -1594,6 +1638,7 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 			BGP_PREFIX_SID_SRV6_TRANSPOSITION_OFFSET;
 		uint8_t transposition_length =
 			BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH;
+		uint8_t locator_bits_length = 0;
 		bool found = false;
 
 		/* Perform SRv6 locator lookup */
@@ -1626,6 +1671,31 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 			if (chunk->function_bits_length)
 				transposition_length =
 					chunk->function_bits_length;
+
+			locator_bits_length =
+				block_bits_length + node_bits_length;
+
+			/* The size of the MPLS Label field limits the bits
+			 * transposed from the SRv6 SID value into it. In an
+			 * MP_REACH_NLRI attribute, the MPLS Label field is 20
+			 * bits long. According to RFC 9252, for an SRv6 SID for
+			 * which the Function Length is greater than 20 bits we
+			 * only transpose the lower order 20 bits and we set the
+			 * Transposition Length to 20 (i.e., the number of bits
+			 * that have been taken out of the SRv6 SID value and
+			 * encoded in the MPLS Label field) and the
+			 * Transposition Offset to Block Length + Node Length +
+			 * Function Length - 20 (i.e., the offset position in
+			 * bits for the part of the SID
+			 * that has been transposed into an MPLS Label field. */
+			if (func_bits_length <= 20) {
+				transposition_offset = locator_bits_length;
+				transposition_length = func_bits_length;
+			} else {
+				transposition_offset = locator_bits_length +
+						       func_bits_length - 20;
+				transposition_length = 20;
+			}
 		}
 
 		encode_label(from_bgp->tovpn_sid_transpose_label, &label);
