@@ -36,6 +36,7 @@
 #include "nexthop_group.h"
 #include "hash.h"
 #include "jhash.h"
+#include "srv6.h"
 
 #include "static_vrf.h"
 #include "static_routes.h"
@@ -43,6 +44,7 @@
 #include "static_nht.h"
 #include "static_vty.h"
 #include "static_debug.h"
+#include "static_srv6.h"
 
 DEFINE_MTYPE_STATIC(STATIC, STATIC_NHT_DATA, "Static Nexthop tracking data");
 PREDECL_HASH(static_nht_hash);
@@ -182,6 +184,8 @@ static void zebra_connected(struct zclient *zclient)
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 
 	static_fixup_vrf_ids(vrf_info_lookup(VRF_DEFAULT));
+
+	static_fixup_vrf_srv6_sids(vrf_info_lookup(VRF_DEFAULT));
 }
 
 /* API to check whether the configured nexthop address is
@@ -520,6 +524,109 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 	zclient_route_send(install ?
 			   ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
 			   zclient, &api);
+}
+
+extern void static_zebra_srv6_sid_add(struct static_srv6_sid *sid)
+{
+	enum seg6local_action_t seg6local_action =
+		ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
+	struct seg6local_context seg6local_ctx = {};
+	struct vrf *vrf;
+	ifindex_t oif = 0;
+
+	switch (sid->behavior) {
+	case STATIC_SRV6_SID_BEHAVIOR_UNSPEC:
+		seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
+		break;
+	case STATIC_SRV6_SID_BEHAVIOR_END:
+		seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_END;
+		break;
+	case STATIC_SRV6_SID_BEHAVIOR_END_X:
+		seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
+		break;
+	case STATIC_SRV6_SID_BEHAVIOR_END_T:
+		seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_END_T;
+		break;
+	case STATIC_SRV6_SID_BEHAVIOR_END_DX2:
+		seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_END_DX2;
+		break;
+	case STATIC_SRV6_SID_BEHAVIOR_END_DX6:
+		seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_END_DX6;
+		break;
+	case STATIC_SRV6_SID_BEHAVIOR_END_DX4:
+		seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_END_DX4;
+		break;
+	case STATIC_SRV6_SID_BEHAVIOR_END_DT6:
+		seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
+		break;
+	case STATIC_SRV6_SID_BEHAVIOR_END_DT4:
+		seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_END_DT4;
+		break;
+	case STATIC_SRV6_SID_BEHAVIOR_END_B6:
+		seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_END_B6;
+		break;
+	case STATIC_SRV6_SID_BEHAVIOR_END_B6_ENCAP:
+		seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP;
+		break;
+	case STATIC_SRV6_SID_BEHAVIOR_END_BM:
+		seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_END_BM;
+		break;
+	case STATIC_SRV6_SID_BEHAVIOR_END_S:
+		seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_END_S;
+		break;
+	case STATIC_SRV6_SID_BEHAVIOR_END_AS:
+		seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_END_AS;
+		break;
+	case STATIC_SRV6_SID_BEHAVIOR_END_AM:
+		seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_END_AM;
+		break;
+	case STATIC_SRV6_SID_BEHAVIOR_END_BPF:
+		seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_END_BPF;
+		break;
+	}
+
+	if (sid->vrf_name[0] != '\0') {
+		vrf = vrf_lookup_by_name(sid->vrf_name);
+		if (!vrf || !CHECK_FLAG(vrf->status, VRF_ACTIVE))
+			return;
+
+		seg6local_ctx.table = vrf->data.l.table_id;
+		oif = vrf->vrf_id;
+	}
+
+	zclient_send_localsid(zclient, &sid->addr, oif, seg6local_action,
+			      &seg6local_ctx);
+
+	SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
+}
+
+extern void static_zebra_srv6_sid_del(struct static_srv6_sid *sid)
+{
+	struct vrf *vrf;
+	ifindex_t oif = 0;
+
+	if (sid->vrf_name[0] != '\0') {
+		vrf = vrf_lookup_by_name(sid->vrf_name);
+		if (!vrf)
+			return;
+
+		oif = vrf->vrf_id;
+	}
+
+	zclient_send_localsid(zclient, &sid->addr, oif,
+			      ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, NULL);
+
+	UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
+}
+
+extern void static_zebra_srv6_sid_update(struct static_srv6_sid *sid)
+{
+	if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID) &&
+	    !CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA))
+		static_zebra_srv6_sid_add(sid);
+	else if (!CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID) &&
+		 CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA))
+		static_zebra_srv6_sid_del(sid);
 }
 
 static zclient_handler *const static_handlers[] = {

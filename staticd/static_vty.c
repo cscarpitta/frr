@@ -40,6 +40,8 @@
 #include "staticd/static_vty_clippy.c"
 #endif
 #include "static_nb.h"
+#include "static_srv6.h"
+#include "static_zebra.h"
 
 #define STATICD_STR "Static route daemon\n"
 
@@ -1000,6 +1002,207 @@ DEFPY_YANG(ipv6_route_vrf,
 				 table_str, false, color_str);
 }
 
+DEFUN_NOSH(static_segment_routing,
+           static_segment_routing_cmd,
+           "segment-routing",
+           "Segment Routing\n")
+{
+	vty->node = SEGMENT_ROUTING_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUN_NOSH(static_srv6,
+           static_srv6_cmd,
+           "srv6",
+           "Segment Routing SRv6\n")
+{
+	vty->node = SRV6_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_static_srv6,
+      no_static_srv6_cmd,
+      "no srv6",
+      NO_STR
+      "Segment Routing SRv6\n")
+{
+	struct static_srv6_sid *sid;
+	struct listnode *node, *nnode;
+
+	for (ALL_LIST_ELEMENTS(srv6_sids, node, nnode, sid)) {
+		listnode_delete(srv6_sids, sid);
+		static_srv6_sid_del(sid);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN_NOSH(srv6_explicit_sids,
+           srv6_explicit_sids_cmd,
+           "explicit-sids",
+           "Segment Routing SRv6 explicit SIDs\n")
+{
+	vty->node = STATIC_SRV6_EXPLICIT_SIDS_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUN_NOSH(srv6_sid,
+           srv6_sid_cmd,
+           "sid X:X::X:X$addr behavior\
+                <end-dt4$srv6_end_dt4|\
+                 end-dt6$srv6_end_dt6>",
+           "Install an SRv6 SID\n"
+           "SRv6 SID address\n"
+           "Specify the SRv6 behavior\n"
+           "End.DT4 behavior\n"
+           "End.DT6 behavior\n")
+{
+	struct static_srv6_sid *sid = NULL;
+	enum static_srv6_sid_behavior_t behavior;
+	int idx = 0;
+	bool srv6_end_dt4 = false;
+	bool srv6_end_dt6 = false;
+	struct in6_addr addr;
+
+	if (argv_find(argv, argc, "end-dt4", &idx))
+		srv6_end_dt4 = true;
+
+	if (argv_find(argv, argc, "end-dt6", &idx))
+		srv6_end_dt6 = true;
+
+	inet_pton(AF_INET6, argv[1]->arg, &addr);
+
+	if (srv6_end_dt4) {
+		behavior = STATIC_SRV6_SID_BEHAVIOR_END_DT4;
+	} else if (srv6_end_dt6) {
+		behavior = STATIC_SRV6_SID_BEHAVIOR_END_DT6;
+	} else {
+		behavior = STATIC_SRV6_SID_BEHAVIOR_UNSPEC;
+	}
+
+	/* SRv6 SID behavior argument is mandatory */
+	if (behavior == STATIC_SRV6_SID_BEHAVIOR_UNSPEC) {
+		vty_out(vty, "%% Missing SRv6 SID behavior\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* if the SRv6 already exists and it is bound to the same behavior, do
+	 * nothing */
+	sid = static_srv6_sid_lookup(&addr);
+	if (sid && sid->behavior == behavior) {
+		VTY_PUSH_CONTEXT(STATIC_SRV6_SID_NODE, sid);
+		return CMD_SUCCESS;
+	}
+
+	/* if the SRv6 already exists and it is bound to a different behavior,
+	 * return an error */
+	if (sid && sid->behavior != behavior) {
+		vty_out(vty, "%% SRv6 SID %pI6 already bound to behavior %s\n",
+			&sid->addr,
+			static_srv6_sid_behavior2str(sid->behavior));
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* alloc memory for the new SRv6 SID */
+	sid = srv6_sid_alloc(&addr, behavior);
+	if (!sid) {
+		vty_out(vty, "%% Alloc failed\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* install the new SRv6 SID */
+	static_srv6_sid_add(sid);
+
+	VTY_PUSH_CONTEXT(STATIC_SRV6_SID_NODE, sid);
+	vty->node = STATIC_SRV6_SID_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUN_NOSH(no_srv6_sid,
+           no_srv6_sid_cmd,
+           "no sid X:X::X:X$addr",
+           NO_STR
+           "Remove an SRv6 SID\n"
+           "SRv6 SID address\n")
+{
+	struct static_srv6_sid *sid = NULL;
+	struct in6_addr addr;
+
+	inet_pton(AF_INET6, argv[2]->arg, &addr);
+
+	sid = static_srv6_sid_lookup(&addr);
+	if (!sid) {
+		vty_out(vty, "%% Can't find SRv6 SID\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	listnode_delete(srv6_sids, sid);
+	static_srv6_sid_del(sid);
+	return CMD_SUCCESS;
+}
+
+DEFUN_NOSH(srv6_sid_attributes,
+           srv6_sid_attributes_cmd,
+		   "sharing-attributes",
+           "SRv6 SID attributes\n")
+{
+	vty->node = STATIC_SRV6_SID_ATTRIBUTES_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFPY(srv6_sid_attribute_vrf_name,
+           srv6_sid_attribute_vrf_name_cmd,
+           "[no] vrf-name WORD$vrf_name",
+           NO_STR
+           "VRF Name\n"
+           "VRF Name\n")
+{
+	VTY_DECLVAR_CONTEXT(static_srv6_sid, sid);
+
+	if (no) {
+		/* mark the SRv6 SID as invalid, then update zebra RIB and clear VRF
+		 * name, */
+		mark_srv6_sid_as_valid(sid, false);
+		memset(&sid->vrf_name[0], 0, sizeof(sid->vrf_name));
+		return CMD_SUCCESS;
+	}
+
+	/* if the SRv6 SID is already bound to the correct VRF, do nothing */
+	if (!strcmp(vrf_name, sid->vrf_name))
+		return CMD_SUCCESS;
+
+	/* if the SRv6 SID is bound to a different VRF, we need to remove the
+	 * SRv6 SID from the zebra RIB before installing the new one */
+	if (sid->vrf_name[0] != '\0') {
+		if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA))
+			static_zebra_srv6_sid_del(sid);
+		memset(&sid->vrf_name[0], 0, sizeof(sid->vrf_name));
+	}
+
+	/* set the VRF name */
+	strlcpy(sid->vrf_name, vrf_name, sizeof(sid->vrf_name));
+
+	/* mark the SRv6 SID as valid and update zebra RIB */
+	mark_srv6_sid_as_valid(sid, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_srv6_sid_attribute_vrf_name,
+      no_srv6_sid_attribute_vrf_name_cmd,
+      "no vrf-name",
+      NO_STR
+      "VRF name\n")
+{
+	VTY_DECLVAR_CONTEXT(static_srv6_sid, sid);
+
+	/* mark the SRv6 SID as invalid, update zebra RIB and clear VRF name, */
+	mark_srv6_sid_as_valid(sid, false);
+	memset(&sid->vrf_name[0], 0, sizeof(sid->vrf_name));
+
+	return CMD_SUCCESS;
+}
+
 void static_cli_show(struct vty *vty, const struct lyd_node *dnode,
 		     bool show_defaults)
 {
@@ -1304,11 +1507,148 @@ DEFUN_NOSH (show_debugging_static,
 	return CMD_SUCCESS;
 }
 
+DEFUN(show_srv6_sid,
+      show_srv6_sid_cmd,
+      "show segment-routing srv6 sid [json]",
+      SHOW_STR
+      "Segment Routing\n"
+      "Segment Routing SRv6\n"
+      "SRv6 SID Information\n"
+      JSON_STR)
+{
+	const bool uj = use_json(argc, argv);
+	struct static_srv6_sid *sid;
+	struct listnode *node;
+	int id;
+	json_object *json = NULL;
+	json_object *json_sids = NULL;
+	json_object *json_sid = NULL;
+
+	if (uj) {
+		json = json_object_new_object();
+		json_sids = json_object_new_array();
+		json_object_object_add(json, "sids", json_sids);
+
+		for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid)) {
+			json_sid = srv6_sid_json(sid);
+			if (!json_sid)
+				continue;
+			json_object_array_add(json_sids, json_sid);
+		}
+
+		vty_json(vty, json);
+	} else {
+		vty_out(vty, "SID:\n");
+		vty_out(vty,
+			"Address                 ID      Behavior                   Valid\n");
+		vty_out(vty,
+			"----------------------- ------- -------------------------- -----\n");
+
+		id = 1;
+		for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid)) {
+			vty_out(vty, "%-20pI6 %10d %-27s %-s \n", &sid->addr,
+				id, static_srv6_sid_behavior2str(sid->behavior),
+				CHECK_FLAG(sid->flags,
+					   STATIC_FLAG_SRV6_SID_VALID)
+					? "yes"
+					: "no");
+			++id;
+		}
+		vty_out(vty, "\n");
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(show_srv6_sid_detail,
+      show_srv6_sid_detail_cmd,
+      "show segment-routing srv6 sid ADDR detail [json]",
+      SHOW_STR
+      "Segment Routing\n"
+      "Segment Routing SRv6\n"
+      "SID Information\n"
+      "SID Address\n"
+      "Detailed information\n"
+      JSON_STR)
+{
+	const bool uj = use_json(argc, argv);
+	struct static_srv6_sid *sid;
+	struct listnode *node;
+	struct in6_addr sid_addr;
+	json_object *json_sid = NULL;
+
+	inet_pton(AF_INET6, argv[4]->arg, &sid_addr);
+
+	if (uj) {
+		sid = static_srv6_sid_lookup(&sid_addr);
+		if (!sid)
+			return CMD_WARNING;
+
+		json_sid = srv6_sid_detailed_json(sid);
+		vty_json(vty, json_sid);
+		return CMD_SUCCESS;
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid)) {
+		if (!sid_same(&sid->addr, &sid_addr))
+			continue;
+
+		vty_out(vty, "Address: %pI6\n", &sid->addr);
+		vty_out(vty, "Behavior: %s\n",
+			static_srv6_sid_behavior2str(sid->behavior));
+		vty_out(vty, "Attributes: \n");
+		vty_out(vty, "- VRF-Name: %s\n", sid->vrf_name);
+
+		vty_out(vty, "Valid: %s",
+			CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID)
+				? "yes"
+				: "no");
+	}
+
+	return CMD_SUCCESS;
+}
+
 static struct cmd_node debug_node = {
 	.name = "debug",
 	.node = DEBUG_NODE,
 	.prompt = "",
 	.config_write = static_config_write_debug,
+};
+
+static struct cmd_node sr_node = {
+	.name = "sr",
+	.node = SEGMENT_ROUTING_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-sr)# ",
+	.config_write = static_sr_config_write,
+};
+
+static struct cmd_node srv6_node = {
+	.name = "srv6",
+	.node = SRV6_NODE,
+	.parent_node = SEGMENT_ROUTING_NODE,
+	.prompt = "%s(config-srv6)# ",
+};
+
+static struct cmd_node srv6_explicit_sids_node = {
+	.name = "srv6-sids",
+	.node = STATIC_SRV6_EXPLICIT_SIDS_NODE,
+	.parent_node = SRV6_NODE,
+	.prompt = "%s(config-srv6-sids)# ",
+};
+
+static struct cmd_node srv6_sid_node = {
+	.name = "srv6-sid",
+	.node = STATIC_SRV6_SID_NODE,
+	.parent_node = STATIC_SRV6_EXPLICIT_SIDS_NODE,
+	.prompt = "%s(config-srv6-sid)# ",
+};
+
+static struct cmd_node srv6_sid_attributes_node = {
+	.name = "srv6-sid-attr",
+	.node = STATIC_SRV6_SID_ATTRIBUTES_NODE,
+	.parent_node = STATIC_SRV6_SID_NODE,
+	.prompt = "%s(config-srv6-sid-attr)# ",
 };
 
 void static_vty_init(void)
@@ -1334,4 +1674,33 @@ void static_vty_init(void)
 	install_element(ENABLE_NODE, &show_debugging_static_cmd);
 	install_element(ENABLE_NODE, &debug_staticd_cmd);
 	install_element(CONFIG_NODE, &debug_staticd_cmd);
+
+	/* Install nodes and its default commands */
+	install_node(&sr_node);
+	install_node(&srv6_node);
+	install_node(&srv6_explicit_sids_node);
+	install_node(&srv6_sid_node);
+	install_node(&srv6_sid_attributes_node);
+	install_default(SEGMENT_ROUTING_NODE);
+	install_default(SRV6_NODE);
+	install_default(STATIC_SRV6_EXPLICIT_SIDS_NODE);
+	install_default(STATIC_SRV6_SID_NODE);
+	install_default(STATIC_SRV6_SID_ATTRIBUTES_NODE);
+
+	/* Command for change node */
+	install_element(CONFIG_NODE, &static_segment_routing_cmd);
+	install_element(SEGMENT_ROUTING_NODE, &static_srv6_cmd);
+	install_element(SEGMENT_ROUTING_NODE, &no_static_srv6_cmd);
+	install_element(SRV6_NODE, &srv6_explicit_sids_cmd);
+	install_element(STATIC_SRV6_EXPLICIT_SIDS_NODE, &srv6_sid_cmd);
+	install_element(STATIC_SRV6_EXPLICIT_SIDS_NODE, &no_srv6_sid_cmd);
+	install_element(STATIC_SRV6_SID_NODE, &srv6_sid_attributes_cmd);
+	install_element(STATIC_SRV6_SID_ATTRIBUTES_NODE,
+			&srv6_sid_attribute_vrf_name_cmd);
+	install_element(STATIC_SRV6_SID_ATTRIBUTES_NODE,
+			&no_srv6_sid_attribute_vrf_name_cmd);
+
+	/* Command for operation */
+	install_element(VIEW_NODE, &show_srv6_sid_cmd);
+	install_element(VIEW_NODE, &show_srv6_sid_detail_cmd);
 }

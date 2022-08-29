@@ -185,6 +185,9 @@ enum node_type {
 	VRRP_NODE,		 /* VRRP node */
 	BMP_NODE,		/* BMP config under router bgp */
 	NODE_TYPE_MAX, /* maximum */
+	STATIC_SRV6_EXPLICIT_SIDS_NODE,
+	STATIC_SRV6_SID_NODE,
+	STATIC_SRV6_SID_ATTRIBUTES_NODE,
 };
 
 extern vector cmdvec;

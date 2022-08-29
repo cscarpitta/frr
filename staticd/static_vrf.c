@@ -79,11 +79,15 @@ static int static_vrf_enable(struct vrf *vrf)
 
 	static_fixup_vrf_ids(vrf->info);
 
+	static_fixup_vrf_srv6_sids(vrf->info);
+
 	return 0;
 }
 
 static int static_vrf_disable(struct vrf *vrf)
 {
+	static_cleanup_vrf_srv6_sids(vrf->info);
+
 	static_zebra_vrf_unregister(vrf);
 	return 0;
 }
