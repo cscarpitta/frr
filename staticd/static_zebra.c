@@ -605,7 +605,7 @@ extern void static_zebra_srv6_sid_add(struct static_srv6_sid *sid)
 
 	/* install the SRv6 SID in the zebra RIB */
 	ret = zclient_send_localsid(zclient, &sid->addr, oif, seg6local_action,
-				    &seg6local_ctx);
+				    &seg6local_ctx, NULL);
 	if (ret == ZCLIENT_SEND_FAILURE)
 		flog_err(EC_LIB_ZAPI_SOCKET,
 			 "zclient_send_localsid() add failed: %s",
@@ -634,7 +634,7 @@ extern void static_zebra_srv6_sid_del(struct static_srv6_sid *sid)
 
 	/* remove the SRv6 SID from the zebra RIB */
 	ret = zclient_send_localsid(zclient, &sid->addr, oif,
-				    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, NULL);
+				    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, NULL, NULL);
 	if (ret == ZCLIENT_SEND_FAILURE)
 		flog_err(EC_LIB_ZAPI_SOCKET,
 			 "zclient_send_localsid() delete failed: %s",
