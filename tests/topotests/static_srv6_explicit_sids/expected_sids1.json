@@ -1,0 +1,18 @@
+{
+  "sids":[
+     {
+        "address":"2001:db8:1:1::1",
+        "behavior":"End.DT6",
+        "attributes":{
+           "vrfName":"vrf10"
+        }
+     },
+     {
+        "address":"2001:db8:1:1::2",
+        "behavior":"End.DT4",
+        "attributes":{
+           "vrfName":"vrf10"
+        }
+     }
+  ]
+}
