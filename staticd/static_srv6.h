@@ -67,6 +67,8 @@ enum static_srv6_sid_behavior_t {
 	STATIC_SRV6_SID_BEHAVIOR_UDT4 = 100,
 	/* decap and lookup of DA in v6 table (uSID) */
 	STATIC_SRV6_SID_BEHAVIOR_UDT6 = 101,
+	/* decap and lookup of DA in v4 or v6 table (uSID) */
+	STATIC_SRV6_SID_BEHAVIOR_UDT46 = 102,
 };
 
 /* Attributes for an SRv6 SID */

@@ -1739,7 +1739,8 @@ DEFUNSH(VTYSH_STATICD, srv6_sid, srv6_sid_cmd,
 				 end-dt6$srv6_end_dt6|\
 				 end-dt46$srv6_end_dt46|\
 				 end-dt4-usid$srv6_end_dt4_usid|\
-				 end-dt6-usid$srv6_end_dt6_usid>",
+				 end-dt6-usid$srv6_end_dt6_usid|\
+				 end-dt46-usid$srv6_end_dt46_usid>",
 	"Install an SRv6 SID\n"
 	"SRv6 SID address\n"
 	"Specify the SRv6 behavior\n"
@@ -1747,7 +1748,8 @@ DEFUNSH(VTYSH_STATICD, srv6_sid, srv6_sid_cmd,
 	"End.DT6 behavior\n"
 	"End.DT46 behavior\n"
 	"uDT4 behavior\n"
-	"uDT6 behavior\n")
+	"uDT6 behavior\n"
+	"uDT46 behavior\n")
 {
 	vty->node = STATIC_SRV6_SID_NODE;
 	return CMD_SUCCESS;

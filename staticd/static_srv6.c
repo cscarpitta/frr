@@ -59,6 +59,8 @@ static_srv6_sid_behavior2str(enum static_srv6_sid_behavior_t behavior)
 		return "uDT4";
 	case STATIC_SRV6_SID_BEHAVIOR_UDT6:
 		return "uDT6";
+	case STATIC_SRV6_SID_BEHAVIOR_UDT46:
+		return "uDT46";
 	case STATIC_SRV6_SID_BEHAVIOR_UNSPEC:
 		return "unspec";
 	default:
@@ -83,6 +85,8 @@ static_srv6_sid_behavior2clistr(enum static_srv6_sid_behavior_t behavior)
 		return "end-dt4-usid";
 	case STATIC_SRV6_SID_BEHAVIOR_UDT6:
 		return "end-dt6-usid";
+	case STATIC_SRV6_SID_BEHAVIOR_UDT46:
+		return "end-dt46-usid";
 	case STATIC_SRV6_SID_BEHAVIOR_UNSPEC:
 		return "unspec";
 	default:
