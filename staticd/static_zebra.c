@@ -589,6 +589,9 @@ extern void static_zebra_srv6_sid_add(struct static_srv6_sid *sid)
 	case STATIC_SRV6_SID_BEHAVIOR_END_BPF:
 		seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_END_BPF;
 		break;
+	case STATIC_SRV6_SID_BEHAVIOR_END_DT46:
+		seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
+		break;
 	}
 
 	/* process SRv6 SID attributes */

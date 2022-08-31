@@ -61,6 +61,8 @@ enum static_srv6_sid_behavior_t {
 	STATIC_SRV6_SID_BEHAVIOR_END_AM = 14,
 	/* custom BPF action */
 	STATIC_SRV6_SID_BEHAVIOR_END_BPF = 15,
+	/* decap and lookup of DA in v4 or v6 table */
+	STATIC_SRV6_SID_BEHAVIOR_END_DT46 = 16,
 };
 
 /* Attributes for an SRv6 SID */

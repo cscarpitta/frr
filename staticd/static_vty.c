@@ -1048,18 +1048,21 @@ DEFUN_NOSH(srv6_explicit_sids, srv6_explicit_sids_cmd,
 DEFUN_NOSH(srv6_sid, srv6_sid_cmd,
       "sid X:X::X:X$addr behavior\
                 <end-dt4$srv6_end_dt4|\
-                 end-dt6$srv6_end_dt6>",
+                 end-dt6$srv6_end_dt6|\
+                 end-dt46$srv6_end_dt46>",
       "Install an SRv6 SID\n"
       "SRv6 SID address\n"
 	  "Specify the SRv6 behavior\n"
 	  "End.DT4 behavior\n"
-	  "End.DT6 behavior\n")
+	  "End.DT6 behavior\n"
+	  "End.DT46 behavior\n")
 {
 	struct static_srv6_sid *sid = NULL;
 	enum static_srv6_sid_behavior_t behavior;
 	int idx = 0;
 	bool srv6_end_dt4 = false;
 	bool srv6_end_dt6 = false;
+	bool srv6_end_dt46 = false;
 	struct in6_addr addr;
 
 	/* are we configuring an End.DT4 SRv6 SID? */
@@ -1070,6 +1073,10 @@ DEFUN_NOSH(srv6_sid, srv6_sid_cmd,
 	if (argv_find(argv, argc, "end-dt6", &idx))
 		srv6_end_dt6 = true;
 
+	/* are we configuring an End.DT46 SRv6 SID? */
+	if (argv_find(argv, argc, "end-dt46", &idx))
+		srv6_end_dt46 = true;
+
 	/* convert the SRv6 SID address from string to `struct in6_addr` */
 	inet_pton(AF_INET6, argv[1]->arg, &addr);
 
@@ -1078,6 +1085,8 @@ DEFUN_NOSH(srv6_sid, srv6_sid_cmd,
 		behavior = STATIC_SRV6_SID_BEHAVIOR_END_DT4;
 	} else if (srv6_end_dt6) {
 		behavior = STATIC_SRV6_SID_BEHAVIOR_END_DT6;
+	} else if (srv6_end_dt46) {
+		behavior = STATIC_SRV6_SID_BEHAVIOR_END_DT46;
 	} else {
 		behavior = STATIC_SRV6_SID_BEHAVIOR_UNSPEC;
 	}

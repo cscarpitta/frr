@@ -53,6 +53,8 @@ static_srv6_sid_behavior2str(enum static_srv6_sid_behavior_t behavior)
 		return "End.DT6";
 	case STATIC_SRV6_SID_BEHAVIOR_END_DT4:
 		return "End.DT4";
+	case STATIC_SRV6_SID_BEHAVIOR_END_DT46:
+		return "End.DT46";
 	case STATIC_SRV6_SID_BEHAVIOR_UNSPEC:
 		return "unspec";
 	default:
@@ -71,6 +73,8 @@ static_srv6_sid_behavior2clistr(enum static_srv6_sid_behavior_t behavior)
 		return "end-dt6";
 	case STATIC_SRV6_SID_BEHAVIOR_END_DT4:
 		return "end-dt4";
+	case STATIC_SRV6_SID_BEHAVIOR_END_DT46:
+		return "end-dt46";
 	case STATIC_SRV6_SID_BEHAVIOR_UNSPEC:
 		return "unspec";
 	default:
