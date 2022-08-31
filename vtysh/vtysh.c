@@ -51,6 +51,7 @@
 #include "frrstr.h"
 #include "json.h"
 #include "ferr.h"
+#include "bgpd/bgp_vty.h"
 
 DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CMD, "Vtysh cmd copy");
 
@@ -885,9 +886,22 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 	int lineno = 0;
 	/* once we have an error, we remember & return that */
 	int retcode = CMD_SUCCESS;
+	char *vty_buf_copy = XCALLOC(MTYPE_VTYSH_CMD, VTY_BUFSIZ);
+	char *vty_buf_trimmed = NULL;
 
 	while (fgets(vty->buf, VTY_BUFSIZ, fp)) {
 		lineno++;
+
+		strlcpy(vty_buf_copy, vty->buf, VTY_BUFSIZ);
+		vty_buf_trimmed = trim(vty_buf_copy);
+
+		/*
+		 * Ignore the "end" lines, we will generate these where
+		 * appropriate, otherwise we never execute
+		 * XFRR_end_configuration, and start/end markers do not work.
+		 */
+		if (strmatch(vty_buf_trimmed, "end"))
+			continue;
 
 		ret = command_config_read_one_line(vty, &cmd, lineno, 1);
 
@@ -954,6 +968,8 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 		}
 		}
 	}
+
+	XFREE(MTYPE_VTYSH_CMD, vty_buf_copy);
 
 	return (retcode);
 }
@@ -1321,6 +1337,29 @@ static struct cmd_node srv6_encap_node = {
 	.prompt = "%s(config-srv6-encap)# "
 };
 
+#ifdef HAVE_STATICD
+static struct cmd_node srv6_explicit_sids_node = {
+	.name = "srv6-sids",
+	.node = STATIC_SRV6_SIDS_NODE,
+	.parent_node = SRV6_NODE,
+	.prompt = "%s(config-srv6-sids)# ",
+};
+
+static struct cmd_node srv6_sid_node = {
+	.name = "srv6-sid",
+	.node = STATIC_SRV6_SID_NODE,
+	.parent_node = STATIC_SRV6_SIDS_NODE,
+	.prompt = "%s(config-srv6-sid)# ",
+};
+
+static struct cmd_node srv6_sid_attributes_node = {
+	.name = "srv6-sid-attr",
+	.node = STATIC_SRV6_SID_ATTRS_NODE,
+	.parent_node = STATIC_SRV6_SID_NODE,
+	.prompt = "%s(config-srv6-sid-attr)# ",
+};
+#endif /* HAVE_STATICD */
+
 #ifdef HAVE_PBRD
 static struct cmd_node pbr_map_node = {
 	.name = "pbr-map",
@@ -1652,7 +1691,7 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_end_all, vtysh_end_all_cmd, "end",
 	return vtysh_end();
 }
 
-DEFUNSH(VTYSH_ZEBRA, srv6, srv6_cmd,
+DEFUNSH(VTYSH_SR, srv6, srv6_cmd,
 	"srv6",
 	"Segment-Routing SRv6 configuration\n")
 {
@@ -1685,9 +1724,50 @@ DEFUNSH(VTYSH_ZEBRA, srv6_encap, srv6_encap_cmd,
 	return CMD_SUCCESS;
 }
 
+#ifdef HAVE_STATICD
+DEFUNSH(VTYSH_STATICD, srv6_explicit_sids, srv6_explicit_sids_cmd,
+	"explicit-sids",
+	"SRv6 explicit SIDs\n")
+{
+	vty->node = STATIC_SRV6_SIDS_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_STATICD, srv6_sid, srv6_sid_cmd,
+	"sid X:X::X:X$addr behavior\
+				<end-dt4$srv6_end_dt4|\
+				 end-dt6$srv6_end_dt6>",
+	"Install an SRv6 SID\n"
+	"SRv6 SID address\n"
+	"Specify the SRv6 behavior\n"
+	"End.DT4 behavior\n"
+	"End.DT6 behavior\n")
+{
+	vty->node = STATIC_SRV6_SID_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_STATICD, no_srv6_sid, no_srv6_sid_cmd,
+	"no sid X:X::X:X$addr",
+	NO_STR
+	"Remove an SRv6 SID\n"
+	"SRv6 SID address\n")
+{
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_STATICD, srv6_sid_attributes, srv6_sid_attributes_cmd,
+	"sharing-attributes",
+	"SRv6 SID attributes\n")
+{
+	vty->node = STATIC_SRV6_SID_ATTRS_NODE;
+	return CMD_SUCCESS;
+}
+#endif /* HAVE_STATICD */
+
 #ifdef HAVE_BGPD
 DEFUNSH(VTYSH_BGPD, router_bgp, router_bgp_cmd,
-	"router bgp [(1-4294967295) [<view|vrf> WORD]]",
+	"router bgp [(1-4294967295) [<view|vrf> VIEWVRFNAME]]",
 	ROUTER_STR BGP_STR AS_STR
 	"BGP view\nBGP VRF\n"
 	"View/VRF name\n")
@@ -1700,8 +1780,8 @@ DEFUNSH(VTYSH_BGPD, router_bgp, router_bgp_cmd,
 DEFUNSH(VTYSH_BGPD, address_family_vpnv4, address_family_vpnv4_cmd,
 	"address-family vpnv4 [unicast]",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_VPNV4_NODE;
 	return CMD_SUCCESS;
@@ -1710,8 +1790,8 @@ DEFUNSH(VTYSH_BGPD, address_family_vpnv4, address_family_vpnv4_cmd,
 DEFUNSH(VTYSH_BGPD, address_family_vpnv6, address_family_vpnv6_cmd,
 	"address-family vpnv6 [unicast]",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_VPNV6_NODE;
 	return CMD_SUCCESS;
@@ -1721,8 +1801,8 @@ DEFUNSH(VTYSH_BGPD, address_family_vpnv6, address_family_vpnv6_cmd,
 DEFUNSH(VTYSH_BGPD, address_family_ipv4, address_family_ipv4_cmd,
 	"address-family ipv4 [unicast]",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family Modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_IPV4_NODE;
 	return CMD_SUCCESS;
@@ -1731,8 +1811,8 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv4, address_family_ipv4_cmd,
 DEFUNSH(VTYSH_BGPD, address_family_flowspecv4, address_family_flowspecv4_cmd,
 	"address-family ipv4 flowspec",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family Modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_FLOWSPECV4_NODE;
 	return CMD_SUCCESS;
@@ -1741,8 +1821,8 @@ DEFUNSH(VTYSH_BGPD, address_family_flowspecv4, address_family_flowspecv4_cmd,
 DEFUNSH(VTYSH_BGPD, address_family_flowspecv6, address_family_flowspecv6_cmd,
 	"address-family ipv6 flowspec",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family Modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_FLOWSPECV6_NODE;
 	return CMD_SUCCESS;
@@ -1751,8 +1831,8 @@ DEFUNSH(VTYSH_BGPD, address_family_flowspecv6, address_family_flowspecv6_cmd,
 DEFUNSH(VTYSH_BGPD, address_family_ipv4_multicast,
 	address_family_ipv4_multicast_cmd, "address-family ipv4 multicast",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_IPV4M_NODE;
 	return CMD_SUCCESS;
@@ -1761,8 +1841,8 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv4_multicast,
 DEFUNSH(VTYSH_BGPD, address_family_ipv4_vpn, address_family_ipv4_vpn_cmd,
 	"address-family ipv4 vpn",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_VPNV4_NODE;
 	return CMD_SUCCESS;
@@ -1772,8 +1852,8 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv4_labeled_unicast,
 	address_family_ipv4_labeled_unicast_cmd,
 	"address-family ipv4 labeled-unicast",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_IPV4L_NODE;
 	return CMD_SUCCESS;
@@ -1782,8 +1862,8 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv4_labeled_unicast,
 DEFUNSH(VTYSH_BGPD, address_family_ipv6, address_family_ipv6_cmd,
 	"address-family ipv6 [unicast]",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_IPV6_NODE;
 	return CMD_SUCCESS;
@@ -1792,8 +1872,8 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv6, address_family_ipv6_cmd,
 DEFUNSH(VTYSH_BGPD, address_family_ipv6_multicast,
 	address_family_ipv6_multicast_cmd, "address-family ipv6 multicast",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_IPV6M_NODE;
 	return CMD_SUCCESS;
@@ -1802,8 +1882,8 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv6_multicast,
 DEFUNSH(VTYSH_BGPD, address_family_ipv6_vpn, address_family_ipv6_vpn_cmd,
 	"address-family ipv6 vpn",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_VPNV6_NODE;
 	return CMD_SUCCESS;
@@ -1813,8 +1893,8 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv6_labeled_unicast,
 	address_family_ipv6_labeled_unicast_cmd,
 	"address-family ipv6 labeled-unicast",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_IPV6L_NODE;
 	return CMD_SUCCESS;
@@ -1878,8 +1958,8 @@ DEFUNSH(VTYSH_BGPD,
 DEFUNSH(VTYSH_BGPD, address_family_evpn, address_family_evpn_cmd,
 	"address-family <l2vpn evpn>",
 	"Enter Address Family command mode\n"
-	"Address Family\n"
-	"Address Family modifier\n")
+	BGP_AF_STR
+	BGP_AF_MODIFIER_STR)
 {
 	vty->node = BGP_EVPN_NODE;
 	return CMD_SUCCESS;
@@ -2402,7 +2482,7 @@ DEFUNSH(VTYSH_VRF, exit_vrf_config, exit_vrf_config_cmd, "exit-vrf",
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_ZEBRA, exit_srv6_config, exit_srv6_config_cmd, "exit",
+DEFUNSH(VTYSH_SR, exit_srv6_config, exit_srv6_config_cmd, "exit",
 	"Exit from SRv6 configuration mode\n")
 {
 	if (vty->node == SRV6_NODE)
@@ -2433,6 +2513,38 @@ DEFUNSH(VTYSH_ZEBRA, exit_srv6_encap, exit_srv6_encap_cmd, "exit",
 		vty->node = SRV6_NODE;
 	return CMD_SUCCESS;
 }
+
+#ifdef HAVE_STATICD
+DEFUNSH(VTYSH_STATICD, exit_static_srv6_explicit_sids_config,
+	exit_static_srv6_explicit_sids_config_cmd,
+	"exit",
+	"Exit from SRv6-explicit-SIDs configuration mode\n")
+{
+	if (vty->node == STATIC_SRV6_SIDS_NODE)
+		vty->node = SRV6_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_STATICD, exit_static_srv6_sid_config,
+	exit_static_srv6_sid_config_cmd,
+	"exit",
+	"Exit from SRv6-explicit-SIDs configuration mode\n")
+{
+	if (vty->node == STATIC_SRV6_SID_NODE)
+		vty->node = STATIC_SRV6_SIDS_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_STATICD, exit_static_srv6_sid_attributes_config,
+	exit_static_srv6_sid_attributes_config_cmd,
+	"exit",
+	"Exit from SRv6-SID-attributes configuration mode\n")
+{
+	if (vty->node == STATIC_SRV6_SID_ATTRS_NODE)
+		vty->node = STATIC_SRV6_SID_NODE;
+	return CMD_SUCCESS;
+}
+#endif /* HAVE_STATICD */
 
 #ifdef HAVE_RIPD
 DEFUNSH(VTYSH_RIPD, vtysh_exit_ripd, vtysh_exit_ripd_cmd, "exit",
@@ -2582,6 +2694,38 @@ DEFUNSH(VTYSH_ISISD, vtysh_quit_isisd, vtysh_quit_isisd_cmd, "quit",
 	return vtysh_exit_isisd(self, vty, argc, argv);
 }
 #endif /* HAVE_ISISD */
+
+#ifdef HAVE_STATICD
+DEFUNSH(VTYSH_STATICD, vtysh_exit_srv6_explicit_sids,
+	vtysh_exit_srv6_explicit_sids_cmd, "exit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit(vty);
+}
+
+ALIAS(vtysh_exit_srv6_explicit_sids, vtysh_quit_srv6_explicit_sids_cmd, "quit",
+      "Exit current mode and down to previous mode\n")
+
+DEFUNSH(VTYSH_STATICD, vtysh_exit_srv6_sid, vtysh_exit_srv6_sid_cmd, "exit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit(vty);
+}
+
+ALIAS(vtysh_exit_srv6_sid, vtysh_quit_srv6_sid_cmd, "quit",
+      "Exit current mode and down to previous mode\n")
+
+DEFUNSH(VTYSH_STATICD, vtysh_exit_srv6_sid_attributes,
+	vtysh_exit_srv6_sid_attributes_cmd,
+	"exit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit(vty);
+}
+
+ALIAS(vtysh_exit_srv6_sid_attributes, vtysh_quit_srv6_sid_attributes_cmd,
+      "quit", "Exit current mode and down to previous mode\n")
+#endif /* HAVE_STATICD */
 
 #if HAVE_BFDD > 0
 DEFUNSH(VTYSH_BFDD, vtysh_exit_bfdd, vtysh_exit_bfdd_cmd, "exit",
@@ -3161,6 +3305,20 @@ DEFUN(vtysh_debug_uid_backtrace,
 		err = CMD_WARNING;
 	}
 	return err;
+}
+
+DEFUNSH(VTYSH_ALL, vtysh_allow_reserved_ranges, vtysh_allow_reserved_ranges_cmd,
+	"allow-reserved-ranges",
+	"Allow using IPv4 (Class E) reserved IP space\n")
+{
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_ALL, no_vtysh_allow_reserved_ranges,
+	no_vtysh_allow_reserved_ranges_cmd, "no allow-reserved-ranges",
+	NO_STR "Allow using IPv4 (Class E) reserved IP space\n")
+{
+	return CMD_SUCCESS;
 }
 
 DEFUNSH(VTYSH_ALL, vtysh_service_password_encrypt,
@@ -4855,6 +5013,51 @@ void vtysh_init_vty(void)
 	install_element(SRV6_ENCAP_NODE, &exit_srv6_encap_cmd);
 	install_element(SRV6_ENCAP_NODE, &vtysh_end_all_cmd);
 
+	/* staticd */
+#ifdef HAVE_STATICD
+	// install_node(&segment_routing_node);
+	// install_element(STATIC_SEGMENT_ROUTING_NODE, &static_srv6_cmd);
+	// install_element(STATIC_SEGMENT_ROUTING_NODE, &no_static_srv6_cmd);
+	// install_element(STATIC_SEGMENT_ROUTING_NODE,
+	// &exit_static_segment_routing_config_cmd);
+	// install_element(STATIC_SEGMENT_ROUTING_NODE, &vtysh_end_all_cmd);
+
+	// install_node(&srv6_node);
+	// install_element(STATIC_SRV6_NODE, &static_srv6_explicit_sids_cmd);
+	// install_element(STATIC_SRV6_NODE, &exit_static_srv6_config_cmd);
+	// install_element(STATIC_SRV6_NODE, &vtysh_end_all_cmd);
+
+	// install_node(&static_segment_routing_node);
+	// install_element(SEGMENT_ROUTING_NODE, &static_srv6_cmd);
+
+	// install_node(&static_srv6_node);
+
+	/* SRv6 */
+	install_element(SRV6_NODE, &srv6_explicit_sids_cmd);
+
+	install_node(&srv6_explicit_sids_node);
+	install_element(STATIC_SRV6_SIDS_NODE, &srv6_sid_cmd);
+	install_element(STATIC_SRV6_SIDS_NODE, &no_srv6_sid_cmd);
+	install_element(STATIC_SRV6_SIDS_NODE, &vtysh_end_all_cmd);
+	install_element(STATIC_SRV6_SIDS_NODE,
+			&vtysh_exit_srv6_explicit_sids_cmd);
+	install_element(STATIC_SRV6_SIDS_NODE,
+			&vtysh_quit_srv6_explicit_sids_cmd);
+
+	install_node(&srv6_sid_node);
+	install_element(STATIC_SRV6_SID_NODE, &srv6_sid_attributes_cmd);
+	install_element(STATIC_SRV6_SID_NODE, &vtysh_end_all_cmd);
+	install_element(STATIC_SRV6_SID_NODE, &vtysh_exit_srv6_sid_cmd);
+	install_element(STATIC_SRV6_SID_NODE, &vtysh_quit_srv6_sid_cmd);
+
+	install_node(&srv6_sid_attributes_node);
+	install_element(STATIC_SRV6_SID_ATTRS_NODE, &vtysh_end_all_cmd);
+	install_element(STATIC_SRV6_SID_ATTRS_NODE,
+			&vtysh_exit_srv6_sid_attributes_cmd);
+	install_element(STATIC_SRV6_SID_ATTRS_NODE,
+			&vtysh_quit_srv6_sid_attributes_cmd);
+#endif /* HAVE_STATICD */
+
 	install_element(ENABLE_NODE, &vtysh_show_running_config_cmd);
 	install_element(ENABLE_NODE, &vtysh_copy_running_config_cmd);
 	install_element(ENABLE_NODE, &vtysh_copy_to_running_cmd);
@@ -4929,6 +5132,9 @@ void vtysh_init_vty(void)
 
 	install_element(CONFIG_NODE, &vtysh_service_password_encrypt_cmd);
 	install_element(CONFIG_NODE, &no_vtysh_service_password_encrypt_cmd);
+
+	install_element(CONFIG_NODE, &vtysh_allow_reserved_ranges_cmd);
+	install_element(CONFIG_NODE, &no_vtysh_allow_reserved_ranges_cmd);
 
 	install_element(CONFIG_NODE, &vtysh_password_cmd);
 	install_element(CONFIG_NODE, &no_vtysh_password_cmd);

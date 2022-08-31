@@ -39,6 +39,7 @@
 #include "static_zebra.h"
 #include "static_debug.h"
 #include "static_nb.h"
+#include "static_srv6.h"
 
 char backup_config_file[256];
 
@@ -78,6 +79,9 @@ static void sigint(void)
 	zlog_notice("Terminating on signal");
 
 	static_vrf_terminate();
+
+	/* clean up SRv6 data structures */
+	static_srv6_cleanup();
 
 	frr_fini();
 
@@ -158,6 +162,9 @@ int main(int argc, char **argv, char **envp)
 
 	static_zebra_init();
 	static_vty_init();
+
+	/* initialize SRv6 data structures */
+	static_srv6_init();
 
 	hook_register(routing_conf_event,
 		      routing_control_plane_protocols_name_validate);

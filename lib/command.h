@@ -84,6 +84,9 @@ struct host {
 	/* Banner configuration. */
 	char *motd;
 	char *motdfile;
+
+	/* Allow using IPv4 (Class E) reserved IP space */
+	bool allow_reserved_ranges;
 };
 
 /* List of CLI nodes. Please remember to update the name array in command.c. */
@@ -183,6 +186,9 @@ enum node_type {
 	VRRP_NODE,		 /* VRRP node */
 	BMP_NODE,		/* BMP config under router bgp */
 	NODE_TYPE_MAX, /* maximum */
+	STATIC_SRV6_SIDS_NODE,	    /* SRv6 explicit SIDs node */
+	STATIC_SRV6_SID_NODE,	    /* SRv6 SID node */
+	STATIC_SRV6_SID_ATTRS_NODE, /* SRv6 SID attributes node */
 };
 
 extern vector cmdvec;
@@ -509,6 +515,9 @@ struct cmd_node {
 	EVPN_TYPE_4_HELP_STR EVPN_TYPE_4_HELP_STR                              \
 	EVPN_TYPE_5_HELP_STR EVPN_TYPE_5_HELP_STR
 
+/* Describing roles */
+#define ROLE_STR                                                               \
+	"Providing transit\nRoute server\nRS client\nUsing transit\nPublic/private peering\n"
 
 /* Prototypes. */
 extern void install_node(struct cmd_node *node);
@@ -612,6 +621,7 @@ extern const char *cmd_domainname_get(void);
 extern const char *cmd_system_get(void);
 extern const char *cmd_release_get(void);
 extern const char *cmd_version_get(void);
+extern bool cmd_allow_reserved_ranges_get(void);
 
 /* NOT safe for general use; call this only if DEV_BUILD! */
 extern void grammar_sandbox_init(void);

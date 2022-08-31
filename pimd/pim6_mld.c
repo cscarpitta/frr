@@ -33,12 +33,15 @@
 #include "lib/prefix.h"
 #include "lib/checksum.h"
 #include "lib/thread.h"
+#include "termtable.h"
 
 #include "pimd/pim6_mld.h"
 #include "pimd/pim6_mld_protocol.h"
 #include "pimd/pim_memory.h"
 #include "pimd/pim_instance.h"
 #include "pimd/pim_iface.h"
+#include "pimd/pim6_cmd.h"
+#include "pimd/pim_cmd_common.h"
 #include "pimd/pim_util.h"
 #include "pimd/pim_tib.h"
 #include "pimd/pimd.h"
@@ -415,7 +418,7 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 			gm_sg_timer_start(gm_ifp, sg, timers.expire_wait);
 
 			THREAD_OFF(sg->t_sg_query);
-			sg->n_query = gm_ifp->cur_qrv;
+			sg->n_query = gm_ifp->cur_lmqc;
 			sg->query_sbit = false;
 			gm_trigger_specific(sg);
 		}
@@ -2088,11 +2091,12 @@ static void gm_start(struct interface *ifp)
 	else
 		gm_ifp->cur_version = GM_MLDV2;
 
-	/* hardcoded for dev without CLI */
-	gm_ifp->cur_qrv = 2;
+	gm_ifp->cur_qrv = pim_ifp->gm_default_robustness_variable;
 	gm_ifp->cur_query_intv = pim_ifp->gm_default_query_interval * 1000;
-	gm_ifp->cur_query_intv_trig = gm_ifp->cur_query_intv;
-	gm_ifp->cur_max_resp = 250;
+	gm_ifp->cur_query_intv_trig =
+		pim_ifp->gm_specific_query_max_response_time_dsec * 100;
+	gm_ifp->cur_max_resp = pim_ifp->gm_query_max_response_time_dsec * 100;
+	gm_ifp->cur_lmqc = pim_ifp->gm_last_member_query_count;
 
 	gm_ifp->cfg_timing_fuzz.tv_sec = 0;
 	gm_ifp->cfg_timing_fuzz.tv_usec = 10 * 1000;
@@ -2198,7 +2202,7 @@ void gm_ifp_teardown(struct interface *ifp)
 static void gm_update_ll(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp = ifp->info;
-	struct gm_if *gm_ifp = pim_ifp ? pim_ifp->mld : NULL;
+	struct gm_if *gm_ifp = pim_ifp->mld;
 	bool was_querier;
 
 	was_querier =
@@ -2246,8 +2250,16 @@ void gm_ifp_update(struct interface *ifp)
 		return;
 	}
 
-	if (!pim_ifp->mld)
+	/*
+	 * If ipv6 mld is not enabled on interface, do not start mld activites.
+	 */
+	if (!pim_ifp->gm_enable)
+		return;
+
+	if (!pim_ifp->mld) {
+		changed = true;
 		gm_start(ifp);
+	}
 
 	gm_ifp = pim_ifp->mld;
 	if (IPV6_ADDR_CMP(&pim_ifp->ll_lowest, &gm_ifp->cur_ll_lowest))
@@ -2257,9 +2269,25 @@ void gm_ifp_update(struct interface *ifp)
 
 	if (gm_ifp->cur_query_intv != cfg_query_intv) {
 		gm_ifp->cur_query_intv = cfg_query_intv;
-		gm_ifp->cur_query_intv_trig = cfg_query_intv;
 		changed = true;
 	}
+
+	unsigned int cfg_query_intv_trig =
+		pim_ifp->gm_specific_query_max_response_time_dsec * 100;
+
+	if (gm_ifp->cur_query_intv_trig != cfg_query_intv_trig) {
+		gm_ifp->cur_query_intv_trig = cfg_query_intv_trig;
+		changed = true;
+	}
+
+	unsigned int cfg_max_response =
+		pim_ifp->gm_query_max_response_time_dsec * 100;
+
+	if (gm_ifp->cur_max_resp != cfg_max_response)
+		gm_ifp->cur_max_resp = cfg_max_response;
+
+	if (gm_ifp->cur_lmqc != pim_ifp->gm_last_member_query_count)
+		gm_ifp->cur_lmqc = pim_ifp->gm_last_member_query_count;
 
 	enum gm_version cfg_version;
 
@@ -2280,6 +2308,22 @@ void gm_ifp_update(struct interface *ifp)
 	}
 }
 
+void gm_group_delete(struct gm_if *gm_ifp)
+{
+	struct gm_sg *sg, *sg_start;
+
+	sg_start = gm_sgs_first(gm_ifp->sgs);
+
+	/* clean up all mld groups */
+	frr_each_from (gm_sgs, gm_ifp->sgs, sg, sg_start) {
+		THREAD_OFF(sg->t_sg_expire);
+		if (sg->oil)
+			pim_channel_oil_del(sg->oil, __func__);
+		gm_sgs_del(gm_ifp->sgs, sg);
+		gm_sg_free(sg);
+	}
+}
+
 /*
  * CLI (show commands only)
  */
@@ -2289,8 +2333,6 @@ void gm_ifp_update(struct interface *ifp)
 #ifndef VTYSH_EXTRACT_PL
 #include "pimd/pim6_mld_clippy.c"
 #endif
-
-#define MLD_STR "Multicast Listener Discovery\n"
 
 static struct vrf *gm_cmd_vrf_lookup(struct vty *vty, const char *vrf_str,
 				     int *err)
@@ -2831,6 +2873,125 @@ DEFPY(gm_show_interface_joins,
 	return vty_json(vty, js);
 }
 
+static void gm_show_groups(struct vty *vty, struct vrf *vrf, bool uj)
+{
+	struct interface *ifp;
+	struct ttable *tt = NULL;
+	char *table;
+	json_object *json = NULL;
+	json_object *json_iface = NULL;
+	json_object *json_group = NULL;
+	json_object *json_groups = NULL;
+	struct pim_instance *pim = vrf->info;
+
+	if (uj) {
+		json = json_object_new_object();
+		json_object_int_add(json, "totalGroups", pim->gm_group_count);
+		json_object_int_add(json, "watermarkLimit",
+				    pim->gm_watermark_limit);
+	} else {
+		/* Prepare table. */
+		tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+		ttable_add_row(tt, "Interface|Group|Version|Uptime");
+		tt->style.cell.rpad = 2;
+		tt->style.corner = '+';
+		ttable_restyle(tt);
+
+		vty_out(vty, "Total MLD groups: %u\n", pim->gm_group_count);
+		vty_out(vty, "Watermark warn limit(%s): %u\n",
+			pim->gm_watermark_limit ? "Set" : "Not Set",
+			pim->gm_watermark_limit);
+	}
+
+	/* scan interfaces */
+	FOR_ALL_INTERFACES (vrf, ifp) {
+
+		struct pim_interface *pim_ifp = ifp->info;
+		struct gm_if *gm_ifp;
+		struct gm_sg *sg;
+
+		if (!pim_ifp)
+			continue;
+
+		gm_ifp = pim_ifp->mld;
+		if (!gm_ifp)
+			continue;
+
+		/* scan mld groups */
+		frr_each (gm_sgs, gm_ifp->sgs, sg) {
+
+			if (uj) {
+				json_object_object_get_ex(json, ifp->name,
+							  &json_iface);
+
+				if (!json_iface) {
+					json_iface = json_object_new_object();
+					json_object_pim_ifp_add(json_iface,
+								ifp);
+					json_object_object_add(json, ifp->name,
+							       json_iface);
+					json_groups = json_object_new_array();
+					json_object_object_add(json_iface,
+							       "groups",
+							       json_groups);
+				}
+
+				json_group = json_object_new_object();
+				json_object_string_addf(json_group, "group",
+							"%pPAs",
+							&sg->sgaddr.grp);
+
+				json_object_int_add(json_group, "version",
+						    pim_ifp->mld_version);
+				json_object_string_addf(json_group, "uptime",
+							"%pTVMs", &sg->created);
+				json_object_array_add(json_groups, json_group);
+			} else {
+				ttable_add_row(tt, "%s|%pPAs|%d|%pTVMs",
+					       ifp->name, &sg->sgaddr.grp,
+					       pim_ifp->mld_version,
+					       &sg->created);
+			}
+		} /* scan gm groups */
+	}	 /* scan interfaces */
+
+	if (uj)
+		vty_json(vty, json);
+	else {
+		/* Dump the generated table. */
+		table = ttable_dump(tt, "\n");
+		vty_out(vty, "%s\n", table);
+		XFREE(MTYPE_TMP, table);
+		ttable_del(tt);
+	}
+}
+
+DEFPY(gm_show_mld_groups,
+      gm_show_mld_groups_cmd,
+      "show ipv6 mld [vrf <VRF|all>$vrf_str] groups [json$json]",
+      SHOW_STR
+      IPV6_STR
+      MLD_STR
+      VRF_FULL_CMD_HELP_STR
+      MLD_GROUP_STR
+      JSON_STR)
+{
+	int ret = CMD_SUCCESS;
+	struct vrf *vrf;
+
+	vrf = gm_cmd_vrf_lookup(vty, vrf_str, &ret);
+	if (ret != CMD_SUCCESS)
+		return ret;
+
+	if (vrf)
+		gm_show_groups(vty, vrf, !!json);
+	else
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+			gm_show_groups(vty, vrf, !!json);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(gm_debug_show,
       gm_debug_show_cmd,
       "debug show mld interface IFNAME",
@@ -3005,6 +3166,7 @@ void gm_cli_init(void)
 	install_element(VIEW_NODE, &gm_show_interface_cmd);
 	install_element(VIEW_NODE, &gm_show_interface_stats_cmd);
 	install_element(VIEW_NODE, &gm_show_interface_joins_cmd);
+	install_element(VIEW_NODE, &gm_show_mld_groups_cmd);
 
 	install_element(VIEW_NODE, &gm_debug_show_cmd);
 	install_element(INTERFACE_NODE, &gm_debug_iface_cfg_cmd);

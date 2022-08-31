@@ -1263,7 +1263,7 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn,
 			/* Unintern existing, set to new. */
 			bgp_attr_unintern(&tmp_pi->attr);
 			tmp_pi->attr = attr_new;
-			tmp_pi->uptime = bgp_clock();
+			tmp_pi->uptime = monotime(NULL);
 		}
 	}
 	return 0;
@@ -1292,7 +1292,7 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 		attr = *src_attr;
 	else {
 		memset(&attr, 0, sizeof(attr));
-		bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
+		bgp_attr_default_set(&attr, bgp_vrf, BGP_ORIGIN_IGP);
 	}
 
 	/* Advertise Primary IP (PIP) is enabled, send individual
@@ -1626,7 +1626,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 			/* Unintern existing, set to new. */
 			bgp_attr_unintern(&tmp_pi->attr);
 			tmp_pi->attr = attr_new;
-			tmp_pi->uptime = bgp_clock();
+			tmp_pi->uptime = monotime(NULL);
 		}
 	}
 
@@ -1731,7 +1731,7 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	memset(&attr, 0, sizeof(attr));
 
 	/* Build path-attribute for this route. */
-	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
+	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
 	attr.nexthop = vpn->originator_ip;
 	attr.mp_nexthop_global_in = vpn->originator_ip;
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
@@ -1753,6 +1753,16 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 		bgp_attr_set_pmsi_tnl_type(&attr, PMSI_TNLTYPE_INGR_REPL);
 	}
 
+	/* router mac is only needed for type-2 routes here. */
+	if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
+		uint8_t af_flags = 0;
+
+		if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_SVI_IP))
+			SET_FLAG(af_flags, BGP_EVPN_MACIP_TYPE_SVI_IP);
+
+		bgp_evpn_get_rmac_nexthop(vpn, p, &attr, af_flags);
+	}
+
 	if (bgp_debug_zebra(NULL)) {
 		char buf3[ESI_STR_LEN];
 
@@ -1762,15 +1772,6 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 				     : " ",
 			vpn->vni, p, &attr.rmac, &attr.mp_nexthop_global_in,
 			esi_to_str(esi, buf3, sizeof(buf3)));
-	}
-	/* router mac is only needed for type-2 routes here. */
-	if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
-		uint8_t af_flags = 0;
-
-		if (CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_SVI_IP))
-			SET_FLAG(af_flags, BGP_EVPN_MACIP_TYPE_SVI_IP);
-
-		bgp_evpn_get_rmac_nexthop(vpn, p, &attr, af_flags);
 	}
 
 	vni2label(vpn->vni, &(attr.label));
@@ -1994,7 +1995,7 @@ void bgp_evpn_update_type2_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	 * some other values could differ for different routes. The
 	 * attributes will be shared in the hash table.
 	 */
-	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
+	bgp_attr_default_set(&attr, bgp, BGP_ORIGIN_IGP);
 	attr.nexthop = vpn->originator_ip;
 	attr.mp_nexthop_global_in = vpn->originator_ip;
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
@@ -2447,8 +2448,10 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	if (attr.evpn_overlay.type != OVERLAY_INDEX_GATEWAY_IP) {
 		if (afi == AFI_IP6)
 			evpn_convert_nexthop_to_ipv6(&attr);
-		else
+		else {
+			attr.nexthop = attr.mp_nexthop_global_in;
 			attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
+		}
 	} else {
 
 		/*
@@ -2517,7 +2520,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		/* Unintern existing, set to new. */
 		bgp_attr_unintern(&pi->attr);
 		pi->attr = attr_new;
-		pi->uptime = bgp_clock();
+		pi->uptime = monotime(NULL);
 	}
 
 	/* Gateway IP nexthop should be resolved */
@@ -2640,7 +2643,7 @@ static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		/* Unintern existing, set to new. */
 		bgp_attr_unintern(&pi->attr);
 		pi->attr = attr_new;
-		pi->uptime = bgp_clock();
+		pi->uptime = monotime(NULL);
 	}
 
 	/* Add this route to remote IP hashtable */
@@ -6236,9 +6239,6 @@ static void bgp_evpn_remote_ip_hash_iterate(struct bgpevpn *vpn,
 static void show_remote_ip_entry(struct hash_bucket *bucket, void *args)
 {
 	char buf[INET6_ADDRSTRLEN];
-	char buf2[EVPN_ROUTE_STRLEN];
-	struct prefix_evpn *evp;
-
 	struct listnode *node = NULL;
 	struct bgp_path_info *pi = NULL;
 	struct vty *vty = (struct vty *)args;
@@ -6247,11 +6247,8 @@ static void show_remote_ip_entry(struct hash_bucket *bucket, void *args)
 	vty_out(vty, "  Remote IP: %s\n",
 		ipaddr2str(&ip->addr, buf, sizeof(buf)));
 	vty_out(vty, "      Linked MAC/IP routes:\n");
-	for (ALL_LIST_ELEMENTS_RO(ip->macip_path_list, node, pi)) {
-		evp = (struct prefix_evpn *)&pi->net->p;
-		prefix2str(evp, buf2, sizeof(buf2));
-		vty_out(vty, "        %s\n", buf2);
-	}
+	for (ALL_LIST_ELEMENTS_RO(ip->macip_path_list, node, pi))
+		vty_out(vty, "        %pFX\n", &pi->net->p);
 }
 
 void bgp_evpn_show_remote_ip_hash(struct hash_bucket *bucket, void *args)
@@ -6427,7 +6424,7 @@ static void bgp_evpn_remote_ip_process_nexthops(struct bgpevpn *vpn,
 		return;
 
 	tree = &vpn->bgp_vrf->nexthop_cache_table[afi];
-	bnc = bnc_find(tree, &p, 0);
+	bnc = bnc_find(tree, &p, 0, 0);
 
 	if (!bnc || !bnc->is_evpn_gwip_nexthop)
 		return;
@@ -6435,14 +6432,11 @@ static void bgp_evpn_remote_ip_process_nexthops(struct bgpevpn *vpn,
 	if (!bnc->nexthop || bnc->nexthop->ifindex != vpn->svi_ifindex)
 		return;
 
-	if (BGP_DEBUG(nht, NHT)) {
-		char buf[PREFIX2STR_BUFFER];
-
-		prefix2str(&bnc->prefix, buf, sizeof(buf));
-		zlog_debug("%s(%u): vni %u mac/ip %s for NH %s",
+	if (BGP_DEBUG(nht, NHT))
+		zlog_debug("%s(%u): vni %u mac/ip %s for NH %pFX",
 			   vpn->bgp_vrf->name_pretty, vpn->tenant_vrf_id,
-			   vpn->vni, (resolve ? "add" : "delete"), buf);
-	}
+			   vpn->vni, (resolve ? "add" : "delete"),
+			   &bnc->prefix);
 
 	/*
 	 * MAC/IP route or SVI or tenant vrf being added to EVI.

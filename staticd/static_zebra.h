@@ -19,6 +19,8 @@
 #ifndef __STATIC_ZEBRA_H__
 #define __STATIC_ZEBRA_H__
 
+#include "static_srv6.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -33,6 +35,17 @@ extern void static_zebra_init(void);
 extern void static_zebra_stop(void);
 extern void static_zebra_vrf_register(struct vrf *vrf);
 extern void static_zebra_vrf_unregister(struct vrf *vrf);
+
+/* Install an SRv6 SID in the zebra RIB. */
+extern void static_zebra_srv6_sid_add(struct static_srv6_sid *sid);
+/* Remove an SRv6 SID from the zebra RIB. */
+extern void static_zebra_srv6_sid_del(struct static_srv6_sid *sid);
+/* This function can be used to update the zebra RIB after a SID's validity flag
+ * changes. If the SID is valid and was not previously installed in the zebra
+ * RIB, this function installs the SID in the zebra RIB. If the SID is invalid
+ * and was previously installed in the zebra RIB, this function removes the SID
+ * from the zebra RIB. */
+extern void static_zebra_srv6_sid_update(struct static_srv6_sid *sid);
 
 #ifdef __cplusplus
 }

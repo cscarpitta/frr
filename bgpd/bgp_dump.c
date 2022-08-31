@@ -367,7 +367,7 @@ bgp_dump_route_node_record(int afi, struct bgp_dest *dest,
 		stream_putw(obuf, path->peer->table_dump_index);
 
 		/* Originated */
-		stream_putl(obuf, time(NULL) - (bgp_clock() - path->uptime));
+		stream_putl(obuf, time(NULL) - (monotime(NULL) - path->uptime));
 
 		/*Path Identifier*/
 		if (addpath_capable) {
@@ -702,7 +702,7 @@ static int bgp_dump_unset(struct bgp_dump *bgp_dump)
 	}
 
 	/* Removing interval event. */
-	thread_cancel(&bgp_dump->t_interval);
+	THREAD_OFF(bgp_dump->t_interval);
 
 	bgp_dump->interval = 0;
 
