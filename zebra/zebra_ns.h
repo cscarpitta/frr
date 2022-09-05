@@ -62,6 +62,8 @@ struct zebra_ns {
 	struct nlsock netlink_dplane_out;
 	struct nlsock netlink_dplane_in;
 	struct thread *t_netlink;
+
+	struct nlsock ge_netlink_cmd; /* command channel for generic netlink */
 #endif
 
 	struct route_table *if_table;
