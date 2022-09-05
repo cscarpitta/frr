@@ -382,11 +382,18 @@ static int zebra_sr_config(struct vty *vty)
 	struct listnode *node;
 	struct srv6_locator *locator;
 	char str[256];
+	char encap_src_addr_str[256];
 
 	vty_out(vty, "!\n");
 	if (zebra_srv6_is_enable()) {
 		vty_out(vty, "segment-routing\n");
 		vty_out(vty, " srv6\n");
+		if (memcmp(&srv6->encap_src_addr, &in6addr_any, sizeof(struct in6_addr))) {
+			vty_out(vty, "  encapsulation\n");
+			inet_ntop(AF_INET6, &srv6->encap_src_addr,
+					encap_src_addr_str, sizeof(encap_src_addr_str));
+			vty_out(vty, "   source-address %s\n", encap_src_addr_str);
+		}
 		vty_out(vty, "  locators\n");
 		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
 			inet_ntop(AF_INET6, &locator->prefix.prefix,
