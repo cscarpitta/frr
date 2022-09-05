@@ -5064,7 +5064,6 @@ dplane_sr_tunsrc_set(const struct in6_addr *addr, ns_id_t ns_id)
 	enum dplane_op_e op = DPLANE_OP_SR_TUNSRC_SET;
 	int ret;
 	struct zebra_ns *zns;
-    char buf[INET6_ADDRSTRLEN];
 
 	if (!addr)
 		return result;
@@ -5662,7 +5661,6 @@ void dplane_provider_enqueue_to_zebra(struct zebra_dplane_ctx *ctx)
 static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 {
 	char buf[PREFIX_STRLEN];
-	char buf1[INET6_ADDRSTRLEN];
 
 	switch (dplane_ctx_get_op(ctx)) {
 
