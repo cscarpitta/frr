@@ -71,6 +71,7 @@ struct seg6local_context {
 	struct in_addr nh4;
 	struct in6_addr nh6;
 	uint32_t table;
+	uint32_t oif;
 };
 
 struct srv6_locator {
