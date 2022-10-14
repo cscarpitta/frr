@@ -430,6 +430,7 @@ DEFPY (install_seg6local_routes,
 	     <End$seg6l_end|\
 	      End_X$seg6l_endx X:X::X:X$seg6l_endx_nh6|\
 	      End_T$seg6l_endt (1-4294967295)$seg6l_endt_table|\
+	      End_DX2$seg6l_enddx2 NAME$seg6l_enddx2_oif|\
 	      End_DX4$seg6l_enddx4 A.B.C.D$seg6l_enddx4_nh4|\
 	      End_DT6$seg6l_enddt6 (1-4294967295)$seg6l_enddt6_table|\
 	      End_DT4$seg6l_enddt4 (1-4294967295)$seg6l_enddt4_table>\
@@ -447,6 +448,8 @@ DEFPY (install_seg6local_routes,
        "V6 Nexthop address to use\n"
        "SRv6 End.T function to use\n"
        "Redirect table id to use\n"
+       "SRv6 End.DX2 function to use\n"
+       "Outgoing interface to use\n"
        "SRv6 End.DX4 function to use\n"
        "V4 Nexthop address to use\n"
        "SRv6 End.DT6 function to use\n"
@@ -493,7 +496,10 @@ DEFPY (install_seg6local_routes,
 		return CMD_WARNING;
 	}
 
-	if (seg6l_enddx4) {
+	if (seg6l_enddx2) {
+		action = ZEBRA_SEG6_LOCAL_ACTION_END_DX2;
+		ctx.oif = ifname2ifindex(seg6l_enddx2_oif, vrf->vrf_id);
+	} else if (seg6l_enddx4) {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_DX4;
 		ctx.nh4 = seg6l_enddx4_nh4;
 	} else if (seg6l_endx) {
