@@ -460,6 +460,9 @@ parse_encap_seg6local(struct rtattr *tb,
 		ctx->table =
 			*(uint32_t *)RTA_DATA(tb_encap[SEG6_LOCAL_VRFTABLE]);
 
+	if (tb_encap[SEG6_LOCAL_OIF])
+		ctx->oif = *(uint32_t *)RTA_DATA(tb_encap[SEG6_LOCAL_OIF]);
+
 	return act;
 }
 
