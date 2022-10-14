@@ -109,6 +109,9 @@ const char *seg6local_context2str(char *str, size_t size,
 		return str;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
+		snprintf(str, size, "oif %u", ctx->oif);
+		return str;
+
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
 	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
