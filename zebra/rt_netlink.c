@@ -1513,6 +1513,15 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 						   ctx->table))
 					return false;
 				break;
+			case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
+				if (!nl_attr_put32(nlmsg, req_size,
+						   SEG6_LOCAL_ACTION,
+						   SEG6_LOCAL_ACTION_END_DX2))
+					return false;
+				if (!nl_attr_put32(nlmsg, req_size,
+						   SEG6_LOCAL_OIF, ctx->oif))
+					return false;
+				break;
 			case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
 				if (!nl_attr_put32(nlmsg, req_size,
 						   SEG6_LOCAL_ACTION,
@@ -2671,6 +2680,18 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						    &req->n, buflen,
 						    SEG6_LOCAL_TABLE,
 						    ctx->table))
+							return 0;
+						break;
+					case SEG6_LOCAL_ACTION_END_DX2:
+						if (!nl_attr_put32(
+							    &req->n, buflen,
+							    SEG6_LOCAL_ACTION,
+							    SEG6_LOCAL_ACTION_END_DX2))
+							return 0;
+						if (!nl_attr_put32(
+							    &req->n, buflen,
+							    SEG6_LOCAL_OIF,
+							    ctx->oif))
 							return 0;
 						break;
 					case SEG6_LOCAL_ACTION_END_DX4:
