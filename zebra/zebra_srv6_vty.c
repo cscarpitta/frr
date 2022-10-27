@@ -374,6 +374,23 @@ DEFPY (locator_prefix,
 	return CMD_SUCCESS;
 }
 
+DEFPY (locator_behavior,
+       locator_behavior_cmd,
+       "[no] behavior usid",
+	   NO_STR
+       "Configure SRv6 behavior\n"
+       "Specify SRv6 behavior uSID\n")
+{
+	VTY_DECLVAR_CONTEXT(srv6_locator, locator);
+
+	if (no)
+		UNSET_FLAG(locator->flags, SRV6_LOCATOR_USID);
+	else
+		SET_FLAG(locator->flags, SRV6_LOCATOR_USID);
+
+	return CMD_SUCCESS;
+}
+
 static int zebra_sr_config(struct vty *vty)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
@@ -404,6 +421,8 @@ static int zebra_sr_config(struct vty *vty)
 			if (locator->argument_bits_length)
 				vty_out(vty, " arg-len %u",
 					locator->argument_bits_length);
+			if (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
+				vty_out(vty, "    behavior usid");
 			vty_out(vty, "\n");
 			vty_out(vty, "   exit\n");
 			vty_out(vty, "   !\n");
@@ -440,6 +459,7 @@ void zebra_srv6_vty_init(void)
 
 	/* Command for configuration */
 	install_element(SRV6_LOC_NODE, &locator_prefix_cmd);
+	install_element(SRV6_LOC_NODE, &locator_behavior_cmd);
 
 	/* Command for operation */
 	install_element(VIEW_NODE, &show_srv6_locator_cmd);
