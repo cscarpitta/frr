@@ -420,6 +420,17 @@ DEFUN_NOSH (srv6_encap,
 	return CMD_SUCCESS;
 }
 
+DEFPY (srv6_src_addr,
+       srv6_src_addr_cmd,
+       "source-address X:X::X:X$encap_src_addr",
+       "Segment Routing SRv6 source address\n"
+       "Specify source address for SRv6 encapsulation\n")
+{
+	zebra_srv6_encap_src_addr_set(&encap_src_addr);
+	dplane_sr_tunsrc_set(&encap_src_addr, NS_DEFAULT);
+	return CMD_SUCCESS;
+}
+
 static int zebra_sr_config(struct vty *vty)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
@@ -492,6 +503,7 @@ void zebra_srv6_vty_init(void)
 	/* Command for configuration */
 	install_element(SRV6_LOC_NODE, &locator_prefix_cmd);
 	install_element(SRV6_LOC_NODE, &locator_behavior_cmd);
+	install_element(SRV6_ENCAP_NODE, &srv6_src_addr_cmd);
 
 	/* Command for operation */
 	install_element(VIEW_NODE, &show_srv6_locator_cmd);
