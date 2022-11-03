@@ -37,6 +37,49 @@
 #include "zebra/kernel_netlink.h"
 
 
+static int16_t seg6_genl_family = -1;
+
+static int netlink_seg6_genl_parse_family(struct nlmsghdr *h, ns_id_t ns_id,
+					  int startup)
+{
+	int len;
+	struct rtattr *tb[CTRL_ATTR_MAX + 1];
+	struct genlmsghdr *ghdr = NLMSG_DATA(h);
+	struct rtattr *attrs;
+
+	if (h->nlmsg_type != GENL_ID_CTRL) {
+		zlog_err(
+			"Not a controller message, nlmsg_len=%d nlmsg_type=0x%x",
+			h->nlmsg_len, h->nlmsg_type);
+		return 0;
+	}
+
+	len = h->nlmsg_len - NLMSG_LENGTH(GENL_HDRLEN);
+	if (len < 0) {
+		zlog_err(
+			"Message received from netlink is of a broken size %d %zu",
+			h->nlmsg_len, (size_t)NLMSG_LENGTH(GENL_HDRLEN));
+		return -1;
+	}
+
+	if (ghdr->cmd != CTRL_CMD_NEWFAMILY) {
+		zlog_err("Unknown controller command %d", ghdr->cmd);
+		return -1;
+	}
+
+	attrs = (struct rtattr *)((char *)ghdr + GENL_HDRLEN);
+	netlink_parse_rtattr(tb, CTRL_ATTR_MAX, attrs, len);
+
+	if (tb[CTRL_ATTR_FAMILY_ID] == NULL) {
+		zlog_err("Missing family id TLV");
+		return -1;
+	}
+
+	seg6_genl_family = *(int16_t *)RTA_DATA(tb[CTRL_ATTR_FAMILY_ID]);
+
+	return 0;
+}
+
 int genl_resolve_family(const char *family, struct zebra_dplane_ctx *ctx)
 {
 	struct zebra_ns *zns;
@@ -63,6 +106,10 @@ int genl_resolve_family(const char *family, struct zebra_dplane_ctx *ctx)
 	if (!nl_attr_put(&req.n, sizeof(req), CTRL_ATTR_FAMILY_NAME, family,
 			 strlen(family) + 1))
 		return 0;
+
+	if (strmatch(family, "SEG6"))
+		return ge_netlink_talk(netlink_seg6_genl_parse_family, &req.n,
+				       zns, false);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug("Unsupported Generic Netlink family");
