@@ -680,6 +680,68 @@ FRR's cli or frr.conf or zebra.conf. This section shows how
 to configure SRv6 on FRR. Of course SRv6 can be used as standalone,
 and this section also helps that case.
 
+.. clicmd:: show segment-routing srv6 [json]
+
+   This command dumps the SRv6 information configured on zebra. The SRv6
+   information includes the encapsulation parameters (e.g., the IPv6 source
+   address used for the encapsulated packets) and the SRv6 locators configured
+   on zebra.
+
+   The following example shows a router with two SRv6 locators ``loc1`` and
+   ``loc2``::
+
+      router# sh segment-routing srv6
+      Encapsulation:
+      Source-Address: fc00:0:1::1
+      Locator:
+      Name                 ID      Prefix                   Status
+      -------------------- ------- ------------------------ -------
+      loc1                       1 fc00:0:1::/48            Up
+      loc2                       2 fc00:0:2::/48            Up
+
+
+   To get the same information in json format, you can use the ``json`` keyword::
+
+      rose-srv6# sh segment-routing srv6 json
+      {
+      "encapsulation":{
+         "sourceAddress":"fc00:0:1::1"
+      },
+      "locators":[
+         {
+            "name":"loc1",
+            "prefix":"fc00:0:1::/48",
+            "blockBitsLength":32,
+            "nodeBitsLength":16,
+            "functionBitsLength":16,
+            "argumentBitsLength":0,
+            "statusUp":true,
+            "chunks":[
+            {
+               "prefix":"fc00:0:1::/48",
+               "proto":"bgp"
+            }
+            ]
+         },
+         {
+            "name":"loc2",
+            "prefix":"fc00:0:2::/48",
+            "blockBitsLength":32,
+            "nodeBitsLength":16,
+            "functionBitsLength":16,
+            "argumentBitsLength":0,
+            "statusUp":true,
+            "chunks":[
+            {
+               "prefix":"fc00:0:2::/64",
+               "proto":"system"
+            }
+            ]
+         }
+      ]
+      }
+
+
 .. clicmd:: show segment-routing srv6 locator [json]
 
    This command dump SRv6-locator configured on zebra.  SRv6-locator is used
