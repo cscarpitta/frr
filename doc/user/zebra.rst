@@ -840,6 +840,10 @@ and this section also helps that case.
       !
    ...
 
+.. clicmd:: encapsulation
+
+   Configure parameters for SRv6 encapsulation.
+
 .. _multicast-rib-commands:
 
 Multicast RIB Commands
