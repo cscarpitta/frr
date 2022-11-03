@@ -1581,6 +1581,7 @@ void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_TC_FILTER_ADD:
 	case DPLANE_OP_TC_FILTER_DELETE:
 	case DPLANE_OP_TC_FILTER_UPDATE:
+	case DPLANE_OP_SR_TUNSRC_SET:
 		break; /* should never hit here */
 	}
 }

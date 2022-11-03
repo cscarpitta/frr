@@ -587,6 +587,9 @@ static struct zebra_dplane_globals {
 	_Atomic uint32_t dg_tcs_in;
 	_Atomic uint32_t dg_tcs_errors;
 
+	_Atomic uint32_t dg_sr_tunsrc_set_in;
+	_Atomic uint32_t dg_sr_tunsrc_set_errors;
+
 	/* Dataplane pthread */
 	struct frr_pthread *dg_pthread;
 
@@ -858,6 +861,7 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 		break;
 	case DPLANE_OP_GRE_SET:
 	case DPLANE_OP_INTF_NETCONFIG:
+	case DPLANE_OP_SR_TUNSRC_SET:
 		break;
 	}
 }
@@ -1179,6 +1183,10 @@ const char *dplane_op2str(enum dplane_op_e op)
 		break;
 	case DPLANE_OP_TC_FILTER_UPDATE:
 		ret = "TC__FILTER_UPDATE";
+		break;
+
+	case DPLANE_OP_SR_TUNSRC_SET:
+		ret = "SR_TUNSRC_SET";
 		break;
 	}
 
@@ -2119,6 +2127,16 @@ const struct prefix *dplane_ctx_get_intf_addr(
 	DPLANE_CTX_VALID(ctx);
 
 	return &(ctx->u.intf.prefix);
+}
+
+
+/* Accessors for SR tunsrc information */
+const struct in6_addr *
+dplane_ctx_get_sr_tunsrc_addr(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return &(ctx->u.sr_tunsrc.addr);
 }
 
 void dplane_ctx_set_intf_addr(struct zebra_dplane_ctx *ctx,
@@ -5383,6 +5401,58 @@ dplane_gre_set(struct interface *ifp, struct interface *ifp_link,
 }
 
 /*
+ * Common helper api for SR TUNSRC set
+ */
+enum zebra_dplane_result dplane_sr_tunsrc_set(const struct in6_addr *addr,
+					      ns_id_t ns_id)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	struct zebra_dplane_ctx *ctx = NULL;
+	enum dplane_op_e op = DPLANE_OP_SR_TUNSRC_SET;
+	int ret;
+	struct zebra_ns *zns;
+
+	if (!addr)
+		return result;
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL) {
+		zlog_debug("init dplane ctx %s: addr %pI6", dplane_op2str(op),
+			   addr);
+	}
+
+	zns = zebra_ns_lookup(ns_id);
+	if (!zns)
+		return result;
+
+	ctx = dplane_ctx_alloc();
+
+	ctx->zd_op = op;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+
+	dplane_ctx_ns_init(ctx, zns, false);
+
+	/* Init the sr-tunsrc-specific data area */
+	memcpy(&ctx->u.sr_tunsrc.addr, addr, sizeof(ctx->u.sr_tunsrc.addr));
+
+	/* Update counter */
+	atomic_fetch_add_explicit(&zdplane_info.dg_sr_tunsrc_set_in, 1,
+				  memory_order_relaxed);
+
+	/* Enqueue context for processing */
+	ret = dplane_update_enqueue(ctx);
+
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		atomic_fetch_add_explicit(&zdplane_info.dg_sr_tunsrc_set_errors,
+					  1, memory_order_relaxed);
+		if (ctx)
+			dplane_ctx_free(&ctx);
+	}
+	return result;
+}
+
+/*
  * Handler for 'show dplane'
  */
 int dplane_show_helper(struct vty *vty, bool detailed)
@@ -6101,6 +6171,12 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_TC_FILTER_DELETE:
 	case DPLANE_OP_TC_FILTER_UPDATE:
 		break;
+
+	case DPLANE_OP_SR_TUNSRC_SET:
+		zlog_debug("Dplane sr tunsrc set op %s, addr %pI6",
+			   dplane_op2str(dplane_ctx_get_op(ctx)),
+			   &ctx->u.sr_tunsrc.addr);
+		break;
 	}
 }
 
@@ -6269,6 +6345,13 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_INTF_ADDR_ADD:
 	case DPLANE_OP_INTF_ADDR_DEL:
 	case DPLANE_OP_INTF_NETCONFIG:
+		break;
+
+	case DPLANE_OP_SR_TUNSRC_SET:
+		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
+			atomic_fetch_add_explicit(
+				&zdplane_info.dg_sr_tunsrc_set_errors, 1,
+				memory_order_relaxed);
 		break;
 
 	case DPLANE_OP_NONE:
