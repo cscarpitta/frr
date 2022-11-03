@@ -386,6 +386,27 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 	return ret;
 }
 
+/* Make socket for Linux generic netlink interface. */
+static int ge_netlink_socket(struct nlsock *nl, ns_id_t ns_id)
+{
+	int sock;
+
+	frr_with_privs (&zserv_privs) {
+		sock = ns_socket(AF_NETLINK, SOCK_RAW, NETLINK_GENERIC, ns_id);
+		if (sock < 0) {
+			zlog_err("Can't open %s socket: %s", nl->name,
+				 safe_strerror(errno));
+			return -1;
+		}
+	}
+
+	nl->sock = sock;
+	nl->buflen = NL_RCV_PKT_BUF_SIZE;
+	nl->buf = XMALLOC(MTYPE_NL_BUF, nl->buflen);
+
+	return 0;
+}
+
 /*
  * Dispatch an incoming netlink message; used by the zebra main pthread's
  * netlink event reader.
@@ -1827,6 +1848,18 @@ void kernel_init(struct zebra_ns *zns)
 
 	kernel_netlink_nlsock_insert(&zns->netlink_dplane_in);
 
+	/* Generic Netlink socket. */
+	snprintf(zns->ge_netlink_cmd.name, sizeof(zns->ge_netlink_cmd.name),
+		 "generic-netlink-cmd (NS %u)", zns->ns_id);
+	zns->ge_netlink_cmd.sock = -1;
+	if (ge_netlink_socket(&zns->ge_netlink_cmd, zns->ns_id) < 0) {
+		zlog_err("Failure to create %s socket",
+			 zns->ge_netlink_cmd.name);
+		exit(-1);
+	}
+
+	kernel_netlink_nlsock_insert(&zns->ge_netlink_cmd);
+
 	/*
 	 * SOL_NETLINK is not available on all platforms yet
 	 * apparently.  It's in bits/socket.h which I am not
@@ -1852,6 +1885,15 @@ void kernel_init(struct zebra_ns *zns)
 	if (ret < 0)
 		zlog_notice("Registration for extended dp ACK failed : %d %s",
 			    errno, safe_strerror(errno));
+
+	one = 1;
+	ret = setsockopt(zns->ge_netlink_cmd.sock, SOL_NETLINK, NETLINK_EXT_ACK,
+			 &one, sizeof(one));
+
+	if (ret < 0)
+		zlog_notice(
+			"Registration for extended generic netlink cmd ACK failed : %d %s",
+			errno, safe_strerror(errno));
 
 	/*
 	 * Trim off the payload of the original netlink message in the
@@ -1885,12 +1927,17 @@ void kernel_init(struct zebra_ns *zns)
 			 zns->netlink_dplane_in.name, safe_strerror(errno),
 			 errno);
 
+	if (fcntl(zns->ge_netlink_cmd.sock, F_SETFL, O_NONBLOCK) < 0)
+		zlog_err("Can't set %s socket error: %s(%d)",
+			 zns->ge_netlink_cmd.name, safe_strerror(errno), errno);
+
 	/* Set receive buffer size if it's set from command line */
 	if (rcvbufsize) {
 		netlink_recvbuf(&zns->netlink, rcvbufsize);
 		netlink_recvbuf(&zns->netlink_cmd, rcvbufsize);
 		netlink_recvbuf(&zns->netlink_dplane_out, rcvbufsize);
 		netlink_recvbuf(&zns->netlink_dplane_in, rcvbufsize);
+		netlink_recvbuf(&zns->ge_netlink_cmd, rcvbufsize);
 	}
 
 	/* Set filter for inbound sockets, to exclude events we've generated
@@ -1938,6 +1985,8 @@ void kernel_terminate(struct zebra_ns *zns, bool complete)
 	 */
 	if (complete)
 		kernel_nlsock_fini(&zns->netlink_dplane_out);
+
+	kernel_nlsock_fini(&zns->ge_netlink_cmd);
 }
 
 /*
