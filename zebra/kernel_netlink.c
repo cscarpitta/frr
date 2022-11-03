@@ -1287,6 +1287,30 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 	return netlink_talk_info(filter, n, &dp_info, startup);
 }
 
+/*
+ * Synchronous version of netlink_talk_info. Converts args to suit the
+ * common version, which is suitable for both sync and async use.
+ */
+int ge_netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
+		    struct nlmsghdr *n, struct zebra_ns *zns, bool startup)
+{
+	struct zebra_dplane_info dp_info;
+
+	/* Increment sequence number before capturing snapshot of ns socket
+	 * info.
+	 */
+	zns->ge_netlink_cmd.seq++;
+
+	/* Capture info in intermediate info struct */
+	dp_info.ns_id = zns->ns_id;
+
+	dp_info.is_cmd = true;
+	dp_info.sock = zns->ge_netlink_cmd.sock;
+	dp_info.seq = zns->ge_netlink_cmd.seq;
+
+	return netlink_talk_info(filter, n, &dp_info, startup);
+}
+
 /* Issue request message to kernel via netlink socket. GET messages
  * are issued through this interface.
  */
