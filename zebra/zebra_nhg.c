@@ -3171,6 +3171,7 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_TC_INSTALL:
 	case DPLANE_OP_TC_UPDATE:
 	case DPLANE_OP_TC_DELETE:
+	case DPLANE_OP_SR_TUNSRC_SET:
 		break;
 	}
 }
