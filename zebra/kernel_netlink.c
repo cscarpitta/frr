@@ -1691,6 +1691,9 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_TC_UPDATE:
 	case DPLANE_OP_TC_DELETE:
 		return netlink_put_tc_update_msg(bth, ctx);
+
+	case DPLANE_OP_SR_TUNSRC_SET:
+		return netlink_put_sr_tunsrc_set_msg(bth, ctx);
 	}
 
 	return FRR_NETLINK_ERROR;
