@@ -83,4 +83,6 @@ extern void srv6_manager_release_locator_chunk_call(struct zserv *client,
 extern int srv6_manager_client_disconnect_cb(struct zserv *client);
 extern int release_daemon_srv6_locator_chunks(struct zserv *client);
 
+extern void zebra_srv6_encap_src_addr_set(struct in6_addr *src_addr);
+
 #endif /* _ZEBRA_SRV6_H */
