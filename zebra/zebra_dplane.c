@@ -347,6 +347,13 @@ struct dplane_tc_filter_info {
 };
 
 /*
+ * SR tunsrc context for the dataplane
+ */
+struct dplane_sr_tunsrc_ctx {
+	struct in6_addr addr;
+};
+
+/*
  * The context block used to exchange info about route updates across
  * the boundary between the zebra main context (and pthread) and the
  * dataplane layer (and pthread).
@@ -407,6 +414,7 @@ struct zebra_dplane_ctx {
 		struct dplane_neigh_table neightable;
 		struct dplane_gre_ctx gre;
 		struct dplane_netconf_info netconf;
+		struct dplane_sr_tunsrc_ctx sr_tunsrc;
 	} u;
 
 	/* Namespace info, used especially for netlink kernel communication */
