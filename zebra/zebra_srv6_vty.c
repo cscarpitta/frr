@@ -76,6 +76,13 @@ static struct cmd_node srv6_loc_node = {
 	.prompt = "%s(config-srv6-locator)# "
 };
 
+static struct cmd_node srv6_encap_node = {
+	.name = "srv6-encap",
+	.node = SRV6_ENCAP_NODE,
+	.parent_node = SRV6_NODE,
+	.prompt = "%s(config-srv6-encap)# "
+};
+
 DEFUN (show_srv6_locator,
        show_srv6_locator_cmd,
        "show segment-routing srv6 locator [json]",
@@ -345,6 +352,15 @@ DEFPY (locator_prefix,
 	return CMD_SUCCESS;
 }
 
+DEFUN_NOSH (srv6_encap,
+            srv6_encap_cmd,
+            "encapsulation",
+            "Segment Routing SRv6 encapsulation\n")
+{
+	vty->node = SRV6_ENCAP_NODE;
+	return CMD_SUCCESS;
+}
+
 static int zebra_sr_config(struct vty *vty)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
@@ -387,16 +403,19 @@ void zebra_srv6_vty_init(void)
 	install_node(&srv6_node);
 	install_node(&srv6_locs_node);
 	install_node(&srv6_loc_node);
+	install_node(&srv6_encap_node);
 	install_default(SEGMENT_ROUTING_NODE);
 	install_default(SRV6_NODE);
 	install_default(SRV6_LOCS_NODE);
 	install_default(SRV6_LOC_NODE);
+	install_default(SRV6_ENCAP_NODE);
 
 	/* Command for change node */
 	install_element(CONFIG_NODE, &segment_routing_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &srv6_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &no_srv6_cmd);
 	install_element(SRV6_NODE, &srv6_locators_cmd);
+	install_element(SRV6_NODE, &srv6_encap_cmd);
 	install_element(SRV6_LOCS_NODE, &srv6_locator_cmd);
 	install_element(SRV6_LOCS_NODE, &no_srv6_locator_cmd);
 
