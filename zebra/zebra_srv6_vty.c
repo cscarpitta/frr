@@ -83,6 +83,63 @@ static struct cmd_node srv6_encap_node = {
 	.prompt = "%s(config-srv6-encap)# "
 };
 
+DEFPY (show_srv6,
+       show_srv6_cmd,
+       "show segment-routing srv6 [json]",
+       SHOW_STR
+       "Segment Routing\n"
+       "Segment Routing SRv6\n"
+       JSON_STR)
+{
+	const bool uj = use_json(argc, argv);
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct srv6_locator *locator;
+	struct listnode *node;
+	int id;
+	json_object *json = NULL;
+	json_object *json_locators = NULL;
+	json_object *json_locator = NULL;
+	json_object *json_encapsulation = NULL;
+
+	if (uj) {
+		json = json_object_new_object();
+		json_locators = json_object_new_array();
+		json_encapsulation = json_object_new_object();
+		json_object_object_add(json, "encapsulation",
+				       json_encapsulation);
+		json_object_object_add(json, "locators", json_locators);
+
+		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
+			json_locator = srv6_locator_json(locator);
+			if (!json_locator)
+				continue;
+			json_object_array_add(json_locators, json_locator);
+		}
+
+		json_object_string_addf(json_encapsulation, "sourceAddress",
+					"%pI6", &srv6->encap_src_addr);
+
+		vty_json(vty, json);
+	} else {
+		vty_out(vty, "Encapsulation:\n");
+		vty_out(vty, "  Source-Address: %pI6\n", &srv6->encap_src_addr);
+		vty_out(vty, "Locator:\n");
+		vty_out(vty, "Name                 ID      Prefix                   Status\n");
+		vty_out(vty, "-------------------- ------- ------------------------ -------\n");
+
+		id = 1;
+		for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
+			vty_out(vty, "%-20s %7d %-24pFX %s\n", locator->name,
+				id, &locator->prefix,
+				locator->status_up ? "Up" : "Down");
+			++id;
+		}
+		vty_out(vty, "\n");
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_srv6_locator,
        show_srv6_locator_cmd,
        "show segment-routing srv6 locator [json]",
@@ -450,4 +507,5 @@ void zebra_srv6_vty_init(void)
 	/* Command for operation */
 	install_element(VIEW_NODE, &show_srv6_locator_cmd);
 	install_element(VIEW_NODE, &show_srv6_locator_detail_cmd);
+	install_element(VIEW_NODE, &show_srv6_cmd);
 }
