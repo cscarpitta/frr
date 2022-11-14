@@ -406,6 +406,29 @@ vrf_id_t vrf_lookup_by_table(uint32_t table_id, ns_id_t ns_id)
 	return VRF_DEFAULT;
 }
 
+static struct zebra_vrf *vrf_lookup_by_table_id(uint32_t table_id)
+{
+	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
+
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+		zvrf = vrf->info;
+		if (zvrf == NULL)
+			continue;
+		/* case vrf with netns : match the netnsid */
+		if (vrf_is_backend_netns()) {
+			return NULL;
+		} else {
+			/* VRF is VRF_BACKEND_VRF_LITE */
+			if (zvrf->table_id != table_id)
+				continue;
+			return zvrf;
+		}
+	}
+
+	return NULL;
+}
+
 /**
  * @parse_encap_mpls() - Parses encapsulated mpls attributes
  * @tb:         Pointer to rtattr to look for nested items in.
@@ -1455,7 +1478,7 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 					    const struct nexthop *nexthop,
 					    struct nlmsghdr *nlmsg,
 					    struct rtmsg *rtmsg,
-					    size_t req_size, int cmd)
+					    size_t req_size, int cmd, bool fpm)
 {
 
 	char label_buf[256];
@@ -1471,7 +1494,7 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 					      sizeof(label_buf)))
 		return false;
 
-	if (nexthop->nh_srv6) {
+	if (!fpm && nexthop->nh_srv6) {
 		if (nexthop->nh_srv6->seg6local_action !=
 		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
 			struct rtattr *nest;
@@ -1579,6 +1602,239 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 				return false;
 			if (!nl_attr_put(nlmsg, req_size, SEG6_IPTUNNEL_SRH,
 					 tun_buf, tun_len))
+				return false;
+			nl_attr_nest_end(nlmsg, nest);
+		}
+	}
+
+	if (fpm && nexthop->nh_srv6) {
+		if (nexthop->nh_srv6->seg6local_action !=
+		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
+			struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+			struct zebra_vrf *zvrf;
+			bool locator_found = false;
+			struct srv6_locator *locator;
+			struct listnode *node;
+			struct rtattr *nest, *inner_nest;
+			const struct seg6local_context *ctx;
+
+			ctx = &nexthop->nh_srv6->seg6local_ctx;
+
+			if (!nl_attr_put16(nlmsg, req_size, RTA_ENCAP_TYPE,
+					   FPM_NH_ENCAP_SRV6_LOCAL_SID))
+				return false;
+
+			for (ALL_LIST_ELEMENTS_RO(srv6->locators, node,
+						  locator)) {
+				if (prefix_match(&locator->prefix, p)) {
+					locator_found = true;
+					break;
+				}
+			}
+
+			nest = nl_attr_nest(nlmsg, req_size, RTA_ENCAP);
+
+			/* Process Local SID format */
+			if (locator_found) {
+				inner_nest =
+					nl_attr_nest(nlmsg, req_size,
+						     FPM_SRV6_LOCALSID_FORMAT);
+
+				if (locator->block_bits_length)
+					if (!nl_attr_put8(
+						    nlmsg, req_size,
+						    FPM_SRV6_LOCALSID_FORMAT_BLOCK_LEN,
+						    locator->block_bits_length))
+						return false;
+
+				if (locator->node_bits_length)
+					if (!nl_attr_put8(
+						    nlmsg, req_size,
+						    FPM_SRV6_LOCALSID_FORMAT_NODE_LEN,
+						    locator->node_bits_length))
+						return false;
+
+				if (locator->function_bits_length)
+					if (!nl_attr_put8(
+						    nlmsg, req_size,
+						    FPM_SRV6_LOCALSID_FORMAT_FUNC_LEN,
+						    locator->function_bits_length))
+						return false;
+
+				if (locator->argument_bits_length)
+					if (!nl_attr_put8(
+						    nlmsg, req_size,
+						    FPM_SRV6_LOCALSID_FORMAT_ARG_LEN,
+						    locator->argument_bits_length))
+						return false;
+
+				nl_attr_nest_end(nlmsg, inner_nest);
+			}
+
+			switch (nexthop->nh_srv6->seg6local_action) {
+			case ZEBRA_SEG6_LOCAL_ACTION_END:
+				if (!nl_attr_put32(
+					    nlmsg, req_size,
+					    FPM_SRV6_LOCALSID_ACTION,
+					    FPM_SRV6_LOCALSID_ACTION_END))
+					return false;
+
+				break;
+			case ZEBRA_SEG6_LOCAL_ACTION_END_X:
+				if (!nl_attr_put32(
+					    nlmsg, req_size,
+					    FPM_SRV6_LOCALSID_ACTION,
+					    FPM_SRV6_LOCALSID_ACTION_END_X))
+					return false;
+
+				if (!nl_attr_put(nlmsg, req_size,
+						 FPM_SRV6_LOCALSID_NH6,
+						 &ctx->nh6,
+						 sizeof(struct in6_addr)))
+					return false;
+				break;
+			case ZEBRA_SEG6_LOCAL_ACTION_END_T:
+				zvrf = vrf_lookup_by_table_id(ctx->table);
+				if (!zvrf)
+					return false;
+
+				if (!nl_attr_put32(
+					    nlmsg, req_size,
+					    FPM_SRV6_LOCALSID_ACTION,
+					    FPM_SRV6_LOCALSID_ACTION_END_T))
+					return false;
+
+				if (!nl_attr_put(nlmsg, req_size,
+						 FPM_SRV6_LOCALSID_VRFNAME,
+						 zvrf->vrf->name,
+						 strlen(zvrf->vrf->name) + 1))
+					return false;
+
+				break;
+			case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
+				if (!nl_attr_put32(
+					    nlmsg, req_size,
+					    FPM_SRV6_LOCALSID_ACTION,
+					    FPM_SRV6_LOCALSID_ACTION_END_DX4))
+					return false;
+
+				if (!nl_attr_put(nlmsg, req_size,
+						 FPM_SRV6_LOCALSID_NH4,
+						 &ctx->nh4,
+						 sizeof(struct in_addr)))
+					return false;
+
+				break;
+			case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
+				zvrf = vrf_lookup_by_table_id(ctx->table);
+				if (!zvrf)
+					return false;
+
+				if (locator_found &&
+				    CHECK_FLAG(locator->flags,
+					       SRV6_LOCATOR_USID)) {
+					if (!nl_attr_put32(
+						    nlmsg, req_size,
+						    FPM_SRV6_LOCALSID_ACTION,
+						    FPM_SRV6_LOCALSID_ACTION_UDT6))
+						return false;
+				} else {
+					if (!nl_attr_put32(
+						    nlmsg, req_size,
+						    FPM_SRV6_LOCALSID_ACTION,
+						    FPM_SRV6_LOCALSID_ACTION_END_DT6))
+						return false;
+				}
+
+				if (!nl_attr_put(nlmsg, req_size,
+						 FPM_SRV6_LOCALSID_VRFNAME,
+						 zvrf->vrf->name,
+						 strlen(zvrf->vrf->name) + 1))
+					return false;
+
+				break;
+			case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
+				zvrf = vrf_lookup_by_table_id(ctx->table);
+				if (!zvrf)
+					return false;
+
+				if (locator_found &&
+				    CHECK_FLAG(locator->flags,
+					       SRV6_LOCATOR_USID)) {
+					if (!nl_attr_put32(
+						    nlmsg, req_size,
+						    FPM_SRV6_LOCALSID_ACTION,
+						    FPM_SRV6_LOCALSID_ACTION_UDT4))
+						return false;
+				} else {
+					if (!nl_attr_put32(
+						    nlmsg, req_size,
+						    FPM_SRV6_LOCALSID_ACTION,
+						    FPM_SRV6_LOCALSID_ACTION_END_DT4))
+						return false;
+				}
+
+				if (!nl_attr_put(nlmsg, req_size,
+						 FPM_SRV6_LOCALSID_VRFNAME,
+						 zvrf->vrf->name,
+						 strlen(zvrf->vrf->name) + 1))
+					return false;
+
+				break;
+			case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
+				zvrf = vrf_lookup_by_table_id(ctx->table);
+				if (!zvrf)
+					return false;
+
+				if (locator_found &&
+				    CHECK_FLAG(locator->flags,
+					       SRV6_LOCATOR_USID)) {
+					if (!nl_attr_put32(
+						    nlmsg, req_size,
+						    FPM_SRV6_LOCALSID_ACTION,
+						    FPM_SRV6_LOCALSID_ACTION_UDT46))
+						return false;
+				} else {
+					if (!nl_attr_put32(
+						    nlmsg, req_size,
+						    FPM_SRV6_LOCALSID_ACTION,
+						    FPM_SRV6_LOCALSID_ACTION_END_DT46))
+						return false;
+				}
+
+				if (!nl_attr_put(nlmsg, req_size,
+						 FPM_SRV6_LOCALSID_VRFNAME,
+						 zvrf->vrf->name,
+						 strlen(zvrf->vrf->name) + 1))
+					return false;
+
+				break;
+			default:
+				zlog_err(
+					"Unsupported seg6local behaviour action=%u",
+					nexthop->nh_srv6->seg6local_action);
+				return false;
+			}
+			nl_attr_nest_end(nlmsg, nest);
+		}
+
+		if (!sid_zero(&nexthop->nh_srv6->seg6_segs)) {
+			struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+			struct rtattr *nest;
+
+			if (!nl_attr_put16(nlmsg, req_size, RTA_ENCAP_TYPE,
+					   FPM_NH_ENCAP_SRV6_ROUTE))
+				return false;
+			nest = nl_attr_nest(nlmsg, req_size, RTA_ENCAP);
+			if (!nest)
+				return false;
+			if (!nl_attr_put(
+				    nlmsg, req_size, SRV6_ROUTE_ENCAP_SRC_ADDR,
+				    &srv6->encap_src_addr, IPV6_MAX_BYTELEN))
+				return false;
+			if (!nl_attr_put(nlmsg, req_size, SRV6_ROUTE_VPN_SID,
+					 &nexthop->nh_srv6->seg6_segs,
+					 IPV6_MAX_BYTELEN))
 				return false;
 			nl_attr_nest_end(nlmsg, nest);
 		}
@@ -1852,7 +2108,7 @@ _netlink_mpls_build_singlepath(const struct prefix *p, const char *routedesc,
 	bytelen = (family == AF_INET ? 4 : 16);
 	return _netlink_route_build_singlepath(p, routedesc, bytelen,
 					       nhlfe->nexthop, nlmsg, rtmsg,
-					       req_size, cmd);
+					       req_size, cmd, false);
 }
 
 
@@ -1968,6 +2224,8 @@ static int netlink_route_nexthop_encap(struct nlmsghdr *n, size_t nlen,
 			return false;
 		nl_attr_nest_end(n, nest);
 		break;
+	default:
+		zlog_err("Unsupported encap type %d", nh->nh_encap_type);
 	}
 
 	return true;
@@ -2217,7 +2475,8 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 
 				if (!_netlink_route_build_singlepath(
 					    p, routedesc, bytelen, nexthop,
-					    &req->n, &req->r, datalen, cmd))
+					    &req->n, &req->r, datalen, cmd,
+					    fpm))
 					return 0;
 				nexthop_num++;
 				break;
