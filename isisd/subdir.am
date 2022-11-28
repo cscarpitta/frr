@@ -80,6 +80,7 @@ LIBISIS_SOURCES = \
 	isisd/isis_spf.c \
 	isisd/isis_sr.c \
 	isisd/isis_flex_algo.c \
+	isisd/isis_srv6.c \
 	isisd/isis_te.c \
 	isisd/isis_tlvs.c \
 	isisd/isis_tx_queue.c \
