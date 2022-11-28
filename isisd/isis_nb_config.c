@@ -3366,6 +3366,40 @@ int isis_instance_flex_algo_priority_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/enabled
+ */
+int isis_instance_segment_routing_srv6_enabled_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	area->srv6db.config.enabled = yang_dnode_get_bool(args->dnode, NULL);
+
+	if (area->srv6db.config.enabled) {
+		if (IS_DEBUG_EVENTS)
+			zlog_debug(
+				"Segment Routing over IPv6 (SRv6): OFF -> ON");
+
+		/* Regenerate LSPs to advertise Segment Routing capabilities. */
+		lsp_regenerate_schedule(area, area->is_type, 0);
+	} else {
+		if (IS_DEBUG_EVENTS)
+			zlog_debug(
+				"Segment Routing over IPv6 (SRv6): ON -> OFF");
+
+		/* Regenerate LSPs to advertise that the Node is no more SRv6
+		 * enable. */
+		lsp_regenerate_schedule(area, area->is_type, 0);
+	}
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/mpls/ldp-sync
  */
 int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args)
