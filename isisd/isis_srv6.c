@@ -42,3 +42,12 @@ void isis_srv6_area_init(struct isis_area *area)
 	/* Initialize SRv6 Data Base */
 	memset(srv6db, 0, sizeof(*srv6db));
 }
+
+/**
+ * Terminate IS-IS SRv6 for the given area.
+ *
+ * @param area	IS-IS area
+ */
+void isis_srv6_area_term(struct isis_area *area)
+{
+}
