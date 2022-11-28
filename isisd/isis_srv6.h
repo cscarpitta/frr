@@ -25,8 +25,10 @@
 #ifndef _FRR_ISIS_SRV6_H
 #define _FRR_ISIS_SRV6_H
 
-/* Per-area IS-IS SRv6 Data Base (SRDB). */
+/* Per-area IS-IS SRv6 Data Base (SRV6DB). */
 struct isis_srv6_db {
 };
+
+extern void isis_srv6_area_init(struct isis_area *area);
 
 #endif /* _FRR_ISIS_SRV6_H */
