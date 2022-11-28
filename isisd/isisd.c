@@ -524,6 +524,7 @@ void isis_area_destroy(struct isis_area *area)
 	isis_area_verify_routes(area);
 
 	isis_sr_area_term(area);
+	isis_srv6_area_term(area);
 
 	isis_mpls_te_term(area);
 
