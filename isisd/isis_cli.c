@@ -1736,6 +1736,20 @@ void cli_show_isis_prefix_sid(struct vty *vty, const struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
+/*
+ * XPath: /frr-isisd:isis/instance/segment-routing-srv6/enabled
+ */
+DEFPY_YANG (isis_srv6_enable,
+       isis_srv6_enable_cmd,
+       "segment-routing srv6",
+       SR_STR
+       "Enable Segment Routing over IPv6 (SRv6)\n")
+{
+	nb_cli_enqueue_change(vty, "./segment-routing-srv6/enabled",
+			      NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
 
 /*
  * XPath: /frr-isisd:isis/instance/fast-reroute/level-{1,2}/lfa/priority-limit
@@ -3202,6 +3216,8 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &isis_frr_lfa_load_sharing_cmd);
 	install_element(ISIS_NODE, &isis_frr_remote_lfa_plist_cmd);
 	install_element(ISIS_NODE, &no_isis_frr_remote_lfa_plist_cmd);
+
+	install_element(ISIS_NODE, &isis_srv6_enable_cmd);
 
 	install_element(INTERFACE_NODE, &isis_passive_cmd);
 
