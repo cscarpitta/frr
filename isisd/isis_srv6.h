@@ -25,6 +25,13 @@
 #ifndef _FRR_ISIS_SRV6_H
 #define _FRR_ISIS_SRV6_H
 
+
+#define SRV6_MAX_SEG_LEFT 10
+#define SRV6_MAX_END_POP 11
+#define SRV6_MAX_H_ENCAPS 12
+#define SRV6_MAX_END_D 13
+
+
 /* Per-area IS-IS SRv6 Data Base (SRV6DB). */
 struct isis_srv6_db {
 
@@ -32,6 +39,18 @@ struct isis_srv6_db {
 	struct {
 		/* Administrative status of SRv6 */
 		bool enabled;
+
+		/* Maximum Segments Left Depth supported by the node. */
+		uint8_t max_seg_left_msd;
+
+		/* Maximum Maximum End Pop Depth supported by the node. */
+		uint8_t max_end_pop_msd;
+
+		/* Maximum H.Encaps supported by the node. */
+		uint8_t max_h_encaps_msd;
+
+		/* Maximum End D MSD supported by the node. */
+		uint8_t max_end_d_msd;
 	} config;
 };
 
