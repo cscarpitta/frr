@@ -134,6 +134,9 @@ void isis_srv6_area_init(struct isis_area *area)
 	srv6db->config.max_end_pop_msd = SRV6_MAX_END_POP;
 	srv6db->config.max_h_encaps_msd = SRV6_MAX_H_ENCAPS;
 	srv6db->config.max_end_d_msd = SRV6_MAX_END_D;
+
+
+	area->srv6db.enabled = true; // TODO: temporary; to be moved
 }
 
 /**
