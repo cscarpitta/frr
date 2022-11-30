@@ -33,6 +33,8 @@
 
 /* Per-area IS-IS SRv6 Data Base (SRv6 DB) */
 struct isis_srv6_db {
+	/* Global Operational status of SRv6 */
+	bool enabled;
 
 	/* Area SRv6 configuration. */
 	struct {
