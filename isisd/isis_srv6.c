@@ -54,3 +54,10 @@ void isis_srv6_area_init(struct isis_area *area)
 void isis_srv6_area_term(struct isis_area *area)
 {
 }
+
+/**
+ * IS-IS SRv6 global initialization.
+ */
+void isis_srv6_init(void)
+{
+}
