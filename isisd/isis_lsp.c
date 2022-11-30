@@ -1110,6 +1110,34 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			cap.algo[1] = SR_ALGORITHM_UNSET;
 		}
 
+		/* Add SRv6 Sub-TLVs if SRv6 is enabled. */
+		if (area->srv6db.config.enabled) {
+			struct isis_srv6_db *srv6db = &area->srv6db;
+
+			cap.srv6.enabled = true; // TODO: verificare
+
+			/* SRv6 flags */
+			cap.srv6.flags =
+				ISIS_SUBTLV_SRV6_FLAG_O; // TODO: verificare
+
+			/* Then Algorithm */
+			cap.algo[0] = SR_ALGORITHM_SPF;
+			cap.algo[1] = SR_ALGORITHM_UNSET;
+
+			/* And finally MSDs */
+			cap.srv6.max_seg_left_msd =
+				srv6db->config.max_seg_left_msd;
+			cap.srv6.max_end_pop_msd =
+				srv6db->config.max_end_pop_msd;
+			cap.srv6.max_h_encaps_msd =
+				srv6db->config.max_h_encaps_msd;
+			cap.srv6.max_end_d_msd = srv6db->config.max_end_d_msd;
+		} else {
+			/* Disable SR Algorithm */
+			cap.algo[0] = SR_ALGORITHM_UNSET; // FIXME: fix
+			cap.algo[1] = SR_ALGORITHM_UNSET;
+		}
+
 		isis_tlvs_set_router_capability(lsp->tlvs, &cap);
 		lsp_debug("ISIS (%s): Adding Router Capabilities information",
 			  area->area_tag);
