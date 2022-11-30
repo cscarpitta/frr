@@ -394,7 +394,18 @@ enum isis_tlv_type {
 	ISIS_SUBTLV_AVA_BW = 38,
 	ISIS_SUBTLV_USE_BW = 39,
 
-	ISIS_SUBTLV_MAX = 40
+	ISIS_SUBTLV_MAX = 40,
+
+	/* draft-ietf-lsr-isis-srv6-extensions section #2 */
+	ISIS_SUBTLV_SRV6_CAPABILITIES = 25,
+	/* draft-ietf-lsr-isis-srv6-extensions section #4.1 */
+	ISIS_SUBTLV_SRV6_MAX_SL_MSD = 41,
+	/* draft-ietf-lsr-isis-srv6-extensions section #4.2 */
+	ISIS_SUBTLV_SRV6_MAX_END_POP_MSD = 42,
+	/* draft-ietf-lsr-isis-srv6-extensions section #4.3 */
+	ISIS_SUBTLV_SRV6_MAX_H_ENCAPS_MSD = 44,
+	/* draft-ietf-lsr-isis-srv6-extensions section #4.4 */
+	ISIS_SUBTLV_SRV6_MAX_END_D_MSD = 45,
 };
 
 /* subTLVs size for TE and SR */
@@ -428,7 +439,10 @@ enum ext_subtlv_size {
 	/* RFC 7308 */
 	ISIS_SUBTLV_EXT_ADMIN_GRP = 14,
 
-	ISIS_SUBTLV_MAX_SIZE = 180
+	ISIS_SUBTLV_MAX_SIZE = 180,
+
+	/* draft-ietf-lsr-isis-srv6-extensions section #2 */
+	ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE = 2,
 };
 
 /* Macros to manage the optional presence of EXT subTLVs */
