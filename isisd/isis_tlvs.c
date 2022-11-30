@@ -4371,6 +4371,16 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 		stream_putc(s, ISIS_SUBTLV_SRV6_CAPABILITIES);
 		stream_putc(s, ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE);
 		stream_putw(s, router_cap->srv6_cap.flags);
+
+		/* Then add SR Algorithm if set as per RFC 9352 section #3 */
+		nb_algo = isis_tlvs_sr_algo_count(router_cap);
+		if (nb_algo > 0) {
+			stream_putc(s, ISIS_SUBTLV_ALGORITHM);
+			stream_putc(s, nb_algo);
+			for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+				if (router_cap->algo[i] != SR_ALGORITHM_UNSET)
+					stream_putc(s, router_cap->algo[i]);
+		}
 	}
 
 	/* Adjust TLV length which depends on subTLVs presence */
