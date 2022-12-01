@@ -240,6 +240,16 @@ struct isis_router_cap {
 	struct isis_srv6_info srv6;
 };
 
+/* draft-ietf-lsr-isis-srv6-extensions section 4 */
+struct isis_srv6_locator {
+	uint32_t metric;
+	uint8_t flags;
+	uint8_t algorithm;
+	struct prefix_ipv6 locator;
+};
+
+#define ISIS_SRV6_LOCATOR_HDR_SIZE 2
+
 struct isis_item {
 	struct isis_item *next;
 };
@@ -340,6 +350,7 @@ struct isis_tlvs {
 	struct isis_threeway_adj *threeway_adj;
 	struct isis_router_cap *router_cap;
 	struct isis_spine_leaf *spine_leaf;
+	struct isis_srv6_locator *srv6_locator;
 };
 
 enum isis_tlv_context {
@@ -369,6 +380,8 @@ enum isis_tlv_type {
 	ISIS_TLV_AUTH = 10,
 	ISIS_TLV_PURGE_ORIGINATOR = 13,
 	ISIS_TLV_EXTENDED_REACH = 22,
+
+	ISIS_TLV_SRV6_LOCATOR = 27,
 
 	ISIS_TLV_OLDSTYLE_IP_REACH = 128,
 	ISIS_TLV_PROTOCOLS_SUPPORTED = 129,
@@ -667,4 +680,7 @@ isis_tlvs_lookup_mt_router_info(struct isis_tlvs *tlvs, uint16_t mtid);
 void isis_tlvs_set_purge_originator(struct isis_tlvs *tlvs,
 				    const uint8_t *generator,
 				    const uint8_t *sender);
+
+void isis_tlvs_set_srv6_locator(struct isis_tlvs *tlvs,
+				     const struct isis_srv6_locator *locator);
 #endif

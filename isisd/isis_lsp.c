@@ -1143,6 +1143,26 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			  area->area_tag);
 	}
 
+	/* Add SRv6 Locator TLV. */
+	if (!list_isempty(area->srv6db.srv6_locator_chunks)) {
+		struct isis_srv6_locator locator = {};
+		struct srv6_locator_chunk *chunk;
+
+		/* TODO: support more than one locator */
+		chunk = (struct srv6_locator_chunk *) listgetdata(listhead(area->srv6db.srv6_locator_chunks));
+
+		zlog_debug("\n\n\n**** %pFX", &chunk->prefix);
+
+		locator.metric = 1111;
+		locator.locator = chunk->prefix;
+		locator.flags = 0;
+		locator.algorithm = 0;
+
+		isis_tlvs_set_srv6_locator(lsp->tlvs, &locator);
+		lsp_debug("ISIS (%s): Adding SRv6 Locator information",
+			  area->area_tag);
+	}
+
 	/* IPv4 address and TE router ID TLVs.
 	 * In case of the first one we don't follow "C" vendor,
 	 * but "J" vendor behavior - one IPv4 address is put
