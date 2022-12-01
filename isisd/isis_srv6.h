@@ -36,10 +36,19 @@ struct isis_srv6_db {
 	/* Global Operational status of SRv6 */
 	bool enabled;
 
+	/* List of SRv6 Locator chunks */
+	struct list *srv6_locator_chunks;
+
+	/* List of SRv6 SIDs allocated by the IS-IS instance */
+	struct list *srv6_sids;
+
 	/* Area SRv6 configuration. */
 	struct {
 		/* Administrative status of SRv6 */
 		bool enabled;
+
+		/* Name of the SRv6 Locator */
+		char srv6_locator_name[SRV6_LOCNAME_SIZE];
 
 		/* Maximum Segments Left Depth supported by the router */
 		uint8_t max_seg_left_msd;
