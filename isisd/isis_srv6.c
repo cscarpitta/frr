@@ -24,6 +24,7 @@
 
 #include <zebra.h>
 
+#include "srv6.h"
 #include "termtable.h"
 
 #include "isisd/isisd.h"
@@ -133,6 +134,12 @@ void isis_srv6_area_init(struct isis_area *area)
 	srv6db->config.max_h_encaps_msd = SRV6_MAX_H_ENCAPS;
 	srv6db->config.max_end_d_msd = SRV6_MAX_END_D;
 
+	/* Initialize SRv6 Locator chunks list */
+	srv6db->srv6_locator_chunks = list_new();
+
+	/* Initialize SRv6 SIDs list */
+	srv6db->srv6_sids = list_new();
+
 
 	area->srv6db.enabled = true; // TODO: temporary; to be moved
 }
@@ -144,6 +151,13 @@ void isis_srv6_area_init(struct isis_area *area)
  */
 void isis_srv6_area_term(struct isis_area *area)
 {
+	struct isis_srv6_db *srv6db = &area->srv6db;
+
+	/* Free SRv6 Locator chunks list */
+	list_delete(&srv6db->srv6_locator_chunks);
+
+	/* Free SRv6 SIDs list */
+	list_delete(&srv6db->srv6_sids);
 }
 
 /**
