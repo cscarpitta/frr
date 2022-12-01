@@ -828,6 +828,50 @@ static int isis_zebra_client_close_notify(ZAPI_CALLBACK_ARGS)
 	return ret;
 }
 
+static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
+{
+	struct stream *s = NULL;
+	struct listnode *node;
+	struct isis_area *area;
+	// struct srv6_locator_chunk *c;
+	struct srv6_locator_chunk *chunk = srv6_locator_chunk_alloc();
+	struct isis *isis = NULL;
+	bool used = false;
+
+	isis = isis_lookup_by_vrfid(vrf_id);
+	if (!isis)
+		return -1;
+
+	s = zclient->ibuf;
+	zapi_srv6_locator_chunk_decode(s, chunk);
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+		if (!strmatch(area->srv6db.config.srv6_locator_name,
+			      chunk->locator_name))
+			continue;
+
+		// for (ALL_LIST_ELEMENTS_RO(area->srv6db.srv6_locator_chunks,
+		// node, c)) {  // TODO: implementare questo check 	if
+		// (!prefix_cmp(&c->prefix, &chunk->prefix)) {
+		// 		srv6_locator_chunk_free(&chunk);
+		// 		return 0;
+		// 	}
+		// }
+
+		listnode_add(area->srv6db.srv6_locator_chunks, chunk);
+		used = true;
+
+		// if (listcount(area->area_addrs) > 0)
+		// 	lsp_regenerate_schedule(area, area->is_type, 0);  //
+		// TODO: verify advertise locator
+	}
+
+	if (!used)
+		srv6_locator_chunk_free(&chunk);
+
+	return 0;
+}
+
 int isis_zebra_srv6_manager_get_locator_chunk(const char *name)
 {
 	return srv6_manager_get_locator_chunk(zclient, name);
@@ -849,6 +893,9 @@ static zclient_handler *const isis_handlers[] = {
 	[ZEBRA_OPAQUE_MESSAGE] = isis_opaque_msg_handler,
 
 	[ZEBRA_CLIENT_CLOSE_NOTIFY] = isis_zebra_client_close_notify,
+
+	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] =
+		isis_zebra_process_srv6_locator_chunk,
 };
 
 void isis_zebra_init(struct thread_master *master, int instance)
