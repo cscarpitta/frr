@@ -153,6 +153,8 @@ void isis_srv6_area_term(struct isis_area *area)
 {
 	struct isis_srv6_db *srv6db = &area->srv6db;
 
+	sr_debug("ISIS-SRv6 (%s): Terminate SRv6", area->area_tag);
+
 	/* Free SRv6 Locator chunks list */
 	list_delete(&srv6db->srv6_locator_chunks);
 
