@@ -828,6 +828,46 @@ static int isis_zebra_client_close_notify(ZAPI_CALLBACK_ARGS)
 	return ret;
 }
 
+/**
+ * Install SRv6 End SID in the forwarding plane through Zebra.
+ *
+ * @param area		IS-IS area
+ * @param sid		End SID
+ */
+void isis_zebra_end_sid_install(struct isis_area *area,
+				   struct in6_addr *sid)
+{
+	struct seg6local_context ctx = {};
+
+	if (!area || !sid)
+		return;
+
+	sr_debug("ISIS-SRv6 (%s): setting End SID %pI6",
+		 area->area_tag, sid);
+
+	zclient_send_localsid(zclient, sid, 2, ZEBRA_SEG6_LOCAL_ACTION_END, &ctx);
+}
+
+/**
+ * Uninstall SRv6 End SID from the forwarding plane through Zebra.
+ *
+ * @param area		IS-IS area
+ * @param sid		End SID
+ */
+void isis_zebra_end_sid_uninstall(struct isis_area *area,
+				   struct in6_addr *sid)
+{
+	struct seg6local_context ctx = {};
+
+	if (!area || !sid)
+		return;
+
+	sr_debug("ISIS-SRv6 (%s): delete End SID %pI6",
+		 area->area_tag, sid);
+
+	zclient_send_localsid(zclient, sid, 2, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, &ctx);
+}
+
 static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s = NULL;
@@ -837,6 +877,7 @@ static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	struct srv6_locator_chunk *chunk = srv6_locator_chunk_alloc();
 	struct isis *isis = NULL;
 	bool used = false;
+	struct in6_addr *sid;
 
 	isis = isis_lookup_by_vrfid(vrf_id);
 	if (!isis)
@@ -879,6 +920,20 @@ static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 		// if (listcount(area->area_addrs) > 0)
 		// 	lsp_regenerate_schedule(area, area->is_type, 0);  //
 		// TODO: verify advertise locator
+
+
+		/* TODO: allocare unico sid per tutte le aree o un sid per ogni area? */
+
+		/* Allocate new SRv6 End SID */
+		sid = srv6_sid_alloc(area, 0, chunk);
+		if (!sid)
+			return -1;
+
+		/* Install the new SRv6 End SID in the forwarding plane through Zebra */
+		isis_zebra_end_sid_install(area, sid);
+
+		/* Store the SID */
+		listnode_add(area->srv6db.srv6_sids, sid);
 	}
 
 	if (!used) {
