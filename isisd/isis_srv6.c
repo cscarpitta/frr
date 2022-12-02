@@ -30,6 +30,179 @@
 #include "isisd/isisd.h"
 #include "isisd/isis_misc.h"
 #include "isisd/isis_srv6.h"
+#include "isisd/isis_zebra.h"
+
+
+/* Local variables and functions */
+DEFINE_MTYPE_STATIC(ISISD, ISIS_SRV6_SID, "ISIS segment routing information");
+
+
+/* Unset SRv6 locator */
+int isis_srv6_locator_unset(struct isis_area *area)
+{
+	int ret;
+	struct listnode *node, *nnode;
+	struct srv6_locator_chunk *chunk;
+	struct in6_addr *sid;
+
+	if (strmatch(area->srv6db.config.srv6_locator_name, "")) {
+		zlog_err("BUG: locator name not set (isis_srv6_locator_unset)");
+		return -1;
+	}
+
+	/* Release chunk notification via ZAPI */
+	ret = isis_zebra_srv6_manager_release_locator_chunk(
+			area->srv6db.config.srv6_locator_name);
+	if (ret < 0)
+		return -1;
+
+	/* Delete chunks */
+	for (ALL_LIST_ELEMENTS(area->srv6db.srv6_locator_chunks, node, nnode, chunk)) {
+
+		if (IS_DEBUG_SR)
+			zlog_debug(
+				"Deleting SRv6 Locator chunk (locator %s, prefix %pFX) from IS-IS area %s",
+				area->srv6db.config.srv6_locator_name, &chunk->prefix, area->area_tag);
+
+		if (IS_DEBUG_SR)
+			zlog_debug(
+				"Releasing chunk of locator %s for IS-IS area %s", area->srv6db.config.srv6_locator_name, area->area_tag);
+
+		listnode_delete(area->srv6db.srv6_locator_chunks, chunk);
+		srv6_locator_chunk_free(&chunk);
+	}
+
+	/* Delete SRv6 SIDs */
+	for (ALL_LIST_ELEMENTS(area->srv6db.srv6_sids, node, nnode, sid)) {
+
+		if (IS_DEBUG_SR)
+			zlog_debug(
+				"Deleting SRv6 SID (locator %s, sid %pI6) from IS-IS area %s",
+				area->srv6db.config.srv6_locator_name, &sid, area->area_tag);
+
+		/* Uninstall the SRv6 SID from the forwarding plane through Zebra */
+		isis_zebra_end_sid_uninstall(area, sid);
+
+		listnode_delete(area->srv6db.srv6_sids, sid);
+		XFREE(MTYPE_ISIS_SRV6_SID, sid);
+	}
+
+	/* Clear locator name */
+	memset(area->srv6db.config.srv6_locator_name, 0, sizeof(area->srv6db.config.srv6_locator_name));
+
+	return 0;
+}
+
+
+/**
+ * Transpose SID.
+ * 
+ * @param sid 
+ * @param label 
+ * @param offset 
+ * @param len 
+ */
+static void transpose_sid(struct in6_addr *sid, uint32_t index, uint8_t offset,
+		   uint8_t len)
+{
+	for (uint8_t idx = 0; idx < len; idx++) {
+		uint8_t tidx = offset + idx;
+		sid->s6_addr[tidx / 8] &= ~(0x1 << (7 - tidx % 8));
+		if (index >> (len - 1 - idx) & 0x1)
+			sid->s6_addr[tidx / 8] |= 0x1 << (7 - tidx % 8);
+	}
+}
+
+static bool sid_exist(struct isis_area *area, const struct in6_addr *sid)
+{
+	struct listnode *node;
+	struct in6_addr *s;
+
+	for (ALL_LIST_ELEMENTS_RO(area->srv6db.srv6_sids, node, s))
+		if (sid_same(s, sid))
+			return true;
+	return false;
+}
+
+
+/**
+ * Allocate an SRv6 SID from an SRv6 locator.
+ * 
+ */
+
+/*
+ * This function generates a new SID based on bgp->srv6_locator_chunks and  TODO:fix desc
+ * index. The locator and generated SID are stored in arguments sid_locator
+ * and sid, respectively.
+ *
+ * if index != 0: try to allocate as index-mode
+ * else: try to allocate as auto-mode
+ */
+struct in6_addr * srv6_sid_alloc(struct isis_area *area, uint32_t index,
+			      struct srv6_locator_chunk *srv6_locator_chunk)
+{
+	// int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
+	// struct listnode *node;
+	// struct srv6_locator_chunk *chunk;
+	// bool alloced = false;
+	// int label = 0;
+	// uint8_t offset = 0;
+	// uint8_t func_len = 0, shift_len = 0;
+	// uint32_t index_max = 0;
+
+	struct in6_addr *sid = NULL;
+	uint8_t offset = 0;
+	uint8_t func_len = 0;
+	uint32_t index_max;
+	bool alloced = false;
+
+	offset = srv6_locator_chunk->block_bits_length + srv6_locator_chunk->node_bits_length;
+	func_len = srv6_locator_chunk->function_bits_length;
+
+	if (!area || !srv6_locator_chunk)
+		return false;
+
+	sid = XCALLOC(MTYPE_ISIS_SRV6_SID, sizeof(struct in6_addr));
+
+	*sid = srv6_locator_chunk->prefix.prefix;
+
+	if (index != 0) {
+		transpose_sid(sid, index, offset, func_len);
+		if (sid_exist(area, sid)) {
+			sr_debug("ISIS-SRv6 (%s): SID %pI6 already in use",
+				area->area_tag, sid);
+			return NULL;
+		}
+	} else {
+		index_max = (1 << srv6_locator_chunk->function_bits_length) - 1;
+		for (uint32_t i = 1; i < index_max; i++) {
+			transpose_sid(sid, i, offset, func_len);
+			if (sid_exist(area, sid))
+				continue;
+			alloced = true;
+			break;
+		}
+	}
+
+	if (!alloced) {
+		sr_debug("ISIS-SRv6 (%s): no SIDs available in locator",
+			area->area_tag);
+		return NULL;
+	}
+
+	// transpose_sid(sid, index, offset, func_len);
+
+	sr_debug("ISIS-SRv6 (%s): allocating new SID %pI6",
+		 area->area_tag, sid);
+
+	return sid;
+}
+
+// TODO: add desc
+void srv6_sid_free(struct in6_addr **sid)
+{
+	XFREE(MTYPE_ISIS_SRV6_SID, *sid);
+}
 
 /**
  * Show Segment Routing over IPv6 (SRv6) Node.
