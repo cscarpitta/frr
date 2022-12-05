@@ -90,6 +90,9 @@ int isis_srv6_locator_unset(struct isis_area *area)
 	/* Clear locator name */
 	memset(area->srv6db.config.srv6_locator_name, 0, sizeof(area->srv6db.config.srv6_locator_name));
 
+	/* Regenerate LSPs to advertise that the locator does not exist anymore */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
 	return 0;
 }
 
