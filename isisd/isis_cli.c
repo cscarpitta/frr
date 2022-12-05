@@ -1756,6 +1756,13 @@ DEFPY (isis_srv6_locator,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+void cli_show_isis_srv6_locator(struct vty *vty, const struct lyd_node *dnode,
+				bool show_defaults)
+{
+	vty_out(vty, "  locator %s\n",
+		yang_dnode_get_string(dnode, NULL));
+}
+
 /*
  * XPath: /frr-isisd:isis/instance/segment-routing-srv6/enabled
  */
