@@ -955,6 +955,9 @@ static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 
 		/* Store the SID */
 		listnode_add(area->srv6db.srv6_sids, sid);
+
+		/* Regenerate LSPs to advertise the new locator */
+		lsp_regenerate_schedule(area, area->is_type, 0);
 	}
 
 	if (!used) {
