@@ -2442,10 +2442,16 @@ int isis_instance_segment_routing_srv6_enabled_modify(
 		if (IS_DEBUG_EVENTS)
 			zlog_debug(
 				"Segment Routing over IPv6 (SRv6): OFF -> ON");
+
+		/* Regenerate LSPs to advertise Segment Routing capabilities. */
+		lsp_regenerate_schedule(area, area->is_type, 0);
 	} else {
 		if (IS_DEBUG_EVENTS)
 			zlog_debug(
 				"Segment Routing over IPv6 (SRv6): ON -> OFF");
+
+		/* Regenerate LSPs to advertise that the Node is no more SRv6 enable. */
+		lsp_regenerate_schedule(area, area->is_type, 0);
 	}
 
 	return NB_OK;
