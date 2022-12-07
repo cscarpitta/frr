@@ -141,8 +141,8 @@ static bool sid_exist(struct isis_area *area, const struct in6_addr *sid)
  * if index != 0: try to allocate as index-mode
  * else: try to allocate as auto-mode
  */
-struct in6_addr * srv6_sid_alloc(struct isis_area *area, uint32_t index,
-			      struct srv6_locator_chunk *srv6_locator_chunk)
+struct srv6_sid * srv6_sid_alloc(struct isis_area *area, uint32_t index,
+			      struct srv6_locator_chunk *srv6_locator_chunk, enum seg6local_action_t behavior)
 {
 	// int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
 	// struct listnode *node;
@@ -153,7 +153,7 @@ struct in6_addr * srv6_sid_alloc(struct isis_area *area, uint32_t index,
 	// uint8_t func_len = 0, shift_len = 0;
 	// uint32_t index_max = 0;
 
-	struct in6_addr *sid = NULL;
+	struct srv6_sid *sid = NULL;
 	uint8_t offset = 0;
 	uint8_t func_len = 0;
 	uint32_t index_max;
@@ -165,12 +165,15 @@ struct in6_addr * srv6_sid_alloc(struct isis_area *area, uint32_t index,
 	if (!area || !srv6_locator_chunk)
 		return false;
 
-	sid = XCALLOC(MTYPE_ISIS_SRV6_SID, sizeof(struct in6_addr));
+	sid = XCALLOC(MTYPE_ISIS_SRV6_SID, sizeof(struct srv6_sid));
 
-	*sid = srv6_locator_chunk->prefix.prefix;
+	sid->val = srv6_locator_chunk->prefix.prefix;
+	sid->behavior = behavior;
+	sid->locator = srv6_locator_chunk;
+
 
 	if (index != 0) {
-		transpose_sid(sid, index, offset, func_len);
+		transpose_sid(&sid->val, index, offset, func_len);
 		if (sid_exist(area, sid)) {
 			sr_debug("ISIS-SRv6 (%s): SID %pI6 already in use",
 				area->area_tag, sid);
@@ -179,7 +182,7 @@ struct in6_addr * srv6_sid_alloc(struct isis_area *area, uint32_t index,
 	} else {
 		index_max = (1 << srv6_locator_chunk->function_bits_length) - 1;
 		for (uint32_t i = 1; i < index_max; i++) {
-			transpose_sid(sid, i, offset, func_len);
+			transpose_sid(&sid->val, i, offset, func_len);
 			if (sid_exist(area, sid))
 				continue;
 			alloced = true;

@@ -1132,6 +1132,12 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			cap.srv6.max_h_encaps_msd =
 				srv6db->config.max_h_encaps_msd;
 			cap.srv6.max_end_d_msd = srv6db->config.max_end_d_msd;
+
+			struct listnode *sid_node;
+			struct srv6_sid *sid;
+			for (ALL_LIST_ELEMENTS_RO(area->srv6db.srv6_sids, sid_node, sid)) {
+				listnode_add(cap.srv6.locator.srv6_sids, sid);  /*TODO: init list */
+			}
 		} else {
 			/* Disable SR Algorithm */
 			cap.algo[0] = SR_ALGORITHM_UNSET; // FIXME: fix
