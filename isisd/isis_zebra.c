@@ -835,9 +835,10 @@ static int isis_zebra_client_close_notify(ZAPI_CALLBACK_ARGS)
  * @param sid		End SID
  */
 void isis_zebra_end_sid_install(struct isis_area *area,
-				   struct in6_addr *sid)
+				   struct srv6_sid *sid)
 {
 	struct seg6local_context ctx = {};
+	struct interface *ifp;
 
 	if (!area || !sid)
 		return;
@@ -845,7 +846,17 @@ void isis_zebra_end_sid_install(struct isis_area *area,
 	sr_debug("ISIS-SRv6 (%s): setting End SID %pI6",
 		 area->area_tag, sid);
 
-	zclient_send_localsid(zclient, sid, 2, ZEBRA_SEG6_LOCAL_ACTION_END, &ctx);
+	ifp = if_lookup_by_name("lo", VRF_DEFAULT);
+	if (!ifp) {
+		zlog_warn(
+			"Couldn't install End SRv6 SID %pI6: loopback interface not found",
+			sid->val);
+		return;
+	}
+
+	/* TODO: implement seg6local context */
+
+	zclient_send_localsid(zclient, &sid->val, ifp->ifindex, sid->behavior, &ctx);
 }
 
 /**
@@ -877,7 +888,7 @@ static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	struct srv6_locator_chunk *chunk = srv6_locator_chunk_alloc();
 	struct isis *isis = NULL;
 	bool used = false;
-	struct in6_addr *sid;
+	struct srv6_sid *sid;
 
 	isis = isis_lookup_by_vrfid(vrf_id);
 	if (!isis)
@@ -925,7 +936,7 @@ static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 		/* TODO: allocare unico sid per tutte le aree o un sid per ogni area? */
 
 		/* Allocate new SRv6 End SID */
-		sid = srv6_sid_alloc(area, 0, chunk);
+		sid = srv6_sid_alloc(area, 0, chunk, ZEBRA_SEG6_LOCAL_ACTION_END);
 		if (!sid)
 			return -1;
 

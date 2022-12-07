@@ -28,6 +28,8 @@
 #include "openbsd-tree.h"
 #include "prefix.h"
 
+#include <lib/srv6.h>
+
 DECLARE_MTYPE(ISIS_SUBTLV);
 
 struct lspdb_head;
@@ -206,6 +208,33 @@ struct isis_lan_adj_sid {
 #define MSD_TYPE_BASE_MPLS_IMPOSITION  0x01
 #define MSD_TLV_SIZE            2
 
+
+
+/* SRv6 SID structure */
+struct isis_sid_structure {
+	uint8_t loc_block_len;
+	uint8_t loc_node_len;
+	uint8_t func_len;
+	uint8_t arg_len;
+};
+
+/* SRv6 SID */
+struct isis_srv6_sid {
+	enum seg6local_action_t behavior;
+	struct in6_addr val;
+	struct isis_sid_structure structure;
+};
+
+/* draft-ietf-lsr-isis-srv6-extensions section 4 */
+struct isis_srv6_locator {
+	uint32_t metric;
+	uint8_t flags;
+	uint8_t algorithm;
+	struct prefix_ipv6 locator;
+
+	struct list *srv6_sids;
+};
+
 /* Structure aggregating SRv6 info */
 struct isis_srv6_info {
 	bool enabled; // TODO: change name
@@ -223,6 +252,8 @@ struct isis_srv6_info {
 	uint8_t max_h_encaps_msd;
 	/* draft-ietf-lsr-isis-srv6-extensions section #4.4 */
 	uint8_t max_end_d_msd;
+
+	struct isis_srv6_locator locator;
 };
 
 struct isis_router_cap {
@@ -238,14 +269,6 @@ struct isis_router_cap {
 
 	/* draft-ietf-lsr-isis-srv6-extensions section #2 */
 	struct isis_srv6_info srv6;
-};
-
-/* draft-ietf-lsr-isis-srv6-extensions section 4 */
-struct isis_srv6_locator {
-	uint32_t metric;
-	uint8_t flags;
-	uint8_t algorithm;
-	struct prefix_ipv6 locator;
 };
 
 #define ISIS_SRV6_LOCATOR_HDR_SIZE 2
@@ -457,6 +480,10 @@ enum isis_tlv_type {
 	ISIS_SUBTLV_SRV6_MAX_H_ENCAPS_MSD = 44,
 	/* draft-ietf-lsr-isis-srv6-extensions section #4.4 */
 	ISIS_SUBTLV_SRV6_MAX_END_D_MSD = 45,
+
+	ISIS_SUBTLV_SRV6_END_SID = 5,
+
+	ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE = 1,
 };
 
 /* subTLVs size for TE and SR */
