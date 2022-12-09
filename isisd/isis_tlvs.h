@@ -252,8 +252,6 @@ struct isis_srv6_info {
 	uint8_t max_h_encaps_msd;
 	/* draft-ietf-lsr-isis-srv6-extensions section #4.4 */
 	uint8_t max_end_d_msd;
-
-	struct isis_srv6_locator locator;
 };
 
 struct isis_router_cap {
