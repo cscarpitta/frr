@@ -844,13 +844,13 @@ void isis_zebra_end_sid_install(struct isis_area *area,
 		return;
 
 	sr_debug("ISIS-SRv6 (%s): setting End SID %pI6",
-		 area->area_tag, sid);
+		 area->area_tag, &sid->val);
 
 	ifp = if_lookup_by_name("lo", VRF_DEFAULT);
 	if (!ifp) {
 		zlog_warn(
 			"Couldn't install End SRv6 SID %pI6: loopback interface not found",
-			sid->val);
+			&sid->val);
 		return;
 	}
 

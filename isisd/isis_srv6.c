@@ -174,7 +174,7 @@ struct srv6_sid * srv6_sid_alloc(struct isis_area *area, uint32_t index,
 
 	if (index != 0) {
 		transpose_sid(&sid->val, index, offset, func_len);
-		if (sid_exist(area, sid)) {
+		if (sid_exist(area, &sid->val)) {
 			sr_debug("ISIS-SRv6 (%s): SID %pI6 already in use",
 				area->area_tag, sid);
 			return NULL;
@@ -183,7 +183,7 @@ struct srv6_sid * srv6_sid_alloc(struct isis_area *area, uint32_t index,
 		index_max = (1 << srv6_locator_chunk->function_bits_length) - 1;
 		for (uint32_t i = 1; i < index_max; i++) {
 			transpose_sid(&sid->val, i, offset, func_len);
-			if (sid_exist(area, sid))
+			if (sid_exist(area, &sid->val))
 				continue;
 			alloced = true;
 			break;

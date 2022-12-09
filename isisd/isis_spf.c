@@ -1072,27 +1072,30 @@ lspfragloop:
 		}
 
 		struct isis_srv6_locator *loc = lsp->tlvs->srv6_locator;
-		dist = cost + loc->metric;
-		vtype = r->external ? VTYPE_IP6REACH_EXTERNAL
-					: VTYPE_IP6REACH_INTERNAL;
-		memset(&ip_info, 0, sizeof(ip_info));
-		ip_info.dest.family = AF_INET6;
-		ip_info.dest.u.prefix6 = loc->locator.prefix;
-		ip_info.dest.prefixlen = loc->locator.prefixlen;
+		if (loc) {
+			zlog_info("P\n\n\nPROCESSING LOCATOR\n\n");
+			dist = cost + loc->metric;
+			vtype = r->external ? VTYPE_IP6REACH_EXTERNAL
+						: VTYPE_IP6REACH_INTERNAL;
+			memset(&ip_info, 0, sizeof(ip_info));
+			ip_info.dest.family = AF_INET6;
+			ip_info.dest.u.prefix6 = loc->locator.prefix;
+			ip_info.dest.prefixlen = loc->locator.prefixlen;
 
-		bool already_advertised_in_ipv6_reach = false;
-		for (r = ipv6_reachs
-				 ? (struct isis_ipv6_reach *)ipv6_reachs->head
-				 : NULL;
-		     r; r = r->next) {
-			if (prefix_same((struct prefix *)&r->prefix, (struct prefix *)&loc->locator))
-				already_advertised_in_ipv6_reach = true;
-			}
+			bool already_advertised_in_ipv6_reach = false;
+			for (r = ipv6_reachs
+					? (struct isis_ipv6_reach *)ipv6_reachs->head
+					: NULL;
+				r; r = r->next) {
+				if (prefix_same((struct prefix *)&r->prefix, (struct prefix *)&loc->locator))
+					already_advertised_in_ipv6_reach = true;
+				}
 
-		if (!already_advertised_in_ipv6_reach && loc->algorithm == SR_ALGORITHM_SPF)
-			process_N(spftree, vtype, &ip_info,
-					dist, depth + 1, NULL,
-					parent);
+			if (!already_advertised_in_ipv6_reach && loc->algorithm == SR_ALGORITHM_SPF)
+				process_N(spftree, vtype, &ip_info,
+						dist, depth + 1, NULL,
+						parent);
+		}
 	}
 
 end:

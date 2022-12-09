@@ -3669,45 +3669,6 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 			msd_len = stream_get_endp(s) - msd_len_pos - 1;
 			stream_putc_at(s, msd_len_pos, msd_len);
 		}
-
-		struct listnode *sid_node;
-		struct srv6_sid *sid;
-		for (ALL_LIST_ELEMENTS_RO(router_cap->srv6.locator.srv6_sids, sid_node, sid)) {
-			/* Type, length and flags */
-			stream_putc(s, ISIS_SUBTLV_SRV6_END_SID);
-			stream_putc(s, 23);
-			stream_putc(s, 0x00);
-
-			/* Reserved */
-			stream_putc(s, 0);
-
-			/* Endpoint behavior */
-			stream_putw(s, sid->behavior);
-
-			/* Reserved */
-			stream_putw(s, 0);
-
-			/* SID */
-			stream_put(s, &sid->val, sizeof(sid->val));
-
-			/* Sub-sub-TLV-len */
-			stream_putc(s, 0);
-
-			/* SRv6 SID Structure Sub-Sub-TLV */
-
-			/* Type, length */
-			stream_putc(s, ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE);
-			stream_putc(s, 4);
-
-			/* Reserved */
-			stream_putw(s, 0);
-
-			/* LB Length, LN Length, Fun. Length, Arg. Length */
-			stream_putc(s, sid->locator->block_bits_length);
-			stream_putc(s, sid->locator->node_bits_length);
-			stream_putc(s, sid->locator->function_bits_length);
-			stream_putc(s, sid->locator->argument_bits_length);
-		}
 	}
 
 	/* Adjust TLV length which depends on subTLVs presence */
@@ -4005,7 +3966,9 @@ static int pack_tlv_srv6_locator(const struct isis_srv6_locator *srv6_locator,
 				 struct stream *s)
 {
 	size_t tlv_len = ISIS_SRV6_LOCATOR_HDR_SIZE;
-	size_t len_pos;
+	size_t subtlv_len = ISIS_SRV6_LOCATOR_HDR_SIZE;
+	size_t subsubtlv_len = ISIS_SRV6_LOCATOR_HDR_SIZE;
+	size_t len_pos, sub_len_pos, subsub_len_pos, subtlv_len_pos;
 	// uint8_t nb_algo;
 	// size_t msd_len, msd_len_pos;
 
@@ -4047,7 +4010,52 @@ static int pack_tlv_srv6_locator(const struct isis_srv6_locator *srv6_locator,
 	stream_putc(s, srv6_locator->locator.prefixlen); // Locator Size
 	stream_put(s, &srv6_locator->locator.prefix,	// TODO: add padding
 		   ceil((double) srv6_locator->locator.prefixlen / 8)); // Locator
+
+	subtlv_len_pos = stream_get_endp(s);
 	stream_putc(s, 0);			     // Sub-TLV Length
+
+	struct listnode *sid_node;
+	struct srv6_sid *sid;
+	for (ALL_LIST_ELEMENTS_RO(srv6_locator->srv6_sids, sid_node, sid)) {
+		/* Type, length and flags */
+		stream_putc(s, ISIS_SUBTLV_SRV6_END_SID);
+	/* Real length will be adjusted later */
+	sub_len_pos = stream_get_endp(s);
+		stream_putc(s, 31);
+		stream_putc(s, 0x00);
+
+		/* Endpoint behavior */
+		stream_putw(s, sid->behavior);
+
+		/* SID */
+		stream_put(s, &sid->val, IPV6_MAX_BYTELEN);
+
+		/* Sub-sub-TLV-len */
+	/* Real length will be adjusted later */
+	subsub_len_pos = stream_get_endp(s);
+		stream_putc(s, 8);
+
+		/* SRv6 SID Structure Sub-Sub-TLV */
+
+		/* Type, length */
+		stream_putc(s, ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE);
+		stream_putc(s, 4);
+
+		/* LB Length, LN Length, Fun. Length, Arg. Length */
+		stream_putc(s, sid->locator->block_bits_length);
+		stream_putc(s, sid->locator->node_bits_length);
+		stream_putc(s, sid->locator->function_bits_length);
+		stream_putc(s, sid->locator->argument_bits_length);
+
+	subtlv_len = stream_get_endp(s) - sub_len_pos - 1;
+	stream_putc_at(s, sub_len_pos, subtlv_len);
+
+	subsubtlv_len = stream_get_endp(s) - subsub_len_pos - 1;
+	stream_putc_at(s, subsub_len_pos, subsubtlv_len);
+	}
+
+	subtlv_len = stream_get_endp(s) - subtlv_len_pos - 1;
+	stream_putc_at(s, subtlv_len_pos, subtlv_len);
 
 	/* Adjust TLV length which depends on subTLVs presence */
 	tlv_len = stream_get_endp(s) - len_pos - 1;
@@ -5192,6 +5200,8 @@ struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs)
 	rv->threeway_adj = copy_tlv_threeway_adj(tlvs->threeway_adj);
 
 	rv->router_cap = copy_tlv_router_cap(tlvs->router_cap);
+
+	rv->srv6_locator = copy_tlv_srv6_locator(tlvs->srv6_locator);
 
 	rv->spine_leaf = copy_tlv_spine_leaf(tlvs->spine_leaf);
 
