@@ -3533,6 +3533,11 @@ static void free_tlv_router_cap(struct isis_router_cap *router_cap)
 	XFREE(MTYPE_ISIS_TLV, router_cap);
 }
 
+static void free_tlv_srv6_locator(struct isis_srv6_locator *srv6_locator)
+{
+	XFREE(MTYPE_ISIS_TLV, srv6_locator);
+}
+
 static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 			       struct stream *s)
 {
@@ -4078,6 +4083,8 @@ static int unpack_tlv_srv6_locator(enum isis_tlv_context context,
 
 	struct isis_srv6_sid sid;
 
+	zlog_info("*************** UNPACK TLV SRV6 locator\n\n\n\n");
+
 	sbuf_push(log, indent, "Unpacking SRv6 Locator TLV...\n");
 	if (tlv_len < ISIS_SRV6_LOCATOR_HDR_SIZE) {
 		sbuf_push(log, indent, "WARNING: Unexpected TLV size\n");
@@ -4094,7 +4101,7 @@ static int unpack_tlv_srv6_locator(enum isis_tlv_context context,
 
 	/* Allocate SRv6 Locator structure */
 	srv6_locator = XCALLOC(MTYPE_ISIS_TLV, sizeof(struct isis_srv6_locator));
-
+	srv6_locator->srv6_sids = list_new();
 	
 	stream_getw(s);  /* Reserved + MT ID*/
 
@@ -4111,7 +4118,7 @@ static int unpack_tlv_srv6_locator(enum isis_tlv_context context,
 
 	if (subtlv_len > 0) {
 
-		if (STREAM_READABLE(s) < subtlv_len * 8) {
+		if (STREAM_READABLE(s) < subtlv_len) {
 			sbuf_push(
 				log, indent,
 				"WARNING: SRv6 Locator subTLV length too large compared to expected size\n");
@@ -4137,14 +4144,11 @@ static int unpack_tlv_srv6_locator(enum isis_tlv_context context,
 				/* Flags */
 				stream_getc(s);
 
-				/* Reserved */
-				stream_getc(s);
-
 				/* Endpoint Behavior */
-				sid.behavior = stream_getc(s);
+				sid.behavior = stream_getw(s);
 
 				/* SID */
-				stream_get(&sid.val, s, sizeof(struct in6_addr));
+				stream_get(&sid.val, s, IPV6_MAX_BYTELEN);
 
 				/* Sub-Sub-TLVs Length */
 				subsubtlv_len = stream_getc(s);
@@ -4153,7 +4157,7 @@ static int unpack_tlv_srv6_locator(enum isis_tlv_context context,
 
 				if (subsubtlv_len > 0) {
 
-					if (STREAM_READABLE(s) < subtlv_len * 8) {
+					if (STREAM_READABLE(s) < subsubtlv_len) {
 						sbuf_push(
 							log, indent,
 							"WARNING: SRv6 Locator subTLV length too large compared to expected size\n");
@@ -4414,6 +4418,8 @@ static int unpack_tlv_srv6_locator(enum isis_tlv_context context,
 	// 	}
 	// 	subtlv_len = subtlv_len - length - 2;
 	// }
+
+	zlog_info("SAVING LOCATOR\n\n");
 	tlvs->srv6_locator = srv6_locator;
 	format_tlv_srv6_locator(tlvs->srv6_locator, log, NULL, indent + 2);
 	return 0;
@@ -5285,6 +5291,8 @@ static void format_tlvs(struct isis_tlvs *tlvs, struct sbuf *buf, struct json_ob
 	format_tlv_threeway_adj(tlvs->threeway_adj, buf, json, indent);
 
 	format_tlv_spine_leaf(tlvs->spine_leaf, buf, json, indent);
+
+	format_tlv_srv6_locator(tlvs->srv6_locator, buf, json, indent);
 }
 
 const char *isis_format_tlvs(struct isis_tlvs *tlvs, struct json_object *json)
@@ -5347,6 +5355,7 @@ void isis_free_tlvs(struct isis_tlvs *tlvs)
 	free_tlv_threeway_adj(tlvs->threeway_adj);
 	free_tlv_router_cap(tlvs->router_cap);
 	free_tlv_spine_leaf(tlvs->spine_leaf);
+	free_tlv_srv6_locator(tlvs->srv6_locator);
 
 	XFREE(MTYPE_ISIS_TLV, tlvs);
 }
