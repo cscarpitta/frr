@@ -2590,8 +2590,6 @@ int isis_instance_segment_routing_srv6_locator_destroy(struct nb_cb_destroy_args
 		return NB_ERR;
 	}
 
-	strlcpy(area->srv6db.config.srv6_locator_name, loc_name, sizeof(area->srv6db.config.srv6_locator_name));
-
 	if (IS_DEBUG_SR)
 		zlog_debug(
 			"Deleted SRv6 Locator %s for IS-IS area %s", loc_name, area->area_tag);
