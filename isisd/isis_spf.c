@@ -1070,13 +1070,13 @@ lspfragloop:
 				process_N(spftree, vtype, &ip_info, dist,
 					  depth + 1, NULL, parent);
 		}
+			zlog_info("P\n\n\nPROCESSING spf\n\n");
 
 		struct isis_srv6_locator *loc = lsp->tlvs->srv6_locator;
 		if (loc) {
 			zlog_info("P\n\n\nPROCESSING LOCATOR\n\n");
 			dist = cost + loc->metric;
-			vtype = r->external ? VTYPE_IP6REACH_EXTERNAL
-						: VTYPE_IP6REACH_INTERNAL;
+			vtype = VTYPE_IP6REACH_EXTERNAL;
 			memset(&ip_info, 0, sizeof(ip_info));
 			ip_info.dest.family = AF_INET6;
 			ip_info.dest.u.prefix6 = loc->locator.prefix;
