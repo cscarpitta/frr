@@ -856,10 +856,20 @@ void isis_zebra_end_sid_install(struct isis_area *area,
 
 	/* TODO: implement seg6local context */
 
+	/* TEMPORARY WORKAROUND */
+	for (int i = 0; i < 256; ++i) {
+		ifp = if_lookup_by_index(i, VRF_DEFAULT);
+		if (ifp && !strmatch(ifp->name, "lo"))
+			break;
+	}
+	if (!ifp)
+		return;
+	/* END TEMPORARY WORKAROUND */
+
 	zlog_info("\n\n\n\n ******* \n\n\n\nend srv6 ifindex %d", ifp->ifindex);
 
-	//zclient_send_localsid(zclient, &sid->val, ifp->ifindex, sid->behavior, &ctx);
-	zclient_send_localsid(zclient, &sid->val, 2, sid->behavior, &ctx);
+	zclient_send_localsid(zclient, &sid->val, ifp->ifindex, sid->behavior, &ctx);
+	//zclient_send_localsid(zclient, &sid->val, 3, sid->behavior, &ctx);
 }
 
 /**
