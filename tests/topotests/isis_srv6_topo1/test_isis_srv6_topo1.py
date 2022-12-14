@@ -159,6 +159,651 @@ def test_srv6_locator_step1():
          )
 
 
+# #
+# # Step 2
+# #
+# # Action(s):
+# # -Disable SRv6 Locator on zebra on r1
+# #
+# # Expected changes:
+# # -r1 should uninstall the SRv6 End SID
+# # -r1 should remove the SRv6 Locator from zebra
+# # -r1 should remove the SRv6 Locator TLV from the LSPs
+# # -r1 should remove the SRv6 Capabilities Sub-TLV from the Router Capability TLV
+# # -r2 should uninstall the route pointing to the r1's SRv6 Locator from the RIB
+# #
+# def test_isis_adjacencies_step2():
+#     logger.info("Test (step 2): check IS-IS adjacencies")
+#     tgen = get_topogen()
+
+#     # Skip if previous fatal error condition is raised
+#     if tgen.routers_have_failure():
+#         pytest.skip(tgen.errors)
+
+#     logger.info("Disabling SRv6 Locator on zebra on r1")
+#     tgen.gears["r1"].vtysh_cmd(
+#         """
+#         configure terminal
+#          segment-routing
+#           srv6
+#            locators
+#             no locator loc1
+#         """
+#     )
+
+#     for rname in ["r1", "r2"]:
+#         router_compare_json_output(
+#             rname,
+#             "show yang operational-data /frr-interface:lib isisd",
+#             "step2/show_yang_interface_isis_adjacencies.ref",
+#         )
+
+
+# def test_rib_ipv4_step2():
+#     logger.info("Test (step 2): verify IPv4 RIB")
+#     tgen = get_topogen()
+
+#     # Skip if previous fatal error condition is raised
+#     if tgen.routers_have_failure():
+#         pytest.skip(tgen.errors)
+
+#     for rname in ["r1", "r2"]:
+#         router_compare_json_output(
+#             rname, "show ip route isis json", "step2/show_ip_route.ref"
+#         )
+
+
+# def test_rib_ipv6_step2():
+#     logger.info("Test (step 2): verify IPv6 RIB")
+#     tgen = get_topogen()
+
+#     # Skip if previous fatal error condition is raised
+#     if tgen.routers_have_failure():
+#         pytest.skip(tgen.errors)
+
+#     for rname in ["r1", "r2"]:
+#         router_compare_json_output(
+#             rname, "show ipv6 route isis json", "step2/show_ipv6_route.ref"
+#         )
+
+
+# def test_srv6_locator_step2():
+#     logger.info("Test (step 2): verify SRv6 Locator")
+#     tgen = get_topogen()
+
+#     # Skip if previous fatal error condition is raised
+#     if tgen.routers_have_failure():
+#         pytest.skip(tgen.errors)
+
+#     for rname in ["r1", "r2"]:
+#         router_compare_json_output(
+#             rname, "show segment-routing srv6 locator json", "step2/show_srv6_locator_table.ref"
+#          )
+
+
+# #
+# # Step 3
+# #
+# # Action(s):
+# # -Enable SRv6 Locator on zebra on r1
+# #
+# # Expected changes:
+# # -r1 should install the SRv6 End SID
+# # -r1 should install the SRv6 Locator in zebra
+# # -r1 should add the SRv6 Locator TLV to the LSPs
+# # -r1 should add the SRv6 Capabilities Sub-TLV to the Router Capability TLV
+# # -r2 should install a route pointing to the r1's SRv6 Locator in the RIB
+# #
+# def test_isis_adjacencies_step3():
+#     logger.info("Test (step 3): check IS-IS adjacencies")
+#     tgen = get_topogen()
+
+#     # Skip if previous fatal error condition is raised
+#     if tgen.routers_have_failure():
+#         pytest.skip(tgen.errors)
+
+#     logger.info("Enabling SRv6 Locator on zebra on r1")
+#     tgen.gears["r1"].vtysh_cmd(
+#         """
+#         configure terminal
+#          segment-routing
+#           srv6
+#            locators
+#             locator loc1
+#              prefix fc00:0:1::/48 block-len 32 node-len 16 func-bits 16
+#         """
+#     )
+
+#     for rname in ["r1", "r2"]:
+#         router_compare_json_output(
+#             rname,
+#             "show yang operational-data /frr-interface:lib isisd",
+#             "step3/show_yang_interface_isis_adjacencies.ref",
+#         )
+
+
+# def test_rib_ipv4_step3():
+#     logger.info("Test (step 3): verify IPv4 RIB")
+#     tgen = get_topogen()
+
+#     # Skip if previous fatal error condition is raised
+#     if tgen.routers_have_failure():
+#         pytest.skip(tgen.errors)
+
+#     for rname in ["r1", "r2"]:
+#         router_compare_json_output(
+#             rname, "show ip route isis json", "step3/show_ip_route.ref"
+#         )
+
+
+# def test_rib_ipv6_step3():
+#     logger.info("Test (step 3): verify IPv6 RIB")
+#     tgen = get_topogen()
+
+#     # Skip if previous fatal error condition is raised
+#     if tgen.routers_have_failure():
+#         pytest.skip(tgen.errors)
+
+#     for rname in ["r1", "r2"]:
+#         router_compare_json_output(
+#             rname, "show ipv6 route isis json", "step3/show_ipv6_route.ref"
+#         )
+
+
+# def test_srv6_locator_step3():
+#     logger.info("Test (step 3): verify SRv6 Locator")
+#     tgen = get_topogen()
+
+#     # Skip if previous fatal error condition is raised
+#     if tgen.routers_have_failure():
+#         pytest.skip(tgen.errors)
+
+#     for rname in ["r1", "r2"]:
+#         router_compare_json_output(
+#             rname, "show segment-routing srv6 locator json", "step3/show_srv6_locator_table.ref"
+#          )
+
+
+#
+# Step 4
+#
+# Action(s):
+# -Disable SRv6 Locator on ISIS on r1
+#
+# Expected changes:
+# -r1 should uninstall the SRv6 End SID
+# -r1 should remove the SRv6 Locator TLV from the LSPs
+# -r1 should remove the SRv6 Capabilities Sub-TLV from the Router Capability TLV
+# -r2 should uninstall the route pointing to the r1's SRv6 Locator from the RIB
+#
+def test_isis_adjacencies_step4():
+    logger.info("Test (step 4): check IS-IS adjacencies")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Disabling SRv6 Locator on ISIS on r1")
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router isis 1
+          segment-routing srv6
+           no locator loc1
+        """
+    )
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname,
+            "show yang operational-data /frr-interface:lib isisd",
+            "step4/show_yang_interface_isis_adjacencies.ref",
+        )
+
+
+def test_rib_ipv4_step4():
+    logger.info("Test (step 4): verify IPv4 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", "step4/show_ip_route.ref"
+        )
+
+
+def test_rib_ipv6_step4():
+    logger.info("Test (step 4): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname, "show ipv6 route isis json", "step4/show_ipv6_route.ref"
+        )
+
+
+def test_srv6_locator_step4():
+    logger.info("Test (step 4): verify SRv6 Locator")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname, "show segment-routing srv6 locator json", "step4/show_srv6_locator_table.ref"
+         )
+
+
+#
+# Step 5
+#
+# Action(s):
+# -Enable SRv6 Locator on ISIS on r1
+#
+# Expected changes:
+# -r1 should install the SRv6 End SID
+# -r1 should add the SRv6 Locator TLV to the LSPs
+# -r1 should add the SRv6 Capabilities Sub-TLV to the Router Capability TLV
+# -r2 should install a route pointing to the r1's SRv6 Locator in the RIB
+#
+def test_isis_adjacencies_step5():
+    logger.info("Test (step 5): check IS-IS adjacencies")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Enabling SRv6 Locator on ISIS on r1")
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router isis 1
+          segment-routing srv6
+           locator loc1
+        """
+    )
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname,
+            "show yang operational-data /frr-interface:lib isisd",
+            "step5/show_yang_interface_isis_adjacencies.ref",
+        )
+
+
+def test_rib_ipv4_step5():
+    logger.info("Test (step 5): verify IPv4 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", "step5/show_ip_route.ref"
+        )
+
+
+def test_rib_ipv6_step5():
+    logger.info("Test (step 5): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname, "show ipv6 route isis json", "step5/show_ipv6_route.ref"
+        )
+
+
+def test_srv6_locator_step5():
+    logger.info("Test (step 5): verify SRv6 Locator")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname, "show segment-routing srv6 locator json", "step5/show_srv6_locator_table.ref"
+         )
+
+
+#
+# Step 6
+#
+# Action(s):
+# -Disable SRv6 on ISIS on r1
+#
+# Expected changes:
+# -r1 should uninstall the SRv6 End SID
+# -r1 should remove the SRv6 Locator TLV from the LSPs
+# -r1 should remove the SRv6 Capabilities Sub-TLV from the Router Capability TLV
+# -r2 should uninstall the route pointing to the r1's SRv6 Locator from the RIB
+#
+def test_isis_adjacencies_step6():
+    logger.info("Test (step 6): check IS-IS adjacencies")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Disabling SRv6 on ISIS on r1")
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router isis 1
+          no segment-routing srv6
+        """
+    )
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname,
+            "show yang operational-data /frr-interface:lib isisd",
+            "step6/show_yang_interface_isis_adjacencies.ref",
+        )
+
+
+def test_rib_ipv4_step6():
+    logger.info("Test (step 6): verify IPv4 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", "step6/show_ip_route.ref"
+        )
+
+
+def test_rib_ipv6_step6():
+    logger.info("Test (step 6): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname, "show ipv6 route isis json", "step6/show_ipv6_route.ref"
+        )
+
+
+def test_srv6_locator_step6():
+    logger.info("Test (step 6): verify SRv6 Locator")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname, "show segment-routing srv6 locator json", "step6/show_srv6_locator_table.ref"
+         )
+
+
+#
+# Step 7
+#
+# Action(s):
+# -Enable SRv6 on ISIS on r1
+#
+# Expected changes:
+# -r1 should install the SRv6 End SID
+# -r1 should add the SRv6 Locator TLV to the LSPs
+# -r1 should add the SRv6 Capabilities Sub-TLV to the Router Capability TLV
+# -r2 should install a route pointing to the r1's SRv6 Locator in the RIB
+#
+def test_isis_adjacencies_step7():
+    logger.info("Test (step 7): check IS-IS adjacencies")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Enabling SRv6 on ISIS on r1")
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router isis 1
+          segment-routing srv6
+           locator loc1
+        """
+    )
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname,
+            "show yang operational-data /frr-interface:lib isisd",
+            "step7/show_yang_interface_isis_adjacencies.ref",
+        )
+
+
+def test_rib_ipv4_step7():
+    logger.info("Test (step 7): verify IPv4 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", "step7/show_ip_route.ref"
+        )
+
+
+def test_rib_ipv6_step7():
+    logger.info("Test (step 7): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname, "show ipv6 route isis json", "step7/show_ipv6_route.ref"
+        )
+
+
+def test_srv6_locator_step7():
+    logger.info("Test (step 7): verify SRv6 Locator")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname, "show segment-routing srv6 locator json", "step7/show_srv6_locator_table.ref"
+         )
+
+
+#
+# Step 8
+#
+# Action(s):
+# -Disable SRv6 on zebra on r1
+#
+# Expected changes:
+# -r1 should uninstall the SRv6 End SID
+# -r1 should remove the SRv6 Locator TLV from the LSPs
+# -r1 should remove the SRv6 Capabilities Sub-TLV from the Router Capability TLV
+# -r2 should uninstall the route pointing to the r1's SRv6 Locator from the RIB
+#
+def test_isis_adjacencies_step8():
+    logger.info("Test (step 8): check IS-IS adjacencies")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Disabling SRv6 on zebra on r1")
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          no srv6
+        """
+    )
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname,
+            "show yang operational-data /frr-interface:lib isisd",
+            "step8/show_yang_interface_isis_adjacencies.ref",
+        )
+
+
+def test_rib_ipv4_step6():
+    logger.info("Test (step 6): verify IPv4 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", "step6/show_ip_route.ref"
+        )
+
+
+def test_rib_ipv6_step6():
+    logger.info("Test (step 6): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname, "show ipv6 route isis json", "step6/show_ipv6_route.ref"
+        )
+
+
+def test_srv6_locator_step6():
+    logger.info("Test (step 6): verify SRv6 Locator")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname, "show segment-routing srv6 locator json", "step6/show_srv6_locator_table.ref"
+         )
+
+
+#
+# Step 9
+#
+# Action(s):
+# -Enable SRv6 on zebra on r1
+#
+# Expected changes:
+# -r1 should install the SRv6 End SID
+# -r1 should add the SRv6 Locator TLV to the LSPs
+# -r1 should add the SRv6 Capabilities Sub-TLV to the Router Capability TLV
+# -r2 should install a route pointing to the r1's SRv6 Locator in the RIB
+#
+def test_isis_adjacencies_step9():
+    logger.info("Test (step 9): check IS-IS adjacencies")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info("Enabling SRv6 on zebra on r1")
+    tgen.gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc1
+             prefix fc00:0:1::/48 block-len 32 node-len 16 func-bits 16
+        """
+    )
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname,
+            "show yang operational-data /frr-interface:lib isisd",
+            "step9/show_yang_interface_isis_adjacencies.ref",
+        )
+
+
+def test_rib_ipv4_step9():
+    logger.info("Test (step 9): verify IPv4 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname, "show ip route isis json", "step9/show_ip_route.ref"
+        )
+
+
+def test_rib_ipv6_step9():
+    logger.info("Test (step 9): verify IPv6 RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname, "show ipv6 route isis json", "step9/show_ipv6_route.ref"
+        )
+
+
+def test_srv6_locator_step9():
+    logger.info("Test (step 9): verify SRv6 Locator")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r2"]:
+        router_compare_json_output(
+            rname, "show segment-routing srv6 locator json", "step9/show_srv6_locator_table.ref"
+         )
+
+
 # Memory leak test template
 def test_memory_leak():
     "Run the memory leak test and report results."
