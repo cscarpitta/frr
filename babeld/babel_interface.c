@@ -493,16 +493,19 @@ DEFUN (babel_set_rtt_min,
     assert (babel_ifp != NULL);
 
     if (no)
-        rtt_min = BABEL_DEFAULT_RTT_MIN;
+        babel_ifp->rtt_min = BABEL_DEFAULT_RTT_MIN;
+    else {
+        /* The value is entered in milliseconds but stored as microseconds. */
+        babel_ifp->rtt_min = rtt * 1000;
+    }
 
-    /* The value is entered in milliseconds but stored as microseconds. */
-    babel_ifp->rtt_min = rtt * 1000;
     return CMD_SUCCESS;
 }
 
 DEFUN (babel_set_rtt_max,
        babel_set_rtt_max_cmd,
-       "babel rtt-max (1-65535)",
+       "[no] babel rtt-max (1-65535)",
+       NO_STR
        "Babel interface commands\n"
        "Maximum RTT\n"
        "Milliseconds\n")
@@ -516,8 +519,13 @@ DEFUN (babel_set_rtt_max,
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
 
-    /* The value is entered in milliseconds but stored as microseconds. */
-    babel_ifp->rtt_max = rtt * 1000;
+    if (no)
+        babel_ifp->rtt_max = BABEL_DEFAULT_RTT_MAX;
+    else {
+        /* The value is entered in milliseconds but stored as microseconds. */
+        babel_ifp->rtt_max = rtt * 1000;
+    }
+
     return CMD_SUCCESS;
 }
 
