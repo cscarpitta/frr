@@ -477,7 +477,8 @@ DEFUN (babel_set_rtt_decay,
 
 DEFUN (babel_set_rtt_min,
        babel_set_rtt_min_cmd,
-       "babel rtt-min (1-65535)",
+       "[no] babel rtt-min (1-65535)",
+       NO_STR
        "Babel interface commands\n"
        "Minimum RTT starting for increasing cost\n"
        "Milliseconds\n")
@@ -490,6 +491,9 @@ DEFUN (babel_set_rtt_min,
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
+
+    if (no)
+        rtt_min = BABEL_DEFAULT_RTT_MIN;
 
     /* The value is entered in milliseconds but stored as microseconds. */
     babel_ifp->rtt_min = rtt * 1000;
