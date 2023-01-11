@@ -393,7 +393,7 @@ DEFUN (babel_set_hello_interval,
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
 
-    if (!no)
+    if (no)
         interval = BABEL_DEFAULT_HELLO_INTERVAL;
 
     babel_ifp->hello_interval = interval;
@@ -418,7 +418,7 @@ DEFUN (babel_set_update_interval,
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
 
-    if (!no)
+    if (no)
         interval = BABEL_DEFAULT_UPDATE_INTERVAL;
 
     babel_ifp->update_interval = interval;
@@ -442,7 +442,7 @@ DEFUN (babel_set_rxcost,
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
 
-    if (!no)
+    if (no)
 	    rxcost = CHECK_FLAG(babel_ifp->flags, BABEL_IF_WIRED)
 			     ? BABEL_DEFAULT_RXCOST_WIRED
 			     : BABEL_DEFAULT_RXCOST_WIRELESS;
@@ -453,7 +453,8 @@ DEFUN (babel_set_rxcost,
 
 DEFUN (babel_set_rtt_decay,
        babel_set_rtt_decay_cmd,
-       "babel rtt-decay (1-256)",
+       "[no] babel rtt-decay (1-256)",
+       NO_STR
        "Babel interface commands\n"
        "Decay factor for exponential moving average of RTT samples\n"
        "Units of 1/256\n")
@@ -466,6 +467,9 @@ DEFUN (babel_set_rtt_decay,
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
+
+    if (no)
+        decay = BABEL_DEFAULT_RTT_DECAY;
 
     babel_ifp->rtt_decay = decay;
     return CMD_SUCCESS;
