@@ -403,7 +403,8 @@ DEFUN (babel_set_hello_interval,
 /* [Interface Command]. */
 DEFUN (babel_set_update_interval,
        babel_set_update_interval_cmd,
-       "babel update-interval (20-655340)",
+       "[no] babel update-interval (20-655340)",
+       NO_STR
        "Babel interface commands\n"
        "Time between scheduled updates\n"
        "Milliseconds\n")
@@ -416,6 +417,9 @@ DEFUN (babel_set_update_interval,
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
+
+    if (!no)
+        interval = BABEL_DEFAULT_UPDATE_INTERVAL;
 
     babel_ifp->update_interval = interval;
     return CMD_SUCCESS;
