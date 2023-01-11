@@ -427,7 +427,8 @@ DEFUN (babel_set_update_interval,
 
 DEFUN (babel_set_rxcost,
        babel_set_rxcost_cmd,
-       "babel rxcost (1-65534)",
+       "[no] babel rxcost (1-65534)",
+       NO_STR
        "Babel interface commands\n"
        "Rxcost multiplier\n"
        "Units\n")
@@ -440,6 +441,11 @@ DEFUN (babel_set_rxcost,
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
+
+    if (!no)
+	    rxcost = CHECK_FLAG(babel_ifp->flags, BABEL_IF_WIRED)
+			     ? BABEL_DEFAULT_RXCOST_WIRED
+			     : BABEL_DEFAULT_RXCOST_WIRELESS;
 
     babel_ifp->cost = rxcost;
     return CMD_SUCCESS;
