@@ -531,7 +531,8 @@ DEFUN (babel_set_rtt_max,
 
 DEFUN (babel_set_max_rtt_penalty,
        babel_set_max_rtt_penalty_cmd,
-       "babel max-rtt-penalty (0-65535)",
+       "[no] babel max-rtt-penalty (0-65535)",
+       NO_STR
        "Babel interface commands\n"
        "Maximum additional cost due to RTT\n"
        "Milliseconds\n")
@@ -544,6 +545,9 @@ DEFUN (babel_set_max_rtt_penalty,
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
+
+    if (no)
+        penalty = BABEL_DEFAULT_MAX_RTT_PENALTY;
 
     babel_ifp->max_rtt_penalty = penalty;
     return CMD_SUCCESS;
