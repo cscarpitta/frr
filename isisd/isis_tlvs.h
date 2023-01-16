@@ -482,6 +482,9 @@ enum isis_tlv_type {
 	ISIS_SUBTLV_SRV6_END_SID = 5,
 
 	ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE = 1,
+
+	/* RFC 7794 */
+	ISIS_SUBTLV_PREFIX_ATTRIBUTE_FLAGS = 4,
 };
 
 /* subTLVs size for TE and SR */

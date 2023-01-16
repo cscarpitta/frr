@@ -4019,6 +4019,11 @@ static int pack_tlv_srv6_locator(const struct isis_srv6_locator *srv6_locator,
 	subtlv_len_pos = stream_get_endp(s);
 	stream_putc(s, 0);			     // Sub-TLV Length
 
+	/* Prefix Attribute flags Sub-TLV */
+	stream_putc(s, ISIS_SUBTLV_PREFIX_ATTRIBUTE_FLAGS); /* type */
+	stream_putc(s, 1); /* length */
+	stream_putc(s, 0x00);  /* flags */
+
 	struct listnode *sid_node;
 	struct srv6_sid *sid;
 	for (ALL_LIST_ELEMENTS_RO(srv6_locator->srv6_sids, sid_node, sid)) {
@@ -4185,6 +4190,10 @@ static int unpack_tlv_srv6_locator(enum isis_tlv_context context,
 							sid.structure.func_len = stream_getc(s);
 							sid.structure.arg_len = stream_getc(s);
 						break;
+			case ISIS_SUBTLV_PREFIX_ATTRIBUTE_FLAGS:
+				stream_getc(s);  /* length */
+				stream_getc(s);  /* flags */
+				break;
 		default:
 			stream_forward_getp(s, length);
 			break;
