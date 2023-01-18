@@ -225,7 +225,7 @@ struct isis_srv6_sid {
 	struct isis_sid_structure structure;
 };
 
-/* draft-ietf-lsr-isis-srv6-extensions section 4 */
+/* draft-ietf-lsr-isis-srv6-extensions section 7.1 */
 struct isis_srv6_locator {
 	uint32_t metric;
 	uint8_t flags;
@@ -233,6 +233,8 @@ struct isis_srv6_locator {
 	struct prefix_ipv6 locator;
 
 	struct list *srv6_sids;
+
+	uint8_t prefix_attribute_flags;
 };
 
 /* Structure aggregating SRv6 info */
@@ -482,6 +484,9 @@ enum isis_tlv_type {
 	ISIS_SUBTLV_SRV6_END_SID = 5,
 
 	ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE = 1,
+
+	/* RFC 7794 */
+	ISIS_SUBTLV_PREFIX_ATTRIBUTE_FLAGS = 4,
 };
 
 /* subTLVs size for TE and SR */
@@ -516,6 +521,9 @@ enum ext_subtlv_size {
 
 	/* draft-ietf-lsr-isis-srv6-extensions section #2 */
 	ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE = 2,
+
+	/* RFC 7794 */
+	ISIS_SUBTLV_PREFIX_ATTRIBUTE_FLAGS_SIZE = 1,
 };
 
 /* Macros to manage the optional presence of EXT subTLVs */
