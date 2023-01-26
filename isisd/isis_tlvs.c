@@ -3524,6 +3524,8 @@ static void format_tlv_router_cap(const struct isis_router_cap *router_cap,
 	if (router_cap->msd != 0)
 		sbuf_push(buf, indent, "  Node Maximum SID Depth: %u\n",
 			  router_cap->msd);
+
+	/* TODO: add srv6 cap */
 }
 
 static void free_tlv_router_cap(struct isis_router_cap *router_cap)
@@ -3685,6 +3687,26 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 	stream_putc_at(s, len_pos, tlv_len);
 
 	return 0;
+}
+
+static void format_tlv_srv6_locator(const struct isis_srv6_locator *srv6_locator, struct sbuf *buf,
+				    struct json_object *json, int indent)
+{
+	if (!srv6_locator)
+		return;
+
+	/* SRv6 Locator */
+	char addrbuf[INET_ADDRSTRLEN];
+	inet_ntop(AF_INET6, &srv6_locator->locator, addrbuf, sizeof(addrbuf));
+	if (json)
+		json_object_string_add(json, "srv6-locator", addrbuf);
+	else {
+		sbuf_push(buf, indent, "SRv6 Locator:");
+		sbuf_push(buf, indent, " %pFX , Metric:%u, D:%c, Algorithm:%u\n", &srv6_locator->locator,
+			srv6_locator->metric, '0', srv6_locator->algorithm); // TODO: implement flags
+		// sbuf_push(buf, indent, "SRv6 Locator: %pFX (Metric: %u)\n",
+		// 		&srv6_locator->locator, srv6_locator->metric);
+	}
 }
 
 static int unpack_tlv_router_cap(enum isis_tlv_context context,
@@ -3988,14 +4010,16 @@ static int pack_tlv_srv6_locator(const struct isis_srv6_locator *srv6_locator,
 	// uint8_t nb_algo;
 	// size_t msd_len, msd_len_pos;
 
-	if (IS_DEBUG_SR)
-		zlog_debug("Pack SRv6 Locator TLV");
+	// if (IS_DEBUG_SR)
+	// 	zlog_debug("Pack SRv6 Locator TLV");
 
 	if (!srv6_locator)
 		return 0;
 
-	if (IS_DEBUG_SR)
-		zlog_debug("Packed SRv6 Locator TLV");
+	// if (IS_DEBUG_SR)
+	// 	zlog_debug("Packed SRv6 Locator TLV");
+
+
 	// /* Compute Maximum TLV size */
 	// tlv_len += ISIS_SUBTLV_SID_LABEL_RANGE_SIZE
 	// 	+ ISIS_SUBTLV_HDR_SIZE
@@ -4038,6 +4062,267 @@ static int unpack_tlv_srv6_locator(enum isis_tlv_context context,
 				   struct stream *s, struct sbuf *log,
 				   void *dest, int indent)
 {
+	struct isis_tlvs *tlvs = dest;
+	struct isis_srv6_locator *srv6_locator;
+	// uint8_t type;
+	// uint8_t length;
+	uint8_t subtlv_len;
+	// uint8_t size;
+
+	sbuf_push(log, indent, "Unpacking SRv6 Locator TLV...\n");
+	if (tlv_len < ISIS_SRV6_LOCATOR_HDR_SIZE) {
+		sbuf_push(log, indent, "WARNING: Unexpected TLV size\n");
+		stream_forward_getp(s, tlv_len);
+		return 0;
+	}
+
+	if (tlvs->srv6_locator) {
+		sbuf_push(log, indent,
+			  "WARNING: SRv6 Locator TLV present multiple times.\n");
+		stream_forward_getp(s, tlv_len);
+		return 0;
+	}
+
+	/* Allocate SRv6 Locator structure */
+	srv6_locator = XCALLOC(MTYPE_ISIS_TLV, sizeof(struct isis_srv6_locator));
+
+	
+	stream_getw(s);  /* Reserved + MT ID*/
+
+	/* Get Metric, Flags, Algorithm, Locator Size, and Locator Prefix */
+	srv6_locator->metric = stream_getl(s);
+	srv6_locator->flags = stream_getc(s);
+	srv6_locator->algorithm = stream_getc(s);
+	srv6_locator->locator.prefixlen = stream_getc(s);
+	stream_get(&srv6_locator->locator.prefix, s, ceil((double) srv6_locator->locator.prefixlen / 8));
+	srv6_locator->locator.family = AF_INET6;
+
+	/* Parse remaining part of the TLV if present */
+	subtlv_len = stream_getc(s);
+	// while (subtlv_len > 2) {
+	// 	uint8_t msd_type;
+
+	// 	type = stream_getc(s);
+	// 	length = stream_getc(s);
+
+	// 	if (length > STREAM_READABLE(s) || length > subtlv_len - 2) {
+	// 		sbuf_push(
+	// 			log, indent,
+	// 			"WARNING: Router Capability subTLV length too large compared to expected size\n");
+	// 		stream_forward_getp(s, STREAM_READABLE(s));
+	// 		XFREE(MTYPE_ISIS_TLV, rcap);
+	// 		return 0;
+	// 	}
+
+	// 	switch (type) {
+	// 	case ISIS_SUBTLV_SID_LABEL_RANGE:
+	// 		/* Check that SRGB is correctly formated */
+	// 		if (length < SUBTLV_RANGE_LABEL_SIZE
+	// 		    || length > SUBTLV_RANGE_INDEX_SIZE) {
+	// 			stream_forward_getp(s, length);
+	// 			break;
+	// 		}
+	// 		/* Only one SRGB is supported. Skip subsequent one */
+	// 		if (rcap->srgb.range_size != 0) {
+	// 			stream_forward_getp(s, length);
+	// 			break;
+	// 		}
+	// 		rcap->srgb.flags = stream_getc(s);
+	// 		rcap->srgb.range_size = stream_get3(s);
+	// 		/* Skip Type and get Length of SID Label */
+	// 		stream_getc(s);
+	// 		size = stream_getc(s);
+
+	// 		if (size == ISIS_SUBTLV_SID_LABEL_SIZE
+	// 		    && length != SUBTLV_RANGE_LABEL_SIZE) {
+	// 			stream_forward_getp(s, length - 6);
+	// 			break;
+	// 		}
+
+	// 		if (size == ISIS_SUBTLV_SID_INDEX_SIZE
+	// 		    && length != SUBTLV_RANGE_INDEX_SIZE) {
+	// 			stream_forward_getp(s, length - 6);
+	// 			break;
+	// 		}
+
+	// 		if (size == ISIS_SUBTLV_SID_LABEL_SIZE) {
+	// 			rcap->srgb.lower_bound = stream_get3(s);
+	// 		} else if (size == ISIS_SUBTLV_SID_INDEX_SIZE) {
+	// 			rcap->srgb.lower_bound = stream_getl(s);
+	// 		} else {
+	// 			stream_forward_getp(s, length - 6);
+	// 			break;
+	// 		}
+
+	// 		/* SRGB sanity checks. */
+	// 		if (rcap->srgb.range_size == 0
+	// 		    || (rcap->srgb.lower_bound <= MPLS_LABEL_RESERVED_MAX)
+	// 		    || ((rcap->srgb.lower_bound + rcap->srgb.range_size - 1)
+	// 			> MPLS_LABEL_UNRESERVED_MAX)) {
+	// 			sbuf_push(log, indent, "Invalid label range. Reset SRGB\n");
+	// 			rcap->srgb.lower_bound = 0;
+	// 			rcap->srgb.range_size = 0;
+	// 		}
+	// 		/* Only one range is supported. Skip subsequent one */
+	// 		size = length - (size + SUBTLV_SR_BLOCK_SIZE);
+	// 		if (size > 0)
+	// 			stream_forward_getp(s, size);
+
+	// 		break;
+	// 	case ISIS_SUBTLV_ALGORITHM:
+	// 		if (length == 0)
+	// 			break;
+	// 		/* Only 2 algorithms are supported: SPF & Strict SPF */
+	// 		stream_get(&rcap->algo, s,
+	// 			   length > SR_ALGORITHM_COUNT
+	// 				   ? SR_ALGORITHM_COUNT
+	// 				   : length);
+	// 		if (length > SR_ALGORITHM_COUNT)
+	// 			stream_forward_getp(
+	// 				s, length - SR_ALGORITHM_COUNT);
+	// 		break;
+	// 	case ISIS_SUBTLV_SRLB:
+	// 		/* Check that SRLB is correctly formated */
+	// 		if (length < SUBTLV_RANGE_LABEL_SIZE
+	// 		    || length > SUBTLV_RANGE_INDEX_SIZE) {
+	// 			stream_forward_getp(s, length);
+	// 			break;
+	// 		}
+	// 		/* RFC 8667 section #3.3: Only one SRLB is authorized */
+	// 		if (rcap->srlb.range_size != 0) {
+	// 			stream_forward_getp(s, length);
+	// 			break;
+	// 		}
+	// 		/* Ignore Flags which are not defined */
+	// 		stream_getc(s);
+	// 		rcap->srlb.range_size = stream_get3(s);
+	// 		/* Skip Type and get Length of SID Label */
+	// 		stream_getc(s);
+	// 		size = stream_getc(s);
+
+	// 		if (size == ISIS_SUBTLV_SID_LABEL_SIZE
+	// 		    && length != SUBTLV_RANGE_LABEL_SIZE) {
+	// 			stream_forward_getp(s, length - 6);
+	// 			break;
+	// 		}
+
+	// 		if (size == ISIS_SUBTLV_SID_INDEX_SIZE
+	// 		    && length != SUBTLV_RANGE_INDEX_SIZE) {
+	// 			stream_forward_getp(s, length - 6);
+	// 			break;
+	// 		}
+
+	// 		if (size == ISIS_SUBTLV_SID_LABEL_SIZE) {
+	// 			rcap->srlb.lower_bound = stream_get3(s);
+	// 		} else if (size == ISIS_SUBTLV_SID_INDEX_SIZE) {
+	// 			rcap->srlb.lower_bound = stream_getl(s);
+	// 		} else {
+	// 			stream_forward_getp(s, length - 6);
+	// 			break;
+	// 		}
+
+	// 		/* SRLB sanity checks. */
+	// 		if (rcap->srlb.range_size == 0
+	// 		    || (rcap->srlb.lower_bound <= MPLS_LABEL_RESERVED_MAX)
+	// 		    || ((rcap->srlb.lower_bound + rcap->srlb.range_size - 1)
+	// 			> MPLS_LABEL_UNRESERVED_MAX)) {
+	// 			sbuf_push(log, indent, "Invalid label range. Reset SRLB\n");
+	// 			rcap->srlb.lower_bound = 0;
+	// 			rcap->srlb.range_size = 0;
+	// 		}
+	// 		/* Only one range is supported. Skip subsequent one */
+	// 		size = length - (size + SUBTLV_SR_BLOCK_SIZE);
+	// 		if (size > 0)
+	// 			stream_forward_getp(s, size);
+
+	// 		break;
+	// 	case ISIS_SUBTLV_NODE_MSD:
+	// 		if (length % 2) {
+	// 			sbuf_push(
+	// 				log, indent,
+	// 				"WARNING: Unexpected MSD sub-TLV length\n");
+	// 			stream_forward_getp(s, tlv_len);
+	// 			return 0;
+	// 		}
+
+	// 		num_msd = length / 2;
+
+	// 		for (int i = 0; i < num_msd; i++) {
+	// 			msd_type = stream_getc(s);
+
+	// 			switch (msd_type) {
+	// 			case MSD_TYPE_BASE_MPLS_IMPOSITION:
+	// 				/* BMI-MSD type as per RFC 8491 */
+	// 				rcap->msd = stream_getc(s);
+	// 				break;
+	// 			case ISIS_SUBTLV_SRV6_MAX_SL_MSD:
+	// 				/* SRv6 Maximum Segments Left MSD Type
+	// 				 * as per
+	// 				 * draft-ietf-lsr-isis-srv6-extensions
+	// 				 * section #4.1 */
+	// 				rcap->srv6.max_seg_left_msd =
+	// 					stream_getc(s);
+	// 				break;
+	// 			case ISIS_SUBTLV_SRV6_MAX_END_POP_MSD:
+	// 				/* SRv6 Maximum End Pop MSD Type as per
+	// 				 * draft-ietf-lsr-isis-srv6-extensions
+	// 				 * section #4.2 */
+	// 				rcap->srv6.max_end_pop_msd =
+	// 					stream_getc(s);
+	// 				break;
+	// 			case ISIS_SUBTLV_SRV6_MAX_H_ENCAPS_MSD:
+	// 				/* SRv6 Maximum H.Encaps MSD Type as per
+	// 				 * draft-ietf-lsr-isis-srv6-extensions
+	// 				 * section #4.3 */
+	// 				rcap->srv6.max_h_encaps_msd =
+	// 					stream_getc(s);
+	// 				break;
+	// 			case ISIS_SUBTLV_SRV6_MAX_END_D_MSD:
+	// 				/* SRv6 Maximum End D MSD Type as per
+	// 				 * draft-ietf-lsr-isis-srv6-extensions
+	// 				 * section #4.4 */
+	// 				rcap->srv6.max_end_d_msd =
+	// 					stream_getc(s);
+	// 				break;
+	// 			default:
+	// 				/* Unknown MSD. Let's skip it */
+	// 				stream_forward_getp(s, 1);
+	// 			}
+	// 		}
+	// 		break;
+	// 	case ISIS_SUBTLV_SRV6_CAPABILITIES:
+	// 		/* Check that SRv6 info is correctly formated */
+	// 		if (length < ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE ||
+	// 		    length > SUBTLV_RANGE_INDEX_SIZE) {
+	// 			stream_forward_getp(s, length);
+	// 			break;
+	// 		}
+	// 		/* Only one SRv6 capabilities is supported. Skip
+	// 		 * subsequent one */
+	// 		if (rcap->srv6.enabled) {
+	// 			stream_forward_getp(s, length);
+	// 			break;
+	// 		}
+	// 		rcap->srv6.flags = stream_getw(s);
+
+	// 		/* The SRv6 Capabilities sub-TLV may contain optional
+	// 		 * sub-sub-TLVs, as per
+	// 		 * draft-ietf-lsr-isis-srv6-extensions section-2. Skip
+	// 		 * any sub-sub-TLV contained in the SRv6 Capabilities
+	// 		 * sub-TLV that is not currently supported by IS-IS.
+	// 		 */
+	// 		if (length > 2)
+	// 			stream_forward_getp(s, length - 2);
+
+	// 		break;
+	// 	default:
+	// 		stream_forward_getp(s, length);
+	// 		break;
+	// 	}
+	// 	subtlv_len = subtlv_len - length - 2;
+	// }
+	tlvs->srv6_locator = srv6_locator;
+	format_tlv_srv6_locator(tlvs->srv6_locator, log, NULL, indent + 2);
 	return 0;
 }
 
@@ -4907,6 +5192,8 @@ static void format_tlvs(struct isis_tlvs *tlvs, struct sbuf *buf, struct json_ob
 	format_tlv_threeway_adj(tlvs->threeway_adj, buf, json, indent);
 
 	format_tlv_spine_leaf(tlvs->spine_leaf, buf, json, indent);
+
+	format_tlv_srv6_locator(tlvs->srv6_locator, buf, json, indent);
 }
 
 const char *isis_format_tlvs(struct isis_tlvs *tlvs, struct json_object *json)
