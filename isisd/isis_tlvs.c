@@ -3848,6 +3848,41 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 			if (length > MSD_TLV_SIZE)
 				stream_forward_getp(s, length - MSD_TLV_SIZE);
 			break;
+		case ISIS_SUBTLV_SRV6_CAPABILITIES:
+			sbuf_push(log, indent,
+				  "Unpacking SRv6 Capabilities sub-TLV...\n");
+			/* Check that SRv6 capabilities sub-TLV is correctly
+			 * formated */
+			if (length < ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE) {
+				sbuf_push(
+					log, indent,
+					"WARNING: Unexpected SRv6 Capabilities sub-TLV size (expected %hhu or more bytes, got %hhu)\n",
+					ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE,
+					length);
+				stream_forward_getp(s, length);
+				break;
+			}
+			/* Only one SRv6 capabilities is supported. Skip
+			 * subsequent one */
+			if (rcap->srv6.enabled) {
+				sbuf_push(
+					log, indent,
+					"WARNING: SRv6 Capabilities sub-TLV present multiple times, ignoring.\n");
+				stream_forward_getp(s, length);
+				break;
+			}
+			rcap->srv6.flags = stream_getw(s);
+
+			/* The SRv6 Capabilities sub-TLV may contain optional
+			 * sub-sub-TLVs, as per
+			 * draft-ietf-lsr-isis-srv6-extensions section-2. Skip
+			 * any sub-sub-TLV contained in the SRv6 Capabilities
+			 * sub-TLV that is not currently supported by IS-IS.
+			 */
+			if (length > 2)
+				stream_forward_getp(s, length - 2);
+
+			break;
 		default:
 			stream_forward_getp(s, length);
 			break;
