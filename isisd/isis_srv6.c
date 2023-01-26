@@ -37,6 +37,66 @@
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SRV6_SID, "ISIS SRv6 Segment ID");
 
 
+/* Unset SRv6 locator */
+int isis_srv6_locator_unset(struct isis_area *area)
+{
+	int ret;
+	struct listnode *node, *nnode;
+	struct srv6_locator_chunk *chunk;
+	struct srv6_sid *sid;
+
+	if (strmatch(area->srv6db.config.srv6_locator_name, "")) {
+		zlog_err("BUG: locator name not set (isis_srv6_locator_unset)");
+		return -1;
+	}
+
+	/* Release chunk notification via ZAPI */
+	ret = isis_zebra_srv6_manager_release_locator_chunk(
+			area->srv6db.config.srv6_locator_name);
+	if (ret < 0)
+		return -1;
+
+	/* Delete chunks */
+	for (ALL_LIST_ELEMENTS(area->srv6db.srv6_locator_chunks, node, nnode, chunk)) {
+
+		if (IS_DEBUG_SR)
+			zlog_debug(
+				"Deleting SRv6 Locator chunk (locator %s, prefix %pFX) from IS-IS area %s",
+				area->srv6db.config.srv6_locator_name, &chunk->prefix, area->area_tag);
+
+		if (IS_DEBUG_SR)
+			zlog_debug(
+				"Releasing chunk of locator %s for IS-IS area %s", area->srv6db.config.srv6_locator_name, area->area_tag);
+
+		listnode_delete(area->srv6db.srv6_locator_chunks, chunk);
+		srv6_locator_chunk_free(&chunk);
+	}
+
+	/* Delete SRv6 SIDs */
+	for (ALL_LIST_ELEMENTS(area->srv6db.srv6_sids, node, nnode, sid)) {
+
+		if (IS_DEBUG_SR)
+			zlog_debug(
+				"Deleting SRv6 SID (locator %s, sid %pI6) from IS-IS area %s",
+				area->srv6db.config.srv6_locator_name, &sid->val, area->area_tag);
+
+		/* Uninstall the SRv6 SID from the forwarding plane through Zebra */
+		isis_zebra_end_sid_uninstall(area, &sid->val);
+
+		listnode_delete(area->srv6db.srv6_sids, sid);
+		XFREE(MTYPE_ISIS_SRV6_SID, sid);
+	}
+
+	/* Clear locator name */
+	memset(area->srv6db.config.srv6_locator_name, 0, sizeof(area->srv6db.config.srv6_locator_name));
+
+	/* Regenerate LSPs to advertise that the locator does not exist anymore */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return 0;
+}
+
+
 /**
  * Transpose SID.
  * 
