@@ -69,6 +69,10 @@ void isis_zebra_vrf_register(struct isis *isis);
 void isis_zebra_vrf_deregister(struct isis *isis);
 int isis_zebra_ls_register(bool up);
 
+extern void isis_zebra_end_sid_install(struct isis_area *area,
+				   struct srv6_sid *sid);
+extern void isis_zebra_end_sid_uninstall(struct isis_area *area,
+				   struct in6_addr *sid);
 extern int isis_zebra_srv6_manager_get_locator_chunk(const char *name);
 extern int isis_zebra_srv6_manager_release_locator_chunk(const char *name);
 

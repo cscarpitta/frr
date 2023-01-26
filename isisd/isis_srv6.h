@@ -31,6 +31,15 @@
 #define SRV6_MAX_H_ENCAPS 1
 #define SRV6_MAX_END_D 2
 
+/* SRv6 SID */
+struct srv6_sid {
+	enum seg6local_action_t behavior;
+	struct in6_addr val;
+	struct srv6_locator_chunk *locator;
+	struct isis_sid_structure *structure;
+};
+
+
 /* Per-area IS-IS SRv6 Data Base (SRv6 DB) */
 struct isis_srv6_db {
 	/* Global Operational status of SRv6 */
@@ -63,6 +72,10 @@ struct isis_srv6_db {
 		uint8_t max_end_d_msd;
 	} config;
 };
+
+struct srv6_sid * srv6_sid_alloc(struct isis_area *area, uint32_t index,
+			      struct srv6_locator_chunk *srv6_locator_chunk, enum seg6local_action_t behavior);
+void srv6_sid_free(struct in6_addr **sid);
 
 extern void isis_srv6_area_init(struct isis_area *area);
 extern void isis_srv6_area_term(struct isis_area *area);
