@@ -4204,8 +4204,40 @@ static int unpack_tlv_srv6_locator(enum isis_tlv_context context,
 				listnode_add(srv6_locator->srv6_sids, &sid);  /* FIXME: sid is wrongly on the stack */
 
 				if (subsubtlv_len > 0) {
-					/* Skip all Sub-Sub-TLVs because currently unsupported */
-					stream_forward_getp(s, subsubtlv_len);
+
+					if (STREAM_READABLE(s) < subsubtlv_len) {
+						sbuf_push(
+							log, indent,
+							"WARNING: SRv6 Locator subTLV length too large compared to expected size\n");
+						stream_forward_getp(s, STREAM_READABLE(s));
+						XFREE(MTYPE_ISIS_TLV, srv6_locator);
+						return 0;
+					}
+
+					type = stream_getc(s);
+					length = stream_getc(s);
+
+					if (STREAM_READABLE(s) < length || length > subtlv_len - 2) {
+						sbuf_push(
+							log, indent,
+							"WARNING: Router Capability subTLV length too large compared to expected size\n");
+						stream_forward_getp(s, STREAM_READABLE(s));
+						XFREE(MTYPE_ISIS_TLV, srv6_locator);
+						return 0;
+					}
+
+					switch (type) {		/* FIXME: we cannot reuse length variable; maybe move to a different funct? */
+						case ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE:
+							sid.structure.loc_block_len = stream_getc(s);
+							sid.structure.loc_node_len = stream_getc(s);
+							sid.structure.func_len = stream_getc(s);
+							sid.structure.arg_len = stream_getc(s);
+						break;
+						default:
+							stream_forward_getp(
+								s, length);
+							break;
+					}
 				}
 			break;
 		default:
