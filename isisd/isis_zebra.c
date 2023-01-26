@@ -835,7 +835,7 @@ static int isis_zebra_client_close_notify(ZAPI_CALLBACK_ARGS)
  * @param sid		End SID
  */
 void isis_zebra_end_sid_install(struct isis_area *area,
-				   struct srv6_sid *sid)
+				   struct isis_srv6_sid *sid)
 {
 	struct seg6local_context ctx = {};
 	struct interface *ifp;
@@ -866,7 +866,7 @@ void isis_zebra_end_sid_install(struct isis_area *area,
  * @param sid		End SID
  */
 void isis_zebra_end_sid_uninstall(struct isis_area *area,
-				   struct in6_addr *sid)
+				   struct isis_srv6_sid *sid)
 {
 	struct seg6local_context ctx = {};
 
@@ -874,9 +874,9 @@ void isis_zebra_end_sid_uninstall(struct isis_area *area,
 		return;
 
 	sr_debug("ISIS-SRv6 (%s): delete End SID %pI6",
-		 area->area_tag, sid);
+		 area->area_tag, sid->val);
 
-	zclient_send_localsid(zclient, sid, 2, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, &ctx);
+	zclient_send_localsid(zclient, sid->val, 2, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, &ctx);
 }
 
 /*
@@ -893,7 +893,7 @@ static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	struct srv6_locator_chunk *chunk = srv6_locator_chunk_alloc();
 	struct isis *isis = NULL;
 	bool used = false;
-	struct srv6_sid *sid;
+	struct isis_srv6_sid *sid;
 
 	/* Lookup ISIS instance based on the VRF ID */
 	isis = isis_lookup_by_vrfid(vrf_id);
