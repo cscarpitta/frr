@@ -3533,6 +3533,11 @@ static void free_tlv_router_cap(struct isis_router_cap *router_cap)
 	XFREE(MTYPE_ISIS_TLV, router_cap);
 }
 
+static void free_tlv_srv6_locator(struct isis_srv6_locator *srv6_locator)
+{
+	XFREE(MTYPE_ISIS_TLV, srv6_locator);
+}
+
 static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 			       struct stream *s)
 {
@@ -5256,6 +5261,7 @@ void isis_free_tlvs(struct isis_tlvs *tlvs)
 	free_tlv_threeway_adj(tlvs->threeway_adj);
 	free_tlv_router_cap(tlvs->router_cap);
 	free_tlv_spine_leaf(tlvs->spine_leaf);
+	free_tlv_srv6_locator(tlvs->srv6_locator);
 
 	XFREE(MTYPE_ISIS_TLV, tlvs);
 }
