@@ -4063,6 +4063,26 @@ static int pack_tlv_srv6_locator(const struct isis_srv6_locator *srv6_locator,
 
 	for (ALL_LIST_ELEMENTS_RO(srv6_locator->srv6_sids, sid_node, sid)) {
 		switch (sid->behavior) {
+		case ZEBRA_SEG6_LOCAL_ACTION_END:
+			stream_putc(s, ISIS_SUBTLV_SRV6_END_SID); /* Type */
+
+			sub_len_pos = stream_get_endp(s);
+			/* Real length will be adjusted after adding
+			 * Sub-Sub-TLVs */
+			stream_putc(s, 31); /* Sub-TLV Length */
+
+			stream_putw(s, sid->behavior); /* Endpoint Behavior */
+
+			stream_put(s, &sid->val, IPV6_MAX_BYTELEN); /* SID */
+
+			/* Real length will be adjusted after adding Sub-TLVs */
+			stream_putc(s, 0); /* Sub-Sub-TLV-len */
+
+			/* Adjust Sub-TLV length which depends on Sub-Sub-TLVs
+			 * presence */
+			subtlv_len = stream_get_endp(s) - sub_len_pos - 1;
+			stream_putc_at(s, sub_len_pos, subtlv_len);
+			break;
 		default:
 			/* Unsupported SRv6 SID Behavior %u, skipping */
 			break;
