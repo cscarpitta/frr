@@ -4823,6 +4823,8 @@ struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs)
 
 	rv->router_cap = copy_tlv_router_cap(tlvs->router_cap);
 
+	rv->srv6_locator = copy_tlv_srv6_locator(tlvs->srv6_locator);
+
 	rv->spine_leaf = copy_tlv_spine_leaf(tlvs->spine_leaf);
 
 	return rv;
