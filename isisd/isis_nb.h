@@ -261,6 +261,8 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_n_flag_clear_modify(
 	struct nb_cb_modify_args *args);
 int isis_instance_segment_routing_srv6_enabled_modify(
 	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_srv6_locator_modify(
+	struct nb_cb_modify_args *args);
 int isis_instance_mpls_ldp_sync_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args);
 int isis_instance_mpls_ldp_sync_holddown_modify(struct nb_cb_modify_args *args);
