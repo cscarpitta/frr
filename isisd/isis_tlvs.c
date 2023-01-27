@@ -4033,6 +4033,14 @@ static int pack_tlv_srv6_locator(const struct isis_srv6_locator *srv6_locator,
 	return 0;
 }
 
+static int unpack_tlv_srv6_locator(enum isis_tlv_context context,
+				   uint8_t tlv_type, uint8_t tlv_len,
+				   struct stream *s, struct sbuf *log,
+				   void *dest, int indent)
+{
+	return 0;
+}
+
 /* Functions related to TLV 10 Authentication */
 static struct isis_item *copy_item_auth(struct isis_item *i)
 {
