@@ -455,6 +455,8 @@ enum isis_tlv_type {
 	ISIS_SUBTLV_SRV6_MAX_H_ENCAPS_MSD = 44,
 	/* draft-ietf-lsr-isis-srv6-extensions section #4.4 */
 	ISIS_SUBTLV_SRV6_MAX_END_D_MSD = 45,
+
+	ISIS_SUBTLV_SRV6_END_SID = 5,
 };
 
 /* subTLVs size for TE and SR */
