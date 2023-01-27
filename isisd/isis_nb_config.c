@@ -2505,6 +2505,93 @@ int isis_instance_segment_routing_srv6_locator_modify(struct nb_cb_modify_args *
 	return NB_OK;
 }
 
+int isis_instance_segment_routing_srv6_locator_destroy(struct nb_cb_destroy_args *args)
+{
+	// struct isis_area *area;
+	// const char *area_tag;
+	// const char *loc_name;
+
+	// if (args->event != NB_EV_APPLY)
+	// 	return NB_OK;
+
+	// area = nb_running_get_entry(args->dnode, NULL, true);
+
+	// /* If SRv6 locator is not configured, do nothing */
+	// if (strlen(area->srv6db.config.srv6_locator_name) < 1)
+	// 	return NB_OK;
+
+	// /* Validate SRv6 Locator name */
+	// if (strcmp(name, bgp->srv6_locator_name) != 0) {
+	// 	vty_out(vty, "%% No srv6 locator is configured\n");
+	// 	return CMD_WARNING_CONFIG_FAILED;
+	// }
+
+	// /* unset locator */
+	// if (bgp_srv6_locator_unset(bgp) < 0)
+	// 	return CMD_WARNING_CONFIG_FAILED;
+
+	// return CMD_SUCCESS;
+
+
+
+
+	// loc_name = yang_dnode_get_string(args->dnode, "./locator");
+
+	// if (strmatch(loc_name, area->srv6db.config.srv6_locator_name) {
+	// 	snprintf(args->errmsg, args->errmsg_len,
+	// 			"SRv6 locator %s is already configured", loc_name);
+	// 	return NB_ERR_NO_CHANGES;
+	// }
+
+	// if (IS_DEBUG_SR)
+	// 	zlog_debug(
+	// 		"Configured SRv6 Locator %s for IS-IS area %s", loc_name, area->area_tag);
+
+	// strlcpy(area->srv6db.config.srv6_locator_name, loc_name, sizeof(area->srv6db.config.srv6_locator_name));
+
+	// if (IS_DEBUG_SR)
+	// 	zlog_debug(
+	// 		"Trying to get a chunk from locator %s for IS-IS area %s", loc_name, area->area_tag);
+
+	// ret = isis_zebra_srv6_manager_get_locator_chunk(loc_name);
+	// if (ret < 0)
+	// 	return NB_ERR;
+
+	struct isis_area *area;
+	const char *loc_name;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(lyd_parent(lyd_parent(args->dnode)), NULL, true);
+
+	loc_name = yang_dnode_get_string(args->dnode, NULL);
+
+	if (!strmatch(loc_name, area->srv6db.config.srv6_locator_name)) {
+
+		if (IS_DEBUG_SR)
+			zlog_debug(
+				"SRv6 locator %s is not configured", loc_name);
+		snprintf(args->errmsg, args->errmsg_len,
+				"SRv6 locator %s is not configured", loc_name);
+		return NB_ERR_NO_CHANGES;
+	}
+
+	if (isis_srv6_locator_unset(area) < 0) {
+
+		if (IS_DEBUG_SR)
+			zlog_debug(
+				"Cannot unset locator");
+		return NB_ERR;
+	}
+
+	if (IS_DEBUG_SR)
+		zlog_debug(
+			"Deleted SRv6 Locator %s for IS-IS area %s", loc_name, area->area_tag);
+
+	return NB_OK;
+}
+
 /*
  * XPath: /frr-isisd:isis/instance/mpls/ldp-sync
  */
