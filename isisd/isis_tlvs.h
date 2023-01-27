@@ -208,6 +208,14 @@ struct isis_lan_adj_sid {
 #define MSD_TYPE_BASE_MPLS_IMPOSITION  0x01
 #define MSD_TLV_SIZE            2
 
+/* SRv6 SID structure */
+struct isis_sid_structure {
+	uint8_t loc_block_len;
+	uint8_t loc_node_len;
+	uint8_t func_len;
+	uint8_t arg_len;
+};
+
 /* draft-ietf-lsr-isis-srv6-extensions-19 section 7.1 */
 struct isis_srv6_locator_tlv {
 	struct isis_srv6_locator_tlv *next;
