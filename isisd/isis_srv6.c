@@ -83,7 +83,7 @@ int isis_srv6_locator_unset(struct isis_area *area)
 		/* Uninstall the SRv6 SID from the forwarding plane through Zebra */
 		isis_zebra_end_sid_uninstall(area, &sid->val);
 
-		//listnode_delete(area->srv6db.srv6_sids, sid);
+		listnode_delete(area->srv6db.srv6_sids, sid);
 		XFREE(MTYPE_ISIS_SRV6_SID, sid);
 	}
 
