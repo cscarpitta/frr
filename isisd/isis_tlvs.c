@@ -6141,3 +6141,15 @@ void isis_tlvs_set_purge_originator(struct isis_tlvs *tlvs,
 		       sizeof(tlvs->purge_originator->sender));
 	}
 }
+
+/* Set SRv6 Locator TLV parameters */
+void isis_tlvs_set_srv6_locator(struct isis_tlvs *tlvs,
+				     const struct isis_srv6_locator *locator)
+{
+	XFREE(MTYPE_ISIS_TLV, tlvs->srv6_locator);
+	if (!locator)
+		return;
+
+	tlvs->srv6_locator = XCALLOC(MTYPE_ISIS_TLV, sizeof(*tlvs->srv6_locator));
+	*tlvs->srv6_locator = *locator;
+}
