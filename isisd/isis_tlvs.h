@@ -206,6 +206,16 @@ struct isis_lan_adj_sid {
 #define MSD_TYPE_BASE_MPLS_IMPOSITION  0x01
 #define MSD_TLV_SIZE            2
 
+/* draft-ietf-lsr-isis-srv6-extensions section 7.1 */
+struct isis_srv6_locator {
+	uint32_t metric;
+	uint8_t flags;
+	uint8_t algorithm;
+	struct prefix_ipv6 locator;
+};
+
+#define ISIS_SRV6_LOCATOR_HDR_SIZE 2
+
 /* Structure aggregating SRv6 info */
 struct isis_srv6_info {
 	bool enabled; // TODO: change name
@@ -341,6 +351,7 @@ struct isis_tlvs {
 	struct isis_threeway_adj *threeway_adj;
 	struct isis_router_cap *router_cap;
 	struct isis_spine_leaf *spine_leaf;
+	struct isis_srv6_locator *srv6_locator;
 };
 
 enum isis_tlv_context {
