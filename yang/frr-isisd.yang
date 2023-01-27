@@ -1647,6 +1647,11 @@ module frr-isisd {
           description
             "Enables srv6 protocol extensions.";
         }
+        leaf locator {
+          type string;
+          description
+            "SRv6 locator.";
+        }
       }
 
       container mpls {
