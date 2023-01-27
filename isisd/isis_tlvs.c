@@ -25,6 +25,7 @@
 
 #include <zebra.h>
 #include <json-c/json_object.h>
+#include <math.h>
 
 #ifdef CRYPTO_INTERNAL
 #include "md5.h"
@@ -3979,6 +3980,59 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 	return 0;
 }
 
+static int pack_tlv_srv6_locator(const struct isis_srv6_locator *srv6_locator,
+				 struct stream *s)
+{
+	size_t tlv_len = ISIS_SRV6_LOCATOR_HDR_SIZE;
+	size_t len_pos;
+	// uint8_t nb_algo;
+	// size_t msd_len, msd_len_pos;
+
+	if (IS_DEBUG_SR)
+		zlog_debug("Pack SRv6 Locator TLV");
+
+	if (!srv6_locator)
+		return 0;
+
+	if (IS_DEBUG_SR)
+		zlog_debug("Packed SRv6 Locator TLV");
+	// /* Compute Maximum TLV size */
+	// tlv_len += ISIS_SUBTLV_SID_LABEL_RANGE_SIZE
+	// 	+ ISIS_SUBTLV_HDR_SIZE
+	// 	+ ISIS_SUBTLV_ALGORITHM_SIZE
+	// 	+ ISIS_SUBTLV_NODE_MSD_SIZE;
+
+	// if (STREAM_WRITEABLE(s) < (unsigned int)(2 + tlv_len))
+	// 	return 1;
+
+	/* Add SRv6 Locator TLV 27 with Reserved bits and MT ID */
+	stream_putc(s, ISIS_TLV_SRV6_LOCATOR);
+	/* Real length will be adjusted later */
+	len_pos = stream_get_endp(s);
+	stream_putc(s, tlv_len);
+	// stream_put(s, 0, 4);
+	// stream_put(s, 0, 12); // MT ID TODO: to be implemented
+	stream_putw(s, 0);  // Reserved + MT ID
+
+	zlog_debug("\n\n\n\n metric %d", srv6_locator->metric);
+	zlog_debug("prefixlen %u", srv6_locator->locator.prefixlen);
+	zlog_debug("prefix %pFX", &srv6_locator->locator);
+	/* Add Locator Entries */
+	stream_putl(s, srv6_locator->metric);		 // Metric
+	stream_putc(s, srv6_locator->flags);		 // Flags
+	stream_putc(s, srv6_locator->algorithm);	 // Algorithm
+	stream_putc(s, srv6_locator->locator.prefixlen); // Locator Size
+	stream_put(s, &srv6_locator->locator.prefix,	// TODO: add padding
+		   ceil((double) srv6_locator->locator.prefixlen / 8)); // Locator
+	stream_putc(s, 0);			     // Sub-TLV Length
+
+	/* Adjust TLV length which depends on subTLVs presence */
+	tlv_len = stream_get_endp(s) - len_pos - 1;
+	stream_putc_at(s, len_pos, tlv_len);
+
+	return 0;
+}
+
 /* Functions related to TLV 10 Authentication */
 static struct isis_item *copy_item_auth(struct isis_item *i)
 {
@@ -5134,6 +5188,14 @@ static int pack_tlvs(struct isis_tlvs *tlvs, struct stream *stream,
 			return rv;
 	}
 
+	rv = pack_tlv_srv6_locator(tlvs->srv6_locator, stream);
+	if (rv)
+		return rv;
+	if (fragment_tlvs) {	// TODO: implement me
+		fragment_tlvs->srv6_locator =
+			copy_tlv_srv6_locator(tlvs->srv6_locator);
+	}
+
 	return 0;
 }
 
@@ -5336,6 +5398,7 @@ ITEM_TLV_OPS(ipv6_address, "TLV 232 IPv6 Interface Address");
 ITEM_TLV_OPS(global_ipv6_address, "TLV 233 Global IPv6 Interface Address");
 ITEM_TLV_OPS(ipv6_reach, "TLV 236 IPv6 Reachability");
 TLV_OPS(router_cap, "TLV 242 Router Capability");
+TLV_OPS(srv6_locator, "TLV 27 SRv6 Locator");
 
 ITEM_SUBTLV_OPS(prefix_sid, "Sub-TLV 3 SR Prefix-SID");
 SUBTLV_OPS(ipv6_source_prefix, "Sub-TLV 22 IPv6 Source Prefix");
@@ -5367,6 +5430,7 @@ static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
 		[ISIS_TLV_MT_IPV6_REACH] = &tlv_ipv6_reach_ops,
 		[ISIS_TLV_THREE_WAY_ADJ] = &tlv_threeway_adj_ops,
 		[ISIS_TLV_ROUTER_CAPABILITY] = &tlv_router_cap_ops,
+		[ISIS_TLV_SRV6_LOCATOR] = &tlv_srv6_locator_ops,
 	},
 	[ISIS_CONTEXT_SUBTLV_NE_REACH] = {},
 	[ISIS_CONTEXT_SUBTLV_IP_REACH] = {
