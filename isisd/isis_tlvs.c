@@ -4227,6 +4227,13 @@ static int unpack_tlv_srv6_locator(enum isis_tlv_context context,
 					}
 				}
 			break;
+			case ISIS_SUBTLV_PREFIX_ATTRIBUTE_FLAGS:
+				subtlv_len = stream_getc(s); /* Length */
+				if( subtlv_len == ISIS_SUBTLV_PREFIX_ATTRIBUTE_FLAGS_SIZE)
+					stream_get(&srv6_locator->prefix_attribute_flags, s, subtlv_len); /* Flags */
+				else
+					stream_get(NULL, s, subtlv_len); /* Flags */
+				break;
 		default:
 			stream_forward_getp(s, length);
 			break;
