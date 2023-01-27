@@ -4012,7 +4012,8 @@ static int pack_tlv_srv6_locator(const struct isis_srv6_locator *srv6_locator,
 {
 	size_t tlv_len = ISIS_SRV6_LOCATOR_HDR_SIZE;
 	size_t subtlv_len;
-	size_t len_pos, sub_len_pos, subtlv_len_pos;
+	size_t subsubtlv_len;
+	size_t len_pos, sub_len_pos, subsub_len_pos, subtlv_len_pos;
 	struct listnode *sid_node;
 	struct isis_srv6_sid *sid;
 	// uint8_t nb_algo;
@@ -4078,10 +4079,28 @@ static int pack_tlv_srv6_locator(const struct isis_srv6_locator *srv6_locator,
 			/* Real length will be adjusted after adding Sub-TLVs */
 			stream_putc(s, 0); /* Sub-Sub-TLV-len */
 
+			/* SRv6 SID Structure Sub-Sub-TLV */
+
+			/* Type, length */
+			stream_putc(s, ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE);
+			stream_putc(s, 4);
+
+			/* LB Length, LN Length, Fun. Length, Arg. Length */
+			stream_putc(s, sid->structure.loc_block_len);
+			stream_putc(s, sid->structure.loc_node_len);
+			stream_putc(s, sid->structure.func_len);
+			stream_putc(s, sid->structure.arg_len);
+
+			subsubtlv_len = stream_get_endp(s) - subsub_len_pos - 1;
+			stream_putc_at(s, subsub_len_pos, subsubtlv_len);
+
 			/* Adjust Sub-TLV length which depends on Sub-Sub-TLVs
 			 * presence */
 			subtlv_len = stream_get_endp(s) - sub_len_pos - 1;
 			stream_putc_at(s, sub_len_pos, subtlv_len);
+
+			subsubtlv_len = stream_get_endp(s) - subsub_len_pos - 1;
+			stream_putc_at(s, subsub_len_pos, subsubtlv_len);
 			break;
 		default:
 			/* Unsupported SRv6 SID Behavior %u, skipping */
@@ -4132,7 +4151,6 @@ static int unpack_tlv_srv6_locator(enum isis_tlv_context context,
 	srv6_locator = XCALLOC(MTYPE_ISIS_TLV, sizeof(struct isis_srv6_locator));
 	srv6_locator->srv6_sids = list_new();
 
-	
 	stream_getw(s);  /* Reserved + MT ID*/
 
 	/* Get Metric, Flags, Algorithm, Locator Size, and Locator Prefix */
@@ -4148,7 +4166,7 @@ static int unpack_tlv_srv6_locator(enum isis_tlv_context context,
 
 	if (subtlv_len > 0) {
 
-		if (STREAM_READABLE(s) < subtlv_len * 8) {
+		if (STREAM_READABLE(s) < subtlv_len) {
 			sbuf_push(
 				log, indent,
 				"WARNING: SRv6 Locator subTLV length too large compared to expected size\n");
@@ -4174,14 +4192,11 @@ static int unpack_tlv_srv6_locator(enum isis_tlv_context context,
 				/* Flags */
 				stream_getc(s);
 
-				/* Reserved */
-				stream_getc(s);
-
 				/* Endpoint Behavior */
-				sid.behavior = stream_getc(s);
+				sid.behavior = stream_getw(s);
 
 				/* SID */
-				stream_get(&sid.val, s, sizeof(struct in6_addr));
+				stream_get(&sid.val, s, IPV6_MAX_BYTELEN);
 
 				/* Sub-Sub-TLVs Length */
 				subsubtlv_len = stream_getc(s);
