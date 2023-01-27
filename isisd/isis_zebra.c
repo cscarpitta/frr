@@ -843,7 +843,8 @@ static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 		return -1;
 
 	s = zclient->ibuf;
-	zapi_srv6_locator_chunk_decode(s, chunk);
+	if (zapi_srv6_locator_chunk_decode(s, chunk) < 0)
+		return -1;
 
 	if (IS_DEBUG_SR)
 		zlog_debug(
