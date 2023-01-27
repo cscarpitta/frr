@@ -940,6 +940,15 @@ static int isis_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
 		return -1;
 
+	if (IS_DEBUG_SR)
+		zlog_debug(
+			"SRv6 Locator deleted in zebra: name %s, "
+			"prefix %pFX, block_len %u, node_len %u, func_len %u, arg_len %u",
+			loc.name, &loc.prefix,
+			loc.block_bits_length, loc.node_bits_length,
+			loc.function_bits_length,
+			loc.argument_bits_length);
+
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
 		if (!strmatch(area->srv6db.config.srv6_locator_name,
 			      chunk->locator_name))
