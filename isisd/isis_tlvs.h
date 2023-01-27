@@ -476,6 +476,8 @@ enum isis_tlv_type {
 	ISIS_SUBTLV_SRV6_MAX_END_D_MSD = 45,
 
 	ISIS_SUBTLV_SRV6_END_SID = 5,
+
+	ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE = 1,
 };
 
 /* subTLVs size for TE and SR */
