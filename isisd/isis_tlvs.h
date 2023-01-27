@@ -212,8 +212,7 @@ struct isis_lan_adj_sid {
 struct isis_srv6_sid {
 	enum seg6local_action_t behavior;
 	struct in6_addr val;
-	struct isis_sid_structure structure;
-};      
+};
 
 /* draft-ietf-lsr-isis-srv6-extensions-19 section 7.1 */
 struct isis_srv6_locator {
@@ -221,6 +220,8 @@ struct isis_srv6_locator {
 	uint8_t flags;
 	uint8_t algorithm;
 	struct prefix_ipv6 locator;
+
+	struct list *srv6_sids;
 };
 
 #define ISIS_SRV6_LOCATOR_HDR_SIZE 22
