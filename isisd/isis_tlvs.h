@@ -192,6 +192,8 @@ struct isis_lan_adj_sid {
 
 /* SRv6 Capabilities as per RFC 9352 section #2 */
 struct isis_srv6_cap {
+	bool enabled; // TODO: change name
+
 	uint16_t flags;
 #define ISIS_SUBTLV_SRV6_FLAG_O 0x4000
 #define SUPPORTS_SRV6_OAM(srv6)                                                \
