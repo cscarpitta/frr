@@ -206,6 +206,14 @@ struct isis_lan_adj_sid {
 #define MSD_TYPE_BASE_MPLS_IMPOSITION  0x01
 #define MSD_TLV_SIZE            2
 
+/* SRv6 Capabilities as per draft-ietf-lsr-isis-srv6-extensions section #2 */
+struct isis_srv6_cap {
+	uint16_t flags;
+#define ISIS_SUBTLV_SRV6_FLAG_O 0x4000
+#define SUPPORTS_SRV6_OAM(srv6)                                                \
+	(CHECK_FLAG((srv6)->flags, ISIS_SUBTLV_SRV6_FLAG_O))
+};
+
 struct isis_router_cap {
 	struct in_addr router_id;
 	uint8_t flags;
@@ -216,6 +224,9 @@ struct isis_router_cap {
 	uint8_t algo[SR_ALGORITHM_COUNT];
 	/* RFC 8491 */
 	uint8_t msd;
+
+	/* draft-ietf-lsr-isis-srv6-extensions-19 section #2 */
+	struct isis_srv6_cap srv6_cap;
 };
 
 struct isis_item {
