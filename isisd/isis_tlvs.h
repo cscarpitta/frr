@@ -190,6 +190,18 @@ struct isis_lan_adj_sid {
 #define MSD_TYPE_BASE_MPLS_IMPOSITION  0x01
 #define MSD_TLV_SIZE            2
 
+/* Maximum SRv6 SID Depths (MSD) as per RFC 9352 section #4 */
+struct isis_srv6_msd {
+	/* RFC 9352 section #4.1 */
+	uint8_t max_seg_left_msd;
+	/* RFC 9352 section #4.2 */
+	uint8_t max_end_pop_msd;
+	/* RFC 9352 section #4.3 */
+	uint8_t max_h_encaps_msd;
+	/* RFC 9352 section #4.4 */
+	uint8_t max_end_d_msd;
+};
+
 /* SRv6 Capabilities as per RFC 9352 section #2 */
 struct isis_srv6_cap {
 	bool enabled; // TODO: change name
@@ -213,6 +225,9 @@ struct isis_router_cap {
 
 	/* RFC 9352 section #2 */
 	struct isis_srv6_cap srv6_cap;
+
+	/* RFC 9352 section #4 */
+	struct isis_srv6_msd srv6_msd;
 };
 
 struct isis_item {
