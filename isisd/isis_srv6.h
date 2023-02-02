@@ -36,6 +36,9 @@ struct isis_srv6_db {
 	/* Global Operational status of SRv6 */
 	bool enabled;
 
+	/* List of SRv6 Locator chunks */
+	struct list *srv6_locator_chunks;
+
 	/* Area SRv6 configuration. */
 	struct {
 		/* Administrative status of SRv6 */
