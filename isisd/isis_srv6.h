@@ -47,6 +47,9 @@ struct isis_srv6_db {
 	/* List of SRv6 Locator chunks */
 	struct list *srv6_locator_chunks;
 
+	/* List of SRv6 SIDs allocated by the IS-IS instance */
+	struct list *srv6_sids;
+
 	/* Area SRv6 configuration. */
 	struct {
 		/* Administrative status of SRv6 */
@@ -74,5 +77,7 @@ extern void isis_srv6_area_term(struct isis_area *area);
 
 void isis_srv6_init(void);
 void isis_srv6_term(void);
+
+extern void isis_srv6_sid_free(struct isis_srv6_sid **sid);
 
 #endif /* _FRR_ISIS_SRV6_H */
