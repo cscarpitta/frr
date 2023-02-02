@@ -1081,6 +1081,11 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 
 		cap.router_id.s_addr = area->isis->router_id;
 
+		/* Disable SR Algorithm by default. It will be enabled later if
+		 * either SR or SRv6 is enabled */
+		cap.algo[0] = SR_ALGORITHM_UNSET;
+		cap.algo[1] = SR_ALGORITHM_UNSET;
+
 		/* Add SR Sub-TLVs if SR is enabled. */
 		if (area->srdb.enabled) {
 			struct isis_sr_db *srdb = &area->srdb;
@@ -1104,10 +1109,28 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			cap.srlb.lower_bound = srdb->config.srlb_lower_bound;
 			/* And finally MSD */
 			cap.msd = srdb->config.msd;
-		} else {
-			/* Disable SR Algorithm */
-			cap.algo[0] = SR_ALGORITHM_UNSET;
+		}
+
+		/* Add SRv6 Sub-TLVs if SRv6 is enabled */
+		if (area->srv6db.config.enabled) {
+			struct isis_srv6_db *srv6db = &area->srv6db;
+
+			/* SRv6 flags */
+			cap.srv6_cap.flags = 0;
+
+			/* Then Algorithm */
+			cap.algo[0] = SR_ALGORITHM_SPF;
 			cap.algo[1] = SR_ALGORITHM_UNSET;
+
+			/* And finally MSDs */
+			cap.srv6_msd.max_seg_left_msd =
+				srv6db->config.max_seg_left_msd;
+			cap.srv6_msd.max_end_pop_msd =
+				srv6db->config.max_end_pop_msd;
+			cap.srv6_msd.max_h_encaps_msd =
+				srv6db->config.max_h_encaps_msd;
+			cap.srv6_msd.max_end_d_msd =
+				srv6db->config.max_end_d_msd;
 		}
 
 		isis_tlvs_set_router_capability(lsp->tlvs, &cap);
