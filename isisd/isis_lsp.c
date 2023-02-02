@@ -1215,6 +1215,8 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 		if (area->srv6db.config.enabled) {
 			struct isis_srv6_db *srv6db = &area->srv6db;
 
+			cap.srv6_cap.enabled = true;
+
 			/* SRv6 flags */
 			rcap->srv6_cap.flags = 0;
 
