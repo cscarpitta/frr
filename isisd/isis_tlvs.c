@@ -3585,6 +3585,14 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 		}
 	}
 
+	/* Add SRv6 capabilities if set as per
+	 * draft-ietf-lsr-isis-srv6-extensions-19 section #2 */
+	if (router_cap->srv6_cap.enabled) {
+		stream_putc(s, ISIS_SUBTLV_SRV6_CAPABILITIES);
+		stream_putc(s, ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE);
+		stream_putw(s, router_cap->srv6_cap.flags);
+	}
+
 	/* Adjust TLV length which depends on subTLVs presence */
 	tlv_len = stream_get_endp(s) - len_pos - 1;
 	stream_putc_at(s, len_pos, tlv_len);
