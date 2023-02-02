@@ -199,6 +199,10 @@ void isis_srv6_area_init(struct isis_area *area)
 	srv6db->srv6_locator_chunks->del =
 		(void (*)(void *))srv6_locator_chunk_free;
 
+	/* Initialize SRv6 SIDs list */
+	srv6db->srv6_sids = list_new();
+	srv6db->srv6_sids->del = (void (*)(void *))isis_srv6_sid_free;
+
 	area->srv6db.enabled = true; // TODO: temporary; to be moved
 }
 
@@ -215,6 +219,9 @@ void isis_srv6_area_term(struct isis_area *area)
 
 	/* Free SRv6 Locator chunks list */
 	list_delete(&srv6db->srv6_locator_chunks);
+
+	/* Free SRv6 SIDs list */
+	list_delete(&srv6db->srv6_sids);
 }
 
 /**
