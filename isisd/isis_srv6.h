@@ -31,15 +31,29 @@
 #define SRV6_MAX_H_ENCAPS 1
 #define SRV6_MAX_END_D 2
 
+/* SRv6 SID */
+struct isis_srv6_sid {
+	enum seg6local_action_t behavior;
+	struct in6_addr val;
+	struct srv6_locator_chunk *locator;
+	struct isis_sid_structure *structure;
+};
+
 /* Per-area IS-IS SRv6 Data Base (SRv6 DB) */
 struct isis_srv6_db {
 	/* Global Operational status of SRv6 */
 	bool enabled;
 
+	/* List of SRv6 Locator chunks */
+	struct list *srv6_locator_chunks;
+
 	/* Area SRv6 configuration. */
 	struct {
 		/* Administrative status of SRv6 */
 		bool enabled;
+
+		/* Name of the SRv6 Locator */
+		char srv6_locator_name[SRV6_LOCNAME_SIZE];
 
 		/* Maximum Segments Left Depth supported by the router */
 		uint8_t max_seg_left_msd;
