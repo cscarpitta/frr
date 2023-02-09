@@ -943,6 +943,73 @@ static int isis_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
 }
 
 /**
+ * Callback to process a notification from SRv6 Manager (zebra) of an SRv6
+ * locator deleted.
+ *
+ * @result 0 on success, -1 otherwise
+ */
+static int isis_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
+{
+	struct srv6_locator loc = {};
+	struct isis_area *area;
+	struct listnode *node, *nnode;
+	struct srv6_locator_chunk *chunk;
+	// struct bgp_srv6_function *sid;
+	// struct prefix_ipv6 tmp_prefi;
+	struct isis *isis = NULL;
+
+	isis = isis_lookup_by_vrfid(vrf_id);
+	if (!isis)
+		return -1;
+
+	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
+		return -1;
+
+	if (IS_DEBUG_SR)
+		zlog_debug(
+			"SRv6 Locator deleted in zebra: name %s, "
+			"prefix %pFX, block_len %u, node_len %u, func_len %u, arg_len %u",
+			loc.name, &loc.prefix, loc.block_bits_length,
+			loc.node_bits_length, loc.function_bits_length,
+			loc.argument_bits_length);
+
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+		if (!strmatch(area->srv6db.config.srv6_locator_name, loc.name))
+			continue;
+
+		/* Free the SRv6 locator chunks */
+		for (ALL_LIST_ELEMENTS(area->srv6db.srv6_locator_chunks, node,
+				       nnode, chunk)) {
+			if (prefix_match((struct prefix *)&loc.prefix,
+					 (struct prefix *)&chunk->prefix)) {
+				listnode_delete(
+					area->srv6db.srv6_locator_chunks,
+					chunk);
+				srv6_locator_chunk_free(&chunk);
+			}
+		}
+
+		// /* Free the SRv6 SIDs chunks */
+		// for (ALL_LIST_ELEMENTS(area->srv6db.srv6_sids, node, nnode,
+		// sid)) { 	tmp_prefi.family = AF_INET6;
+		// tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
+		// tmp_prefi.prefix = func->sid; 	if (prefix_match((struct
+		// prefix *)&loc.prefix, 			(struct prefix
+		// *)&tmp_prefi)) {
+		// listnode_delete(area->srv6db.srv6_sids, sid);
+		// XFREE(MTYPE_ISIS_SRV6_SID, sid);
+		// 	}
+		// }
+
+		// if (listcount(area->area_addrs) > 0)
+		// 	lsp_regenerate_schedule(area, area->is_type, 0);  //
+		// TODO: verify advertise locator
+	}
+
+	return 0;
+}
+
+/**
  * Request an SRv6 locator chunk to the SRv6 Manager (zebra) asynchronously.
  *
  * @param locator_name Name of SRv6 locator
@@ -982,6 +1049,7 @@ static zclient_handler *const isis_handlers[] = {
 	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] =
 		isis_zebra_process_srv6_locator_chunk,
 	[ZEBRA_SRV6_LOCATOR_ADD] = isis_zebra_process_srv6_locator_add,
+	[ZEBRA_SRV6_LOCATOR_DELETE] = isis_zebra_process_srv6_locator_delete,
 };
 
 void isis_zebra_init(struct thread_master *master, int instance)
