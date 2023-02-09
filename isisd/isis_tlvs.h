@@ -28,6 +28,8 @@
 #include "openbsd-tree.h"
 #include "prefix.h"
 
+#include <lib/srv6.h>
+
 DECLARE_MTYPE(ISIS_SUBTLV);
 
 struct lspdb_head;
@@ -205,6 +207,13 @@ struct isis_lan_adj_sid {
 
 #define MSD_TYPE_BASE_MPLS_IMPOSITION  0x01
 #define MSD_TLV_SIZE            2
+
+/* SRv6 SID */
+struct isis_srv6_sid {
+	enum seg6local_action_t behavior;
+	struct in6_addr val;
+	struct isis_sid_structure structure;
+};      
 
 /* draft-ietf-lsr-isis-srv6-extensions-19 section 7.1 */
 struct isis_srv6_locator {
