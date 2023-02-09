@@ -852,6 +852,15 @@ static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	s = zclient->ibuf;
 	zapi_srv6_locator_chunk_decode(s, chunk);
 
+	if (IS_DEBUG_SR)
+		zlog_debug(
+			"Received SRv6 Locator chunk from zebra: name %s, "
+			"prefix %pFX, block_len %u, node_len %u, func_len %u, arg_len %u",
+			chunk->locator_name, &chunk->prefix,
+			chunk->block_bits_length, chunk->node_bits_length,
+			chunk->function_bits_length,
+			chunk->argument_bits_length);
+
 	/* Walk through all areas of the ISIS instance */
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
 		if (!strmatch(area->srv6db.config.srv6_locator_name,
@@ -866,6 +875,12 @@ static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 		// 	}
 		// }
 
+		if (IS_DEBUG_SR)
+			zlog_debug(
+				"Adding SRv6 Locator chunk (locator %s, prefix %pFX) to IS-IS area %s",
+				chunk->locator_name, &chunk->prefix,
+				area->area_tag);
+
 		/* Add the SRv6 Locator chunk to the per-area chunks list */
 		listnode_add(area->srv6db.srv6_locator_chunks, chunk);
 		used = true;
@@ -875,8 +890,13 @@ static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 		// TODO: verify advertise locator
 	}
 
-	if (!used)
+	if (!used) {
+		if (IS_DEBUG_SR)
+			zlog_debug(
+				"No IS-IS area configured for the locator %s",
+				chunk->locator_name);
 		srv6_locator_chunk_free(&chunk);
+	}
 
 	return 0;
 }
