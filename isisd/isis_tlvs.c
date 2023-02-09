@@ -4107,10 +4107,12 @@ static int unpack_tlv_srv6_locator(enum isis_tlv_context context,
 {
 	struct isis_tlvs *tlvs = dest;
 	struct isis_srv6_locator *srv6_locator;
-	// uint8_t type;
-	// uint8_t length;
-	uint8_t subtlv_len;
+	uint8_t type;
+	uint8_t length;
+	uint8_t subtlv_len, subsubtlv_len;
 	// uint8_t size;
+
+	struct isis_srv6_sid sid;
 
 	sbuf_push(log, indent, "Unpacking SRv6 Locator TLV...\n");
 	if (tlv_len < ISIS_SRV6_LOCATOR_HDR_SIZE) {
@@ -4128,6 +4130,7 @@ static int unpack_tlv_srv6_locator(enum isis_tlv_context context,
 
 	/* Allocate SRv6 Locator structure */
 	srv6_locator = XCALLOC(MTYPE_ISIS_TLV, sizeof(struct isis_srv6_locator));
+	srv6_locator->srv6_sids = list_new();
 
 	
 	stream_getw(s);  /* Reserved + MT ID*/
@@ -4142,6 +4145,59 @@ static int unpack_tlv_srv6_locator(enum isis_tlv_context context,
 
 	/* Parse remaining part of the TLV if present */
 	subtlv_len = stream_getc(s);
+
+	if (subtlv_len > 0) {
+
+		if (STREAM_READABLE(s) < subtlv_len * 8) {
+			sbuf_push(
+				log, indent,
+				"WARNING: SRv6 Locator subTLV length too large compared to expected size\n");
+			stream_forward_getp(s, STREAM_READABLE(s));
+			XFREE(MTYPE_ISIS_TLV, srv6_locator);
+			return 0;
+		}
+
+		type = stream_getc(s);
+		length = stream_getc(s);
+
+		if (STREAM_READABLE(s) < length || length > subtlv_len - 2) {
+			sbuf_push(
+				log, indent,
+				"WARNING: Router Capability subTLV length too large compared to expected size\n");
+			stream_forward_getp(s, STREAM_READABLE(s));
+			XFREE(MTYPE_ISIS_TLV, srv6_locator);
+			return 0;
+		}
+
+		switch (type) {
+			case ISIS_SUBTLV_SRV6_END_SID:
+				/* Flags */
+				stream_getc(s);
+
+				/* Reserved */
+				stream_getc(s);
+
+				/* Endpoint Behavior */
+				sid.behavior = stream_getc(s);
+
+				/* SID */
+				stream_get(&sid.val, s, sizeof(struct in6_addr));
+
+				/* Sub-Sub-TLVs Length */
+				subsubtlv_len = stream_getc(s);
+
+				listnode_add(srv6_locator->srv6_sids, &sid);  /* FIXME: sid is wrongly on the stack */
+
+				if (subsubtlv_len > 0) {
+					/* Skip all Sub-Sub-TLVs because currently unsupported */
+					stream_forward_getp(s, subsubtlv_len);
+				}
+			break;
+		default:
+			stream_forward_getp(s, length);
+			break;
+		}		
+	}
 	// while (subtlv_len > 2) {
 	// 	uint8_t msd_type;
 
