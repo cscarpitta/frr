@@ -882,6 +882,42 @@ static int isis_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 }
 
 /**
+ * Callback to process an SRv6 Locator received from SRv6 Manager (zebra).
+ *
+ * @result 0 on success, -1 otherwise
+ */
+static int isis_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
+{
+	struct srv6_locator loc = {};
+	struct listnode *node;
+	struct isis_area *area;
+	struct isis *isis = NULL;
+
+	isis = isis_lookup_by_vrfid(vrf_id);
+	if (!isis)
+		return -1;
+
+	/* Decode the SRv6 locator */
+	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
+		return -1;
+
+	/* Lookup on the IS-IS areas */
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+		/* If SRv6 is enabled on this area and the configured locator
+		 * corresponds to the new locator, then request a chunk from the
+		 * locator */
+		if (area->srv6db.enabled &&
+		    strmatch(area->srv6db.config.srv6_locator_name, loc.name)) {
+			if (isis_zebra_srv6_manager_get_locator_chunk(
+				    loc.name) < 0)
+				return -1;
+		}
+	}
+
+	return 0;
+}
+
+/**
  * Request an SRv6 Locator chunk to the SRv6 Manager (zebra) asynchronously.
  *
  * @param locator_name Name of SRv6 Locator
@@ -920,6 +956,7 @@ static zclient_handler *const isis_handlers[] = {
 
 	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] =
 		isis_zebra_process_srv6_locator_chunk,
+	[ZEBRA_SRV6_LOCATOR_ADD] = isis_zebra_process_srv6_locator_add,
 };
 
 void isis_zebra_init(struct thread_master *master, int instance)
