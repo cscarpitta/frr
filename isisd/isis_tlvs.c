@@ -4062,6 +4062,11 @@ static int pack_tlv_srv6_locator(const struct isis_srv6_locator *srv6_locator,
 	/* Real length will be adjusted after adding Sub-TLVs */
 	stream_putc(s, 0);			     // Sub-TLV Length
 
+	/* Prefix Attribute Flags Sub-TLV as per RFC 7794 section#2.1 */
+	stream_putc(s, ISIS_SUBTLV_PREFIX_ATTRIBUTE_FLAGS);	 /* Type */
+	stream_putc(s, ISIS_SUBTLV_PREFIX_ATTRIBUTE_FLAGS_SIZE); /* Length */
+	stream_putc(s, srv6_locator->prefix_attribute_flags);	 /* Flags */
+
 	for (ALL_LIST_ELEMENTS_RO(srv6_locator->srv6_sids, sid_node, sid)) {
 		switch (sid->behavior) {
 		case ZEBRA_SEG6_LOCAL_ACTION_END:
