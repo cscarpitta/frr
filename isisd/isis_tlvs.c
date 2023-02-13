@@ -4245,9 +4245,31 @@ static int unpack_tlv_srv6_locator(enum isis_tlv_context context,
 					}
 				}
 			break;
-		default:
-			stream_forward_getp(s, length);
-			break;
+			case ISIS_SUBTLV_PREFIX_ATTRIBUTE_FLAGS:
+				/* Skip Prefix Attribute Flags Sub-TLV if it
+				 * does not contain any information */
+				if (length == 0)
+					break;
+
+				/* Prefix Attribute Flags Sub-TLV may carry any
+				 * number of bits. We read the first 8 bits of
+				 * the Flags field and skip the remaining ones
+				 * because they are not currently supported by
+				 * IS-IS. */
+				srv6_locator->prefix_attribute_flags =
+					stream_getc(s); /* Flags */
+				if (length -
+					    ISIS_SUBTLV_PREFIX_ATTRIBUTE_FLAGS_SIZE >
+				    0)
+					stream_forward_getp(
+						s,
+						length -
+							ISIS_SUBTLV_PREFIX_ATTRIBUTE_FLAGS_SIZE);
+
+				break;
+			default:
+				stream_forward_getp(s, length);
+				break;
 		}		
 	}
 	// while (subtlv_len > 2) {
