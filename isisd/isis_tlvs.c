@@ -5539,7 +5539,7 @@ static int pack_item_srv6_sid_structure(struct isis_item *i, struct stream *s,
 	return 0;
 }
 
-static int unpack_item_srv6_sid_structure(uint16_t mtid, uint8_t len,
+static int unpack_subsubtlv_srv6_sid_structure(uint16_t mtid, uint8_t len,
 				    struct stream *s, struct sbuf *log,
 				    void *dest, int indent)
 {
