@@ -5482,9 +5482,9 @@ static struct isis_srv6_sid_structure *copy_subsubtlv_srv6_sid_structure(struct 
 	return rv;
 }
 
-static void format_subsubtlv_srv6_sid_structure(uint16_t mtid, struct isis_srv6_sid_structure *sid_struct,
-					   struct sbuf *buf,
-					   struct json_object *json, int indent)
+static void format_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure *sid_struct,
+					struct sbuf *buf,
+					struct json_object *json, int indent)
 {
 	if (!sid_struct)
 		return NULL;
@@ -5496,9 +5496,6 @@ static void format_subsubtlv_srv6_sid_structure(uint16_t mtid, struct isis_srv6_
 		sid_struct_json = json_object_new_object();
 		json_object_object_add(json, "srv6-sid-structure",
 				       sid_struct_json);
-		json_object_string_add(sid_struct_json, "mt-id",
-				       (mtid == ISIS_MT_IPV4_UNICAST) ? ""
-								      : "mt");
 		json_object_int_add(sid_struct_json, "loc-block-len",
 				    sid_struct->loc_block_len);
 		json_object_int_add(sid_struct_json, "loc-node-len",
