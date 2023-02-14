@@ -5521,7 +5521,7 @@ static void free_item_srv6_sid_structure(struct isis_item *i)
 	XFREE(MTYPE_ISIS_SUBSUBTLV, item);
 }
 
-static int pack_item_srv6_sid_structure(struct isis_item *i, struct stream *s,
+static int pack_subsubtlv_srv6_sid_structure(struct isis_item *i, struct stream *s,
 					size_t *min_len)
 {
 	struct isis_srv6_sid_structure *sid_struct =
