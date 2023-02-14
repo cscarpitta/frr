@@ -228,7 +228,10 @@ struct isis_srv6_locator {
 	struct isis_srv6_locator *next;
 
 	uint32_t metric;
+
 	uint8_t flags;
+#define ISIS_TLV_SRV6_LOCATOR_FLAG_D 1 << 7
+
 	uint8_t algorithm;
 	struct prefix_ipv6 locator;
 
