@@ -5224,6 +5224,102 @@ static int pack_item_srv6_locator(struct isis_item *i, struct stream *s,
 	return 0;
 }
 
+static int unpack_item_srv6_locator(uint16_t mtid, uint8_t len,
+				    struct stream *s, struct sbuf *log,
+				    void *dest, int indent)
+{
+	struct isis_tlvs *tlvs = dest;
+	struct isis_srv6_locator *rv = NULL;
+	size_t consume;
+	uint8_t control, subtlv_len;
+	struct isis_item_list *items;
+
+	sbuf_push(log, indent, "Unpacking SRv6 Locator...\n");
+	consume = 7;
+	if (len < consume) {
+		sbuf_push(
+			log, indent,
+			"Not enough data left. (expected 7 or more bytes, got %hhu)\n",
+			len);
+		goto out;
+	}
+
+	rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+
+	rv->metric = stream_getl(s);
+	rv->flags = stream_getc(s);
+	rv->algorithm = stream_getc(s);
+
+	rv->locator.family = AF_INET6;
+	rv->locator.prefixlen = stream_getc(s);
+	if (rv->locator.prefixlen > IPV6_MAX_BITLEN) {
+		sbuf_push(log, indent, "Loc Size %u is implausible for SRv6\n",
+			  rv->locator.prefixlen);
+		goto out;
+	}
+
+	consume += PSIZE(rv->locator.prefixlen);
+	if (len < consume) {
+		sbuf_push(
+			log, indent,
+			"Expected %u bytes of prefix, but only %u bytes available.\n",
+			PSIZE(rv->locator.prefixlen), len - 7);
+		goto out;
+	}
+	stream_get(&rv->locator.prefix.s6_addr, s,
+		   PSIZE(rv->locator.prefixlen));
+	struct in6_addr orig_locator = rv->locator.prefix;
+
+	apply_mask_ipv6(&rv->locator);
+	if (memcmp(&orig_locator, &rv->locator.prefix, sizeof(orig_locator)))
+		sbuf_push(log, indent + 2,
+			  "WARNING: SRv6 Locator had hostbits set.\n");
+	format_item_srv6_locator(mtid, (struct isis_item *)rv, log, NULL,
+				 indent + 2);
+
+	consume += 1;
+	if (len < consume) {
+		sbuf_push(
+			log, indent,
+			"Expected 1 byte of subtlv len, but no more data persent.\n");
+		goto out;
+	}
+	subtlv_len = stream_getc(s);
+
+	if (subtlv_len) {
+		consume += subtlv_len;
+		if (len < consume) {
+			sbuf_push(
+				log, indent,
+				"Expected %hhu bytes of subtlvs, but only %u bytes available.\n",
+				subtlv_len,
+				len - 7 - PSIZE(rv->locator.prefixlen));
+			goto out;
+		}
+
+		rv->subtlvs =
+			isis_alloc_subtlvs(ISIS_CONTEXT_SUBTLV_SRV6_LOCATOR);
+		bool unpacked_known_tlvs = false;
+
+		if (unpack_tlvs(ISIS_CONTEXT_SUBTLV_SRV6_LOCATOR, subtlv_len, s,
+				log, rv->subtlvs, indent + 4,
+				&unpacked_known_tlvs)) {
+			goto out;
+		}
+		if (!unpacked_known_tlvs) {
+			isis_free_subtlvs(rv->subtlvs);
+			rv->subtlvs = NULL;
+		}
+	}
+
+	append_item(tlvs->srv6_locator, (struct isis_item *)rv);
+	return 0;
+out:
+	if (rv)
+		free_item_srv6_locator((struct isis_item *)rv);
+	return 1;
+}
+
 /* Functions related to tlvs in general */
 
 struct isis_tlvs *isis_alloc_tlvs(void)
