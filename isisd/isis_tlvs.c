@@ -1623,6 +1623,28 @@ static void free_item_srv6_end_sid(struct isis_item *i)
 	XFREE(MTYPE_ISIS_SUBTLV, i);
 }
 
+static int pack_item_srv6_end_sid(struct isis_item *i, struct stream *s,
+				  size_t *min_len)
+{
+	struct isis_srv6_end_sid_subtlv *sid =
+		(struct isis_srv6_end_sid_subtlv *)i;
+
+	if (STREAM_WRITEABLE(s) < 20) {
+		*min_len = 20;
+		return 1;
+	}
+
+	stream_putc(s, sid->flags);
+	stream_putw(s, sid->behavior);
+	stream_put(s, &sid->value, IPV6_MAX_BYTELEN);
+
+	/* Put 0 as Sub-Sub-TLV length, because we don't support any Sub-Sub-TLV
+	 * at this time */
+	stream_putc(s, 0);
+
+	return 0;
+}
+
 /* Functions related to TLVs 1 Area Addresses */
 
 static struct isis_item *copy_item_area_address(struct isis_item *i)
