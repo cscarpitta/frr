@@ -5539,6 +5539,35 @@ static int pack_item_srv6_sid_structure(struct isis_item *i, struct stream *s,
 	return 0;
 }
 
+static int unpack_item_srv6_sid_structure(uint16_t mtid, uint8_t len,
+				    struct stream *s, struct sbuf *log,
+				    void *dest, int indent)
+{
+	struct isis_subsubtlvs *subsubtlvs = dest;
+	struct isis_srv6_sid_structure sid_struct = {};
+	size_t consume;
+	uint8_t control, subtlv_len;
+	struct isis_item_list *items;
+
+	sbuf_push(log, indent, "Unpacking SRv6 SID Structure...\n");
+	consume = 6;
+	if (len < consume) {
+		sbuf_push(
+			log, indent,
+			"Not enough data left. (expected 6 or more bytes, got %hhu)\n",
+			len);
+		return 1;
+	}
+
+	sid_struct.loc_block_len = stream_getc(s);
+	sid_struct.loc_node_len = stream_getc(s);
+	sid_struct.func_len = stream_getc(s);
+	sid_struct.arg_len = stream_getc(s);
+
+	subsubtlvs->srv6_sid_structure = copy_item_srv6_sid_structure(&sid_struct);
+	return 0;
+}
+
 /* Functions related to tlvs in general */
 
 struct isis_tlvs *isis_alloc_tlvs(void)
