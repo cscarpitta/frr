@@ -5522,16 +5522,17 @@ static void free_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure *si
 	XFREE(MTYPE_ISIS_SUBSUBTLV, sid_struct);
 }
 
-static int pack_subsubtlv_srv6_sid_structure(struct isis_item *i, struct stream *s,
-					size_t *min_len)
+static int pack_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure *sid_struct, struct stream *s)
 {
-	struct isis_srv6_sid_structure *sid_struct =
-		(struct isis_srv6_sid_structure *)i;
+	if (!sid_struct)
+		return NULL;
 
 	if (STREAM_WRITEABLE(s) < 6) {
-		*min_len = 6;
 		return 1;
 	}
+
+	stream_putc(s, ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE);
+	stream_putc(s, 6);
 	stream_putc(s, sid_struct->loc_block_len);
 	stream_putc(s, sid_struct->loc_node_len);
 	stream_putc(s, sid_struct->func_len);
