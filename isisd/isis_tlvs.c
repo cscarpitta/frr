@@ -4667,6 +4667,53 @@ static void free_item_srv6_locator(struct isis_item *i)
 	XFREE(MTYPE_ISIS_TLV, item);
 }
 
+static void format_item_srv6_locator(uint16_t mtid, struct isis_item *i,
+				   struct sbuf *buf, struct json_object *json,
+				   int indent)
+{
+	struct isis_srv6_locator_tlv *loc = (struct isis_srv6_locator_tlv *)i;
+	char prefixbuf[PREFIX2STR_BUFFER];
+
+	if (json) {
+		struct json_object *loc_json;
+		loc_json = json_object_new_object();
+		json_object_object_add(json, "srv6-locator", loc_json);
+		json_object_string_add(loc_json, "mt-id",
+				       (mtid == ISIS_MT_IPV4_UNICAST) ? ""
+								      : "mt");
+		json_object_string_add(
+			loc_json, "prefix",
+			prefix2str(&loc->prefix, prefixbuf, sizeof(prefixbuf)));
+		json_object_int_add(loc_json, "metric", loc->metric);
+		json_object_string_add(loc_json, "d-flag",
+				CHECK_FLAG(loc->flags, ISIS_TLV_SRV6_LOCATOR_FLAG_D) ? "yes" : "");
+		json_object_int_add(loc_json, "algorithm", loc->algorithm);
+		if (mtid != ISIS_MT_IPV4_UNICAST)
+			json_object_string_add(loc_json, "mt-name",
+					       isis_mtid2str(mtid));
+		if (loc->subtlvs) {
+			struct json_object *subtlvs_json;
+			subtlvs_json = json_object_new_object();
+			json_object_object_add(json, "subtlvs", subtlvs_json);
+			format_subtlvs(loc->subtlvs, NULL, subtlvs_json, 0);
+		}
+	} else {
+		sbuf_push(buf, indent,
+			  "%sSRv6 Locator: %s (Metric: %u)%s",
+			  (mtid == ISIS_MT_IPV4_UNICAST) ? "" : "MT ",
+			  prefix2str(&loc->prefix, prefixbuf, sizeof(prefixbuf)),
+			  loc->metric, CHECK_FLAG(loc->flags, ISIS_TLV_SRV6_LOCATOR_FLAG_D) ? " D-flag" : "");
+		if (mtid != ISIS_MT_IPV4_UNICAST)
+			sbuf_push(buf, 0, " %s", isis_mtid2str(mtid));
+		sbuf_push(buf, 0, "\n");
+
+		if (loc->subtlvs) {
+			sbuf_push(buf, indent, "  Sub-TLVs:\n");
+			format_subtlvs(loc->subtlvs, buf, NULL, indent + 4);
+		}
+	}
+}
+
 static int pack_item_srv6_locator(struct isis_item *i, struct stream *s,
 				  size_t *min_len)
 {
