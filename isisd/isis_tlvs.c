@@ -5464,6 +5464,22 @@ out:
 	return 1;
 }
 
+/* Functions related to Sub-Sub-TLV 1 SRv6 SID Structure as per
+ * draft-ietf-lsr-isis-srv6-extensions-19 section#9*/
+static struct isis_item *copy_item_srv6_sid_structure(struct isis_item *i)
+{
+	struct isis_srv6_sid_structure *s = (struct isis_srv6_sid_structure *)i;
+	struct isis_srv6_sid_structure *rv =
+		XCALLOC(MTYPE_ISIS_SUBSUBTLV, sizeof(*rv));
+
+	rv->loc_block_len = s->loc_block_len;
+	rv->loc_node_len = s->loc_node_len;
+	rv->func_len = s->func_len;
+	rv->arg_len = s->arg_len;
+
+	return (struct isis_item *)rv;
+}
+
 /* Functions related to tlvs in general */
 
 struct isis_tlvs *isis_alloc_tlvs(void)
