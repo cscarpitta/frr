@@ -5480,6 +5480,14 @@ static struct isis_item *copy_item_srv6_sid_structure(struct isis_item *i)
 	return (struct isis_item *)rv;
 }
 
+static void free_item_srv6_sid_structure(struct isis_item *i)
+{
+	struct isis_srv6_sid_structure *item =
+		(struct isis_srv6_sid_structure *)i;
+
+	XFREE(MTYPE_ISIS_SUBSUBTLV, item);
+}
+
 /* Functions related to tlvs in general */
 
 struct isis_tlvs *isis_alloc_tlvs(void)
