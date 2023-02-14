@@ -5193,6 +5193,14 @@ static struct isis_item *copy_item_srv6_locator(struct isis_item *i)
 	return (struct isis_item *)rv;
 }
 
+static void free_item_srv6_locator(struct isis_item *i)
+{
+	struct isis_srv6_locator *item = (struct isis_srv6_locator *)i;
+
+	isis_free_subtlvs(item->subtlvs);
+	XFREE(MTYPE_ISIS_TLV, item);
+}
+
 /* Functions related to tlvs in general */
 
 struct isis_tlvs *isis_alloc_tlvs(void)
