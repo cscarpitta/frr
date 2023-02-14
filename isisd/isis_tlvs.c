@@ -5564,7 +5564,7 @@ static int unpack_subsubtlv_srv6_sid_structure(uint16_t mtid, uint8_t len,
 	sid_struct.func_len = stream_getc(s);
 	sid_struct.arg_len = stream_getc(s);
 
-	subsubtlvs->srv6_sid_structure = copy_item_srv6_sid_structure(&sid_struct);
+	subsubtlvs->srv6_sid_structure = copy_subsubtlv_srv6_sid_structure(&sid_struct);
 	return 0;
 }
 
