@@ -400,6 +400,9 @@ struct isis_subtlvs {
 	struct prefix_ipv6 *source_prefix;
 	/* RFC 8667 section #2.4 */
 	struct isis_item_list prefix_sids;
+
+	/* draft-ietf-lsr-isis-srv6-extensions-19 section #7.2 */
+	struct isis_item_list srv6_end_sids;
 };
 
 enum isis_tlv_type {
