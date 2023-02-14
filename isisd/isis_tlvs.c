@@ -1431,6 +1431,11 @@ static struct isis_item *copy_item_srv6_end_sid(struct isis_item *i)
 	return (struct isis_item *)rv;
 }
 
+static void free_item_srv6_end_sid(struct isis_item *i)
+{
+	XFREE(MTYPE_ISIS_SUBTLV, i);
+}
+
 static struct isis_item *copy_item(enum isis_tlv_context context,
 				   enum isis_tlv_type type,
 				   struct isis_item *item);
