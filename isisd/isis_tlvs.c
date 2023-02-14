@@ -5466,7 +5466,7 @@ out:
 
 /* Functions related to Sub-Sub-TLV 1 SRv6 SID Structure as per
  * draft-ietf-lsr-isis-srv6-extensions-19 section#9*/
-static struct isis_item *copy_item_srv6_sid_structure(struct isis_item *i)
+static struct isis_item *copy_subsubtlv_srv6_sid_structure(struct isis_item *i)
 {
 	struct isis_srv6_sid_structure *s = (struct isis_srv6_sid_structure *)i;
 	struct isis_srv6_sid_structure *rv =
