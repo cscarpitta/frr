@@ -1436,6 +1436,23 @@ static void free_item_srv6_end_sid(struct isis_item *i)
 	XFREE(MTYPE_ISIS_SUBTLV, i);
 }
 
+static int pack_item_srv6_end_sid(struct isis_item *i, struct stream *s,
+				size_t *min_len)
+{
+	struct isis_srv6_end_sid *sid = (struct isis_srv6_end_sid *)i;
+
+	if (STREAM_WRITEABLE(s) < 19) {
+		*min_len = 19;
+		return 1;
+	}
+
+	stream_putc(s, sid->flags);
+	stream_putc(s, sid->behavior);
+	stream_put(s, &sid->value, IPV6_MAX_BYTELEN);
+
+	return 0;
+}
+
 static struct isis_item *copy_item(enum isis_tlv_context context,
 				   enum isis_tlv_type type,
 				   struct isis_item *item);
