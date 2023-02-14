@@ -216,6 +216,14 @@ struct isis_sid_structure {
 	uint8_t arg_len;
 };
 
+/* SRv6 SID structure */
+struct isis_srv6_sid_structure_subsubtlv {
+	uint8_t loc_block_len;
+	uint8_t loc_node_len;
+	uint8_t func_len;
+	uint8_t arg_len;
+};
+
 /* SRv6 End SID */
 struct isis_srv6_end_sid_subtlv {
 	struct isis_srv6_end_sid_subtlv *next;
