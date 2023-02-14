@@ -225,6 +225,7 @@ struct isis_srv6_sid {
 
 /* SRv6 End SID */
 struct isis_srv6_end_sid {
+	uint8_t flags;
 	enum seg6local_action_t behavior;
 	struct in6_addr value;
 	struct isis_sid_structure structure;
