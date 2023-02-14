@@ -5201,6 +5201,29 @@ static void free_item_srv6_locator(struct isis_item *i)
 	XFREE(MTYPE_ISIS_TLV, item);
 }
 
+static int pack_item_srv6_locator(struct isis_item *i, struct stream *s,
+				  size_t *min_len)
+{
+	struct isis_srv6_locator *loc = (struct isis_srv6_locator *)i;
+	uint8_t control;
+
+	if (STREAM_WRITEABLE(s) < 7 + (unsigned)PSIZE(loc->locator.prefixlen)) {
+		*min_len = 7 + (unsigned)PSIZE(loc->locator.prefixlen);
+		return 1;
+	}
+	stream_putl(s, loc->metric);
+	stream_putc(s, loc->flags);
+	stream_putc(s, loc->algorithm);
+	stream_putc(s, loc->locator.prefixlen); /* Locator Size */
+	stream_put(s, &loc->locator.prefix.s6_addr,
+		   PSIZE(loc->locator.prefixlen)); /* Locator */
+
+	if (loc->subtlvs)
+		return pack_subtlvs(loc->subtlvs, s);
+
+	return 0;
+}
+
 /* Functions related to tlvs in general */
 
 struct isis_tlvs *isis_alloc_tlvs(void)
