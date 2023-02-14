@@ -5482,11 +5482,13 @@ static struct isis_srv6_sid_structure *copy_subsubtlv_srv6_sid_structure(struct 
 	return rv;
 }
 
-static void format_subsubtlv_srv6_sid_structure(uint16_t mtid, struct isis_item *i,
+static void format_subsubtlv_srv6_sid_structure(uint16_t mtid, struct isis_srv6_sid_structure *sid_struct,
 					   struct sbuf *buf,
 					   struct json_object *json, int indent)
 {
-	struct isis_srv6_sid_structure *s = (struct isis_srv6_sid_structure *)i;
+	if (!sid_struct)
+		return NULL;
+
 	char locatorbuf[PREFIX2STR_BUFFER];
 
 	if (json) {
@@ -5498,19 +5500,19 @@ static void format_subsubtlv_srv6_sid_structure(uint16_t mtid, struct isis_item 
 				       (mtid == ISIS_MT_IPV4_UNICAST) ? ""
 								      : "mt");
 		json_object_int_add(sid_struct_json, "loc-block-len",
-				    s->loc_block_len);
+				    sid_struct->loc_block_len);
 		json_object_int_add(sid_struct_json, "loc-node-len",
-				    s->loc_node_len);
-		json_object_int_add(sid_struct_json, "func-len", s->func_len);
-		json_object_int_add(sid_struct_json, "arg-len", s->arg_len);
+				    sid_struct->loc_node_len);
+		json_object_int_add(sid_struct_json, "func-len", sid_struct->func_len);
+		json_object_int_add(sid_struct_json, "arg-len", sid_struct->arg_len);
 	} else {
 		sbuf_push(buf, indent, "SRv6 SID Structure ");
 		sbuf_push(buf, 0, "Locator Block length: %hhu, ",
-			  s->loc_block_len);
+			  sid_struct->loc_block_len);
 		sbuf_push(buf, 0, "Locator Node length: %hhu, ",
-			  s->loc_node_len);
-		sbuf_push(buf, 0, "Function length: %hhu, ", s->func_len);
-		sbuf_push(buf, 0, "Argument length: %hhu, ", s->arg_len);
+			  sid_struct->loc_node_len);
+		sbuf_push(buf, 0, "Function length: %hhu, ", sid_struct->func_len);
+		sbuf_push(buf, 0, "Argument length: %hhu, ", sid_struct->arg_len);
 		sbuf_push(buf, 0, "\n");
 	}
 }
