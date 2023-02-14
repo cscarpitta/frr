@@ -5480,6 +5480,39 @@ static struct isis_item *copy_item_srv6_sid_structure(struct isis_item *i)
 	return (struct isis_item *)rv;
 }
 
+static void format_item_srv6_sid_structure(uint16_t mtid, struct isis_item *i,
+					   struct sbuf *buf,
+					   struct json_object *json, int indent)
+{
+	struct isis_srv6_sid_structure *s = (struct isis_srv6_sid_structure *)i;
+	char locatorbuf[PREFIX2STR_BUFFER];
+
+	if (json) {
+		struct json_object *sid_struct_json;
+		sid_struct_json = json_object_new_object();
+		json_object_object_add(json, "srv6-sid-structure",
+				       sid_struct_json);
+		json_object_string_add(sid_struct_json, "mt-id",
+				       (mtid == ISIS_MT_IPV4_UNICAST) ? ""
+								      : "mt");
+		json_object_int_add(sid_struct_json, "loc-block-len",
+				    s->loc_block_len);
+		json_object_int_add(sid_struct_json, "loc-node-len",
+				    s->loc_node_len);
+		json_object_int_add(sid_struct_json, "func-len", s->func_len);
+		json_object_int_add(sid_struct_json, "arg-len", s->arg_len);
+	} else {
+		sbuf_push(buf, indent, "SRv6 SID Structure ");
+		sbuf_push(buf, 0, "Locator Block length: %hhu, ",
+			  s->loc_block_len);
+		sbuf_push(buf, 0, "Locator Node length: %hhu, ",
+			  s->loc_node_len);
+		sbuf_push(buf, 0, "Function length: %hhu, ", s->func_len);
+		sbuf_push(buf, 0, "Argument length: %hhu, ", s->arg_len);
+		sbuf_push(buf, 0, "\n");
+	}
+}
+
 static void free_item_srv6_sid_structure(struct isis_item *i)
 {
 	struct isis_srv6_sid_structure *item =
