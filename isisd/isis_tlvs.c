@@ -5517,12 +5517,9 @@ static void format_subsubtlv_srv6_sid_structure(uint16_t mtid, struct isis_srv6_
 	}
 }
 
-static void free_subsubtlv_srv6_sid_structure(struct isis_item *i)
+static void free_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure *sid_struct)
 {
-	struct isis_srv6_sid_structure *item =
-		(struct isis_srv6_sid_structure *)i;
-
-	XFREE(MTYPE_ISIS_SUBSUBTLV, item);
+	XFREE(MTYPE_ISIS_SUBSUBTLV, sid_struct);
 }
 
 static int pack_subsubtlv_srv6_sid_structure(struct isis_item *i, struct stream *s,
