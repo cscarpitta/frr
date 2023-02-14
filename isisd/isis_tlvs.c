@@ -1431,6 +1431,28 @@ static struct isis_item *copy_item_srv6_end_sid(struct isis_item *i)
 	return (struct isis_item *)rv;
 }
 
+static void format_item_srv6_end_sid(uint16_t mtid, struct isis_item *i,
+				   struct sbuf *buf, struct json_object *json,
+				   int indent)
+{
+	struct isis_srv6_end_sid *sid = (struct isis_srv6_end_sid *)i;
+	char prefixbuf[PREFIX2STR_BUFFER];
+
+	if (json) {
+		struct json_object *srv6_json;
+		srv6_json = json_object_new_object();
+		json_object_object_add(json, "srv6_json", srv6_json);
+		json_object_string_add(
+			srv6_json, "endpoint-behavior", seg6local_action2str(sid->behavior));
+		prefix2str(sid->value, prefixbuf, sizeof(prefixbuf));
+		json_object_string_add(srv6_json, "sid-value", prefixbuf);
+	} else {
+		sbuf_push(buf, indent, "SRv6 End SID ");
+		sbuf_push(buf, 0, "Endpoint Behavior: %s, ", seg6local_action2str(sid->behavior));
+		sbuf_push(buf, 0, "SID value: %s\n", prefix2str(sid->value, prefixbuf, sizeof(prefixbuf)));
+	}
+}
+
 static void free_item_srv6_end_sid(struct isis_item *i)
 {
 	struct isis_srv6_end_sid_subtlv *item = (struct isis_srv6_end_sid_subtlv *)i;
