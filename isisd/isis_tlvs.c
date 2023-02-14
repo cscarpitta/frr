@@ -1973,6 +1973,7 @@ static struct isis_subtlvs *isis_alloc_subtlvs(enum isis_tlv_context context)
 	result->context = context;
 
 	init_item_list(&result->prefix_sids);
+	init_item_list(&result->srv6_end_sids);
 
 	return result;
 }
