@@ -5521,6 +5521,24 @@ static void free_item_srv6_sid_structure(struct isis_item *i)
 	XFREE(MTYPE_ISIS_SUBSUBTLV, item);
 }
 
+static int pack_item_srv6_sid_structure(struct isis_item *i, struct stream *s,
+					size_t *min_len)
+{
+	struct isis_srv6_sid_structure *sid_struct =
+		(struct isis_srv6_sid_structure *)i;
+
+	if (STREAM_WRITEABLE(s) < 6) {
+		*min_len = 6;
+		return 1;
+	}
+	stream_putc(s, sid_struct->loc_block_len);
+	stream_putc(s, sid_struct->loc_node_len);
+	stream_putc(s, sid_struct->func_len);
+	stream_putc(s, sid_struct->arg_len);
+
+	return 0;
+}
+
 /* Functions related to tlvs in general */
 
 struct isis_tlvs *isis_alloc_tlvs(void)
