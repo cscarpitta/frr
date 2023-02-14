@@ -216,6 +216,14 @@ struct isis_sid_structure {
 	uint8_t arg_len;
 };
 
+/* SRv6 SID structure */
+struct isis_srv6_sid_structure {
+	uint8_t loc_block_len;
+	uint8_t loc_node_len;
+	uint8_t func_len;
+	uint8_t arg_len;
+};
+
 /* SRv6 SID */
 struct isis_srv6_sid {
 	enum seg6local_action_t behavior;
