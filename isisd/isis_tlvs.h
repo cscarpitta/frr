@@ -402,6 +402,7 @@ enum isis_tlv_context {
 	ISIS_CONTEXT_SUBTLV_IP_REACH,
 	ISIS_CONTEXT_SUBTLV_IPV6_REACH,
 	ISIS_CONTEXT_SUBTLV_SRV6_LOCATOR,
+	ISIS_CONTEXT_SUBSUBTLV_SRV6_END_SID,
 	ISIS_CONTEXT_MAX
 };
 
@@ -415,6 +416,13 @@ struct isis_subtlvs {
 
 	/* draft-ietf-lsr-isis-srv6-extensions-19 section #7.2 */
 	struct isis_item_list srv6_end_sids;
+};
+
+struct isis_subsubtlvs {
+	enum isis_tlv_context context;
+
+	/* draft-ietf-lsr-isis-srv6-extensions-19 section #9 */
+	struct isis_srv6_sid_structure_subsubtlv *srv6_sid_structure;
 };
 
 enum isis_tlv_type {
