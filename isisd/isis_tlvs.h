@@ -225,15 +225,14 @@ struct isis_srv6_sid {
 
 /* draft-ietf-lsr-isis-srv6-extensions-19 section 7.1 */
 struct isis_srv6_locator {
+	struct isis_srv6_locator *next;
+
 	uint32_t metric;
 	uint8_t flags;
 	uint8_t algorithm;
 	struct prefix_ipv6 locator;
 
-	struct list *srv6_sids;
-
-	/* RFC 7794 section #2.1 */
-	uint8_t prefix_attribute_flags;
+	struct isis_subtlvs *subtlvs;
 };
 
 #define ISIS_SRV6_LOCATOR_HDR_SIZE 22
