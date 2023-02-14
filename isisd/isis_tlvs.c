@@ -5541,9 +5541,10 @@ static int pack_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure *sid
 	return 0;
 }
 
-static int unpack_subsubtlv_srv6_sid_structure(uint16_t mtid, uint8_t len,
-				    struct stream *s, struct sbuf *log,
-				    void *dest, int indent)
+static int unpack_subsubtlv_srv6_sid_structure(enum isis_tlv_context context,
+				       uint8_t tlv_type, uint8_t tlv_len,
+				       struct stream *s, struct sbuf *log,
+				       void *dest, int indent)
 {
 	struct isis_subsubtlvs *subsubtlvs = dest;
 	struct isis_srv6_sid_structure sid_struct = {};
@@ -5552,12 +5553,8 @@ static int unpack_subsubtlv_srv6_sid_structure(uint16_t mtid, uint8_t len,
 	struct isis_item_list *items;
 
 	sbuf_push(log, indent, "Unpacking SRv6 SID Structure...\n");
-	consume = 6;
-	if (len < consume) {
-		sbuf_push(
-			log, indent,
-			"Not enough data left. (expected 6 or more bytes, got %hhu)\n",
-			len);
+	if (tlv_len != 6) {
+		sbuf_push(log, indent, "Invalid SRv6 SID Structure Sub-Sub-TLV size. (Expected 6 bytes, got %hhu)\n", tlv_len);
 		return 1;
 	}
 
