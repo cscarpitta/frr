@@ -223,6 +223,13 @@ struct isis_srv6_sid {
 	struct isis_sid_structure structure;
 };
 
+/* SRv6 End SID */
+struct isis_srv6_end_sid {
+	enum seg6local_action_t behavior;
+	struct in6_addr value;
+	struct isis_sid_structure structure;
+};
+
 /* draft-ietf-lsr-isis-srv6-extensions-19 section 7.1 */
 struct isis_srv6_locator {
 	struct isis_srv6_locator *next;
