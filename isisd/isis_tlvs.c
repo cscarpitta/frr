@@ -5513,7 +5513,7 @@ static void format_item_srv6_sid_structure(uint16_t mtid, struct isis_item *i,
 	}
 }
 
-static void free_item_srv6_sid_structure(struct isis_item *i)
+static void free_subsubtlv_srv6_sid_structure(struct isis_item *i)
 {
 	struct isis_srv6_sid_structure *item =
 		(struct isis_srv6_sid_structure *)i;
