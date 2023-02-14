@@ -2088,6 +2088,14 @@ static void format_item_srv6_end_sid(uint16_t mtid, struct isis_item *i,
 	}
 }
 
+static void free_item_srv6_end_sid(struct isis_item *i)
+{
+	struct isis_srv6_end_sid_subtlv *item =
+		(struct isis_srv6_end_sid_subtlv *)i;
+
+	XFREE(MTYPE_ISIS_SUBTLV, i);
+}
+
 /* Functions related to TLVs 1 Area Addresses */
 
 static struct isis_item *copy_item_area_address(struct isis_item *i)
