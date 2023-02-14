@@ -5466,18 +5466,20 @@ out:
 
 /* Functions related to Sub-Sub-TLV 1 SRv6 SID Structure as per
  * draft-ietf-lsr-isis-srv6-extensions-19 section#9*/
-static struct isis_item *copy_subsubtlv_srv6_sid_structure(struct isis_item *i)
+static struct isis_srv6_sid_structure *copy_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure *sid_struct)
 {
-	struct isis_srv6_sid_structure *s = (struct isis_srv6_sid_structure *)i;
+	if (!sid_struct)
+		return NULL;
+
 	struct isis_srv6_sid_structure *rv =
 		XCALLOC(MTYPE_ISIS_SUBSUBTLV, sizeof(*rv));
 
-	rv->loc_block_len = s->loc_block_len;
-	rv->loc_node_len = s->loc_node_len;
-	rv->func_len = s->func_len;
-	rv->arg_len = s->arg_len;
+	rv->loc_block_len = sid_struct->loc_block_len;
+	rv->loc_node_len = sid_struct->loc_node_len;
+	rv->func_len = sid_struct->func_len;
+	rv->arg_len = sid_struct->arg_len;
 
-	return (struct isis_item *)rv;
+	return rv;
 }
 
 static void format_subsubtlv_srv6_sid_structure(uint16_t mtid, struct isis_item *i,
