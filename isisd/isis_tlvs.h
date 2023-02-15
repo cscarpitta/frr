@@ -427,7 +427,7 @@ struct isis_subsubtlvs {
 	enum isis_tlv_context;
 
 	/* draft-ietf-lsr-isis-srv6-extensions-19 section #9 */
-	struct isis_srv6_sid_structure *srv6_sid_structure;
+	struct isis_srv6_sid_structure_subsubtlv *srv6_sid_structure;
 };
 
 enum isis_tlv_type {
