@@ -240,8 +240,8 @@ struct isis_srv6_end_sid {
 };
 
 /* draft-ietf-lsr-isis-srv6-extensions-19 section 7.1 */
-struct isis_srv6_locator {
-	struct isis_srv6_locator *next;
+struct isis_srv6_locator_tlv {
+	struct isis_srv6_locator_tlv *next;
 
 	uint32_t metric;
 
