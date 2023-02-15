@@ -43,7 +43,7 @@ DEFINE_MTYPE_STATIC(ISISD, ISIS_SRV6_SID, "ISIS SRv6 Segment ID");
  * @param sid	      SRv6 SID configuration
  * @param structure   SRv6 SID Structure Sub-Sub-TLV to be updated
  */
-void isis_srv6_sid_structure_cfg2subsubtlv(
+void isis_srv6_sid_structure2subsubtlv(
 	const struct isis_srv6_sid *sid,
 	struct isis_srv6_sid_structure_subsubtlv *structure_subsubtlv)
 {
