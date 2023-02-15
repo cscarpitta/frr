@@ -58,7 +58,7 @@ struct isis_srv6_locator {
 	uint8_t flags;
 #define ISIS_SRV6_LOCATOR_FLAG_D 1 << 7
 
-	uint8_t algonum;
+	uint8_t algorithm;
 	struct prefix_ipv6 prefix;
 
 	struct list *srv6_sid;
