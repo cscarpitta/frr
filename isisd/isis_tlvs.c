@@ -6759,6 +6759,34 @@ void isis_tlvs_set_purge_originator(struct isis_tlvs *tlvs,
 	}
 }
 
+/* Add an SRv6 End SID to the SRv6 End SID Sub-TLV */
+void isis_subtlvs_add_srv6_end_sid(struct isis_subtlvs *subtlvs,
+				   struct isis_srv6_sid *sid)
+{
+	struct isis_srv6_end_sid_subtlv *sid_subtlv;
+
+	if (!sid)
+		return;
+
+	/* Only End, End.DT6, End.DT4 and End.DT46 behaviors can be advertised
+	 * in the SRv6 End SID Sub-TLV */
+	if (sid->behavior != ZEBRA_SEG6_LOCAL_ACTION_END &&
+	    sid->behavior != ZEBRA_SEG6_LOCAL_ACTION_END_DT6 &&
+	    sid->behavior != ZEBRA_SEG6_LOCAL_ACTION_END_DT4 &&
+	    sid->behavior != ZEBRA_SEG6_LOCAL_ACTION_END_DT46)
+		return;
+
+	/* Allocate memory for the Sub-TLV */
+	sid_subtlv = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*sid_subtlv));
+
+	/* Fill in the SRv6 End SID Sub-TLV according to the SRv6 SID
+	 * configuration */
+	isis_srv6_end_sid2subtlv(sid, sid_subtlv);
+
+	/* Append the SRv6 End SID Sub-TLV to the Sub-TLVs list */
+	append_item(&subtlvs->srv6_end_sids, (struct isis_item *)sid_subtlv);
+}
+
 /* Add an SRv6 Locator to the SRv6 Locator TLV */
 void isis_tlvs_add_srv6_locator(struct isis_tlvs *tlvs,
 				 uint16_t mtid, struct isis_srv6_locator *loc)

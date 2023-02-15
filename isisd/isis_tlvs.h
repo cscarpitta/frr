@@ -720,6 +720,8 @@ void isis_tlvs_set_purge_originator(struct isis_tlvs *tlvs,
 				    const uint8_t *generator,
 				    const uint8_t *sender);
 
+void isis_subtlvs_add_srv6_end_sid(struct isis_subtlvs *subtlvs,
+				   struct isis_srv6_sid *sid);
 void isis_tlvs_add_srv6_locator(struct isis_tlvs *tlvs,
 				uint16_t mtid, struct isis_srv6_locator *loc);
 #endif
