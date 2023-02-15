@@ -7145,7 +7145,7 @@ void isis_subtlvs_add_srv6_end_sid(struct isis_subtlvs *subtlvs,
 		return;
 
 	/* Allocate memory for the Sub-TLV */
-	sid_subtlv = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*sid));
+	sid_subtlv = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*sid_subtlv));
 
 	/* Fill in the SRv6 End SID Sub-TLV according to the SRv6 SID
 	 * configuration */
