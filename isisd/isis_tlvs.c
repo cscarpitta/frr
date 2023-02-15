@@ -6248,7 +6248,7 @@ int isis_unpack_tlvs(size_t avail_len, struct stream *stream,
 	ITEM_TLV_OPS(_name_, _desc_)
 
 #define SUBSUBTLV_OPS(_name_, _desc_)                                             \
-	static const struct tlv_ops subsub_tlv_##_name_##_ops = {                  \
+	static const struct tlv_ops subsubtlv_##_name_##_ops = {                  \
 		.name = _desc_, .unpack = unpack_subsubtlv_##_name_,              \
 	}
 
