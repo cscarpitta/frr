@@ -7105,20 +7105,3 @@ void isis_tlvs_set_purge_originator(struct isis_tlvs *tlvs,
 		       sizeof(tlvs->purge_originator->sender));
 	}
 }
-
-/* Set SRv6 SID Structure Sub-Sub-TLV parameters */
-void isis_subsubtlvs_set_srv6_sid_structure(struct isis_subsubtlvs *subsubtlvs,
-					    uint8_t loc_block_len,
-					    uint8_t loc_node_len,
-					    uint8_t func_len, uint8_t arg_len)
-{
-	assert(!subsubtlvs->srv6_sid_structure);
-
-	subsubtlvs->srv6_sid_structure = XCALLOC(
-		MTYPE_ISIS_SUBSUBTLV, sizeof(*subsubtlvs->srv6_sid_structure));
-
-	subsubtlvs->srv6_sid_structure->loc_block_len = loc_block_len;
-	subsubtlvs->srv6_sid_structure->loc_node_len = loc_node_len;
-	subsubtlvs->srv6_sid_structure->func_len = func_len;
-	subsubtlvs->srv6_sid_structure->arg_len = arg_len;
-}
