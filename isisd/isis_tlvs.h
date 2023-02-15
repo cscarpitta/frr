@@ -249,7 +249,7 @@ struct isis_srv6_locator_tlv {
 #define ISIS_TLV_SRV6_LOCATOR_FLAG_D 1 << 7
 
 	uint8_t algorithm;
-	struct prefix_ipv6 locator;
+	struct prefix_ipv6 prefix;
 
 	struct isis_subtlvs *subtlvs;
 };
