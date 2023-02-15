@@ -753,4 +753,7 @@ void isis_subsubtlvs_set_srv6_sid_structure(struct isis_subsubtlvs *subsubtlvs,
 					    struct isis_srv6_sid *sid);
 void isis_subtlvs_add_srv6_end_sid(struct isis_subtlvs *subtlvs,
 				   struct isis_srv6_sid *sid);
+void isis_tlvs_add_srv6_locator(struct isis_tlvs *tlvs,
+				struct isis_srv6_locator *loc,
+				struct isis_subtlvs *subtlvs);
 #endif

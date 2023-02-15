@@ -7200,3 +7200,39 @@ void isis_subtlvs_add_srv6_end_sid(struct isis_subtlvs *subtlvs,
 	/* Append the SRv6 End SID Sub-TLV to the Sub-TLVs list */
 	append_item(&subtlvs->srv6_end_sids, (struct isis_item *)sid_subtlv);
 }
+
+/* Add an SRv6 Locator to the SRv6 Locator TLV */
+void isis_tlvs_add_srv6_locator(struct isis_tlvs *tlvs,
+				struct isis_srv6_locator *loc,
+				struct isis_subtlvs *subtlvs)
+{
+	bool subtlvs_present = false;
+	struct listnode *node;
+	struct isis_srv6_sid *sid;
+	struct isis_srv6_locator_tlv *loc_tlv =
+		XCALLOC(MTYPE_ISIS_TLV, sizeof(*loc_tlv));
+
+	/* Fill in the SRv6 Locator TLV according to the SRv6 Locator
+	 * configuration */
+	isis_srv6_locator2tlv(loc, loc_tlv);
+
+	/* Add the SRv6 End SID Sub-TLVs */
+	loc_tlv->subtlvs = isis_alloc_subtlvs(ISIS_CONTEXT_SUBTLV_SRV6_LOCATOR);
+	for (ALL_LIST_ELEMENTS_RO(loc->srv6_sid, node, sid)) {
+		if (sid->behavior == ZEBRA_SEG6_LOCAL_ACTION_END ||
+		    sid->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT6 ||
+		    sid->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4 ||
+		    sid->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46) {
+			isis_subtlvs_add_srv6_end_sid(loc_tlv->subtlvs, sid);
+			subtlvs_present = true;
+		}
+	}
+
+	if (!subtlvs_present) {
+		isis_free_subtlvs(loc_tlv->subtlvs);
+		loc_tlv->subtlvs = NULL;
+	}
+
+	/* Append the SRv6 Locator TLV to the TLVs list */
+	append_item(&tlvs->srv6_locator, (struct isis_item *)loc);
+}
