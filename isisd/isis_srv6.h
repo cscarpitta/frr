@@ -112,4 +112,7 @@ void isis_srv6_term(void);
 
 extern void isis_srv6_sid_free(struct isis_srv6_sid **sid);
 
+void isis_srv6_locator2tlv(const struct isis_srv6_locator *loc,
+			   struct isis_srv6_locator_tlv *loc_tlv);
+
 #endif /* _FRR_ISIS_SRV6_H */
