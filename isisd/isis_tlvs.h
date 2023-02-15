@@ -236,7 +236,8 @@ struct isis_srv6_end_sid_subtlv {
 	uint8_t flags;
 	enum seg6local_action_t behavior;
 	struct in6_addr value;
-	struct isis_srv6_sid_structure_subsubtlv structure;
+
+	struct isis_subsubtlvs *subsubtlvs;
 };
 
 /* draft-ietf-lsr-isis-srv6-extensions-19 section 7.1 */
