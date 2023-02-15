@@ -36,6 +36,25 @@
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SRV6_SID, "ISIS SRv6 Segment ID");
 
 /**
+ * Fill in SRv6 End SID Sub-TLV with information from an SRv6 End SID.
+ *
+ * @param sid	      SRv6 End SID configuration
+ * @param sid_subtlv  SRv6 End SID Sub-TLV to be updated
+ */
+void isis_srv6_end_sid2subtlv(const struct isis_srv6_sid *sid,
+			      struct isis_srv6_end_sid_subtlv *sid_subtlv)
+{
+	/* Set SRv6 End SID flags */
+	sid_subtlv->flags = sid->flags;
+
+	/* Set SRv6 EndSID behavior */
+	sid_subtlv->behavior = sid->behavior;
+
+	/* Set SRv6 End SID value */
+	sid_subtlv->value = sid->value;
+}
+
+/**
  * Fill in SRv6 Locator TLV with information from an SRv6 locator.
  *
  * @param loc	     SRv6 Locator configuration
