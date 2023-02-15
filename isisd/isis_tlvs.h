@@ -752,4 +752,7 @@ void isis_tlvs_set_purge_originator(struct isis_tlvs *tlvs,
 
 void isis_tlvs_set_srv6_locator(struct isis_tlvs *tlvs,
 				     const struct isis_srv6_locator *locator);
+
+void isis_subsubtlvs_set_srv6_sid_structure(struct isis_subsubtlvs *subsubtlvs,
+					    struct isis_srv6_sid *sid);
 #endif
