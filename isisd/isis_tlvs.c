@@ -1663,6 +1663,18 @@ static int unpack_tlvs(enum isis_tlv_context context, size_t avail_len,
 		       struct stream *stream, struct sbuf *log, void *dest,
 		       int indent, bool *unpacked_known_tlvs);
 
+/* Functions related to subsubtlvs */
+
+static struct isis_subtlvs *isis_alloc_subsubtlvs(enum isis_tlv_context context)
+{
+	struct isis_subsubtlvs *result;
+
+	result = XCALLOC(MTYPE_ISIS_SUBSUBTLV, sizeof(*result));
+	result->context = context;
+
+	return result;
+}
+
 /* Functions related to TLVs 1 Area Addresses */
 
 static struct isis_item *copy_item_area_address(struct isis_item *i)
