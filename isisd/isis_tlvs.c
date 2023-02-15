@@ -7105,3 +7105,15 @@ void isis_tlvs_set_purge_originator(struct isis_tlvs *tlvs,
 		       sizeof(tlvs->purge_originator->sender));
 	}
 }
+
+/* Set SRv6 SID Structure Sub-Sub-TLV parameters */
+void isis_subsubtlvs_set_srv6_sid_structure(struct isis_subsubtlvs *subsubtlvs,
+					    struct isis_srv6_sid *sid)
+{
+	assert(!subsubtlvs->srv6_sid_structure);
+
+	subsubtlvs->srv6_sid_structure = XCALLOC(
+		MTYPE_ISIS_SUBSUBTLV, sizeof(*subsubtlvs->srv6_sid_structure));
+
+	isis_srv6_sid_structure2subsubtlv(sid, subsubtlvs->srv6_sid_structure);
+}
