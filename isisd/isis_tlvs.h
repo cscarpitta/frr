@@ -217,7 +217,7 @@ struct isis_sid_structure {
 };
 
 /* SRv6 SID structure */
-struct isis_srv6_sid_structure {
+struct isis_srv6_sid_structure_subsubtlv {
 	uint8_t loc_block_len;
 	uint8_t loc_node_len;
 	uint8_t func_len;
@@ -236,7 +236,7 @@ struct isis_srv6_end_sid_subtlv {
 	uint8_t flags;
 	enum seg6local_action_t behavior;
 	struct in6_addr value;
-	struct isis_sid_structure structure;
+	struct isis_srv6_sid_structure_subsubtlv structure;
 };
 
 /* draft-ietf-lsr-isis-srv6-extensions-19 section 7.1 */
