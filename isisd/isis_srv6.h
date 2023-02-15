@@ -47,7 +47,7 @@ struct isis_srv6_sid {
 	enum seg6local_action_t behavior;
 	struct in6_addr value;
 	struct srv6_locator_chunk *locator;
-	struct isis_sid_structure *structure;
+	struct isis_sid_structure structure;
 };
 
 /* SRv6 Locator */
