@@ -114,4 +114,7 @@ extern void isis_srv6_area_term(struct isis_area *area);
 void isis_srv6_init(void);
 void isis_srv6_term(void);
 
+void isis_srv6_locator2tlv(const struct isis_srv6_locator *loc,
+			   struct isis_srv6_locator_tlv *loc_tlv);
+
 #endif /* _FRR_ISIS_SRV6_H */
