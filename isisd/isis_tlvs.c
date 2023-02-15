@@ -7114,3 +7114,31 @@ void isis_subsubtlvs_set_srv6_sid_structure(struct isis_subsubtlvs *subsubtlvs,
 
 	isis_srv6_sid_structure2subsubtlv(sid, subsubtlvs->srv6_sid_structure);
 }
+
+/* Add an SRv6 End SID to the SRv6 End SID Sub-TLV */
+void isis_subtlvs_add_srv6_end_sid(struct isis_subtlvs *subtlvs,
+				   struct isis_srv6_sid *sid)
+{
+	struct isis_srv6_end_sid_subtlv *sid_subtlv;
+
+	if (!sid)
+		return;
+
+	/* Only End, End.DT6, End.DT4 and End.DT46 behaviors can be advertised
+	 * in the SRv6 End SID Sub-TLV */
+	if (sid->behavior != ZEBRA_SEG6_LOCAL_ACTION_END &&
+	    sid->behavior != ZEBRA_SEG6_LOCAL_ACTION_END_DT6 &&
+	    sid->behavior != ZEBRA_SEG6_LOCAL_ACTION_END_DT4 &&
+	    sid->behavior != ZEBRA_SEG6_LOCAL_ACTION_END_DT46)
+		return;
+
+	/* Allocate memory for the Sub-TLV */
+	sid_subtlv = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*sid));
+
+	/* Fill in the SRv6 End SID Sub-TLV according to the SRv6 SID
+	 * configuration */
+	isis_srv6_end_sid2subtlv(sid, sid_subtlv);
+
+	/* Append the SRv6 End SID Sub-TLV to the Sub-TLVs list */
+	append_item(&subtlvs->srv6_end_sids, (struct isis_item *)sid_subtlv);
+}
