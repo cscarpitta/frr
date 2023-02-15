@@ -44,7 +44,7 @@ struct isis_srv6_sid {
 	struct isis_srv6_sid *next;
 
 	enum seg6local_action_t behavior;
-	struct in6_addr val;
+	struct in6_addr value;
 	struct srv6_locator_chunk *locator;
 	struct isis_sid_structure *structure;
 };
