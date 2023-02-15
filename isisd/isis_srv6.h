@@ -116,5 +116,8 @@ void isis_srv6_locator2tlv(const struct isis_srv6_locator *loc,
 			   struct isis_srv6_locator_tlv *loc_tlv);
 void isis_srv6_end_sid2subtlv(const struct isis_srv6_sid *sid,
 			      struct isis_srv6_end_sid_subtlv *sid_subtlv);
+void isis_srv6_sid_structure2subsubtlv(
+	const struct isis_srv6_sid *sid,
+	struct isis_srv6_sid_structure_subsubtlv *structure_subsubtlv);
 
 #endif /* _FRR_ISIS_SRV6_H */
