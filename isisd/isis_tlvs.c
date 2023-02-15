@@ -1626,7 +1626,7 @@ static struct isis_subtlvs *isis_alloc_subsubtlvs(enum isis_tlv_context context)
 {
 	struct isis_subsubtlvs *result;
 
-	result = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*result));
+	result = XCALLOC(MTYPE_ISIS_SUBSUBTLV, sizeof(*result));
 	result->context = context;
 
 	return result;
