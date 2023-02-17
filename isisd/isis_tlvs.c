@@ -5342,8 +5342,8 @@ static void format_item_srv6_locator(uint16_t mtid, struct isis_item *i,
 				   struct sbuf *buf, struct json_object *json,
 				   int indent)
 {
-	struct isis_srv6_locator *loc = (struct isis_srv6_locator *)i;
-	char locatorbuf[PREFIX2STR_BUFFER];
+	struct isis_srv6_locator_tlv *loc = (struct isis_srv6_locator_tlv *)i;
+	char prefixbuf[PREFIX2STR_BUFFER];
 
 	if (json) {
 		struct json_object *loc_json;
@@ -5353,10 +5353,9 @@ static void format_item_srv6_locator(uint16_t mtid, struct isis_item *i,
 				       (mtid == ISIS_MT_IPV4_UNICAST) ? ""
 								      : "mt");
 		json_object_string_add(
-			loc_json, "locator",
-			prefix2str(&loc->locator, locatorbuf, sizeof(locatorbuf)));
+			loc_json, "prefix",
+			prefix2str(&loc->prefix, prefixbuf, sizeof(prefixbuf)));
 		json_object_int_add(loc_json, "metric", loc->metric);
-		json_object_int_add(loc_json, "flags", loc->flags);
 		json_object_string_add(loc_json, "d-flag",
 				CHECK_FLAG(loc->flags, ISIS_TLV_SRV6_LOCATOR_FLAG_D) ? "yes" : "");
 		json_object_int_add(loc_json, "algorithm", loc->algorithm);
@@ -5371,9 +5370,9 @@ static void format_item_srv6_locator(uint16_t mtid, struct isis_item *i,
 		}
 	} else {
 		sbuf_push(buf, indent,
-			  "%sSRv6 Locator: %s (Metric: %u)%s%s",
+			  "%sSRv6 Locator: %s (Metric: %u)%s",
 			  (mtid == ISIS_MT_IPV4_UNICAST) ? "" : "MT ",
-			  prefix2str(&loc->locator, locatorbuf, sizeof(locatorbuf)),
+			  prefix2str(&loc->prefix, prefixbuf, sizeof(prefixbuf)),
 			  loc->metric, CHECK_FLAG(loc->flags, ISIS_TLV_SRV6_LOCATOR_FLAG_D) ? " D-flag" : "");
 		if (mtid != ISIS_MT_IPV4_UNICAST)
 			sbuf_push(buf, 0, " %s", isis_mtid2str(mtid));
@@ -5381,7 +5380,7 @@ static void format_item_srv6_locator(uint16_t mtid, struct isis_item *i,
 
 		if (loc->subtlvs) {
 			sbuf_push(buf, indent, "  Subtlvs:\n");
-			format_subtlvs(r->subtlvs, buf, NULL, indent + 4);
+			format_subtlvs(loc->subtlvs, buf, NULL, indent + 4);
 		}
 	}
 }
