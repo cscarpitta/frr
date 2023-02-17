@@ -3892,25 +3892,25 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 	return 0;
 }
 
-static void format_tlv_srv6_locator(const struct isis_srv6_locator *srv6_locator, struct sbuf *buf,
-				    struct json_object *json, int indent)
-{
-	if (!srv6_locator)
-		return;
+// static void format_tlv_srv6_locator(const struct isis_srv6_locator *srv6_locator, struct sbuf *buf,
+// 				    struct json_object *json, int indent)
+// {
+// 	if (!srv6_locator)
+// 		return;
 
-	/* SRv6 Locator */
-	char addrbuf[INET_ADDRSTRLEN];
-	inet_ntop(AF_INET6, &srv6_locator->locator, addrbuf, sizeof(addrbuf));
-	if (json)
-		json_object_string_add(json, "srv6-locator", addrbuf);
-	else {
-		sbuf_push(buf, indent, "SRv6 Locator:");
-		sbuf_push(buf, indent, " %pFX , Metric:%u, D:%c, Algorithm:%u\n", &srv6_locator->locator,
-			srv6_locator->metric, '0', srv6_locator->algorithm); // TODO: implement flags
-		// sbuf_push(buf, indent, "SRv6 Locator: %pFX (Metric: %u)\n",
-		// 		&srv6_locator->locator, srv6_locator->metric);
-	}
-}
+// 	/* SRv6 Locator */
+// 	char addrbuf[INET_ADDRSTRLEN];
+// 	inet_ntop(AF_INET6, &srv6_locator->locator, addrbuf, sizeof(addrbuf));
+// 	if (json)
+// 		json_object_string_add(json, "srv6-locator", addrbuf);
+// 	else {
+// 		sbuf_push(buf, indent, "SRv6 Locator:");
+// 		sbuf_push(buf, indent, " %pFX , Metric:%u, D:%c, Algorithm:%u\n", &srv6_locator->locator,
+// 			srv6_locator->metric, '0', srv6_locator->algorithm); // TODO: implement flags
+// 		// sbuf_push(buf, indent, "SRv6 Locator: %pFX (Metric: %u)\n",
+// 		// 		&srv6_locator->locator, srv6_locator->metric);
+// 	}
+// }
 
 static int unpack_tlv_router_cap(enum isis_tlv_context context,
 				 uint8_t tlv_type, uint8_t tlv_len,
