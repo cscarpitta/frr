@@ -1437,21 +1437,32 @@ static void format_item_srv6_end_sid(uint16_t mtid, struct isis_item *i,
 				   struct sbuf *buf, struct json_object *json,
 				   int indent)
 {
-	struct isis_srv6_end_sid *sid = (struct isis_srv6_end_sid *)i;
+	struct isis_srv6_end_sid_subtlv *sid = (struct isis_srv6_end_sid_subtlv *)i;
 	char prefixbuf[PREFIX2STR_BUFFER];
 
 	if (json) {
-		struct json_object *srv6_json;
-		srv6_json = json_object_new_object();
-		json_object_object_add(json, "srv6_json", srv6_json);
+		struct json_object *sid_json;
+		sid_json = json_object_new_object();
+		json_object_object_add(json, "srv6-end-sid", sid_json);
 		json_object_string_add(
-			srv6_json, "endpoint-behavior", seg6local_action2str(sid->behavior));
+			sid_json, "endpoint-behavior", seg6local_action2str(sid->behavior));
 		prefix2str(sid->value, prefixbuf, sizeof(prefixbuf));
-		json_object_string_add(srv6_json, "sid-value", prefixbuf);
+		json_object_string_add(sid_json, "sid-value", prefixbuf);
+		if (sid->subsubtlvs) {
+			struct json_object *subtlvs_json;
+			subtlvs_json = json_object_new_object();
+			json_object_object_add(json, "subtlvs", subtlvs_json);
+			format_subtlvs(sid->subsubtlvs, NULL, subtlvs_json, 0);
+		}
 	} else {
 		sbuf_push(buf, indent, "SRv6 End SID ");
 		sbuf_push(buf, 0, "Endpoint Behavior: %s, ", seg6local_action2str(sid->behavior));
 		sbuf_push(buf, 0, "SID value: %s\n", prefix2str(sid->value, prefixbuf, sizeof(prefixbuf)));
+
+		if (sid->subsubtlvs) {
+			sbuf_push(buf, indent, "  Sub-Sub-TLVs:\n");
+			format_subsubtlvs(sid->subsubtlvs, buf, NULL, indent + 4);
+		}
 	}
 }
 
