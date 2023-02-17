@@ -1425,11 +1425,13 @@ static int unpack_subtlv_ipv6_source_prefix(enum isis_tlv_context context,
 /* Functions for Sub-TLV 5 SRv6 End SID as per draft-ietf-lsr-isis-srv6-extensions section 7.2 */
 static struct isis_item *copy_item_srv6_end_sid(struct isis_item *i)
 {
-	struct isis_srv6_end_sid *sid = (struct isis_srv6_end_sid *)i;
-	struct isis_srv6_end_sid *rv = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*rv));
+	struct isis_srv6_end_sid_subtlv *sid = (struct isis_srv6_end_sid_subtlv *)i;
+	struct isis_srv6_end_sid_subtlv *rv = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*rv));
 
 	rv->behavior = sid->behavior;
 	rv->value = sid->value;
+	rv->subsubtlvs = copy_subsubtlvs(sid->subsubtlvs);
+
 	return (struct isis_item *)rv;
 }
 
