@@ -5590,7 +5590,7 @@ static void free_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure_sub
 	XFREE(MTYPE_ISIS_SUBSUBTLV, sid_struct);
 }
 
-static int pack_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure *sid_struct, struct stream *s)
+static int pack_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure_subsubtlv *sid_struct, struct stream *s)
 {
 	if (!sid_struct)
 		return NULL;
