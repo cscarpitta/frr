@@ -1451,7 +1451,7 @@ static void format_item_srv6_end_sid(uint16_t mtid, struct isis_item *i,
 		if (sid->subsubtlvs) {
 			struct json_object *subtlvs_json;
 			subtlvs_json = json_object_new_object();
-			json_object_object_add(json, "subtlvs", subtlvs_json);
+			json_object_object_add(json, "sub-sub-tlvs", subtlvs_json);
 			format_subtlvs(sid->subsubtlvs, NULL, subtlvs_json, 0);
 		}
 	} else {
