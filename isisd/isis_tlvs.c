@@ -1577,6 +1577,12 @@ static int pack_items_(uint16_t mtid, enum isis_tlv_context context,
 
 /* Functions related to subsubtlvs */
 
+static void format_subsubtlvs(struct isis_subsubtlvs *subsubtlvs, struct sbuf *buf,
+			   struct json_object *json, int indent)
+{
+	format_subsubtlv_srv6_sid_structure(subsubtlvs->srv6_sid_structure, buf, json, indent);
+}
+
 static void isis_free_subsubtlvs(struct isis_subsubtlvs *subsubtlvs)
 {
 	if (!subsubtlvs)
@@ -5559,14 +5565,12 @@ static struct isis_srv6_sid_structure *copy_subsubtlv_srv6_sid_structure(struct 
 	return rv;
 }
 
-static void format_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure *sid_struct,
+static void format_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure_subsubtlv *sid_struct,
 					struct sbuf *buf,
 					struct json_object *json, int indent)
 {
 	if (!sid_struct)
 		return NULL;
-
-	char locatorbuf[PREFIX2STR_BUFFER];
 
 	if (json) {
 		struct json_object *sid_struct_json;
