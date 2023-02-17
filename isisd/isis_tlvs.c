@@ -5527,12 +5527,12 @@ out:
 
 /* Functions related to Sub-Sub-TLV 1 SRv6 SID Structure as per
  * draft-ietf-lsr-isis-srv6-extensions-19 section#9*/
-static struct isis_srv6_sid_structure *copy_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure *sid_struct)
+static struct isis_srv6_sid_structure_subsubtlv *copy_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure_subsubtlv *sid_struct)
 {
 	if (!sid_struct)
 		return NULL;
 
-	struct isis_srv6_sid_structure *rv =
+	struct isis_srv6_sid_structure_subsubtlv *rv =
 		XCALLOC(MTYPE_ISIS_SUBSUBTLV, sizeof(*rv));
 
 	rv->loc_block_len = sid_struct->loc_block_len;
