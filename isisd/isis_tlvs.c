@@ -5376,7 +5376,7 @@ static void format_item_srv6_locator(uint16_t mtid, struct isis_item *i,
 		if (loc->subtlvs) {
 			struct json_object *subtlvs_json;
 			subtlvs_json = json_object_new_object();
-			json_object_object_add(json, "subtlvs", subtlvs_json);
+			json_object_object_add(json, "sub-tlvs", subtlvs_json);
 			format_subtlvs(loc->subtlvs, NULL, subtlvs_json, 0);
 		}
 	} else {
@@ -5390,7 +5390,7 @@ static void format_item_srv6_locator(uint16_t mtid, struct isis_item *i,
 		sbuf_push(buf, 0, "\n");
 
 		if (loc->subtlvs) {
-			sbuf_push(buf, indent, "  Subtlvs:\n");
+			sbuf_push(buf, indent, "  Sub-TLVs:\n");
 			format_subtlvs(loc->subtlvs, buf, NULL, indent + 4);
 		}
 	}
