@@ -1564,6 +1564,18 @@ static int pack_items_(uint16_t mtid, enum isis_tlv_context context,
 		       struct list *new_fragment_arg);
 #define pack_items(...) pack_items_(ISIS_MT_IPV4_UNICAST, __VA_ARGS__)
 
+/* Functions related to subsubtlvs */
+
+static void isis_free_subsubtlvs(struct isis_subsubtlvs *subsubtlvs)
+{
+	if (!subsubtlvs)
+		return;
+
+	free_subsubtlv_srv6_sid_structure(subsubtlvs->srv6_sid_structure);
+
+	XFREE(MTYPE_ISIS_SUBSUBTLV, subsubtlvs);
+}
+
 /* Functions related to subtlvs */
 
 static struct isis_subtlvs *isis_alloc_subtlvs(enum isis_tlv_context context)
