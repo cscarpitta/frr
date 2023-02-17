@@ -1579,6 +1579,21 @@ static int pack_items_(uint16_t mtid, enum isis_tlv_context context,
 
 /* Functions related to subsubtlvs */
 
+static struct isis_subsubtlvs *copy_subsubtlvs(struct isis_subsubtlvs *subsubtlvs)
+{
+	if (!subsubtlvs)
+		return NULL;
+
+	struct isis_subsubtlvs *rv = XCALLOC(MTYPE_ISIS_SUBSUBTLV, sizeof(*rv));
+
+	rv->context = subsubtlvs->context;
+
+	rv->srv6_sid_structure =
+		copy_subsubtlv_srv6_sid_structure(subsubtlvs->srv6_sid_structure);
+
+	return rv;
+}
+
 static void format_subsubtlvs(struct isis_subsubtlvs *subsubtlvs, struct sbuf *buf,
 			   struct json_object *json, int indent)
 {
