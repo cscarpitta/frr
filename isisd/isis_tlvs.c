@@ -5434,9 +5434,9 @@ static int unpack_item_srv6_locator(uint16_t mtid, uint8_t len,
 				    void *dest, int indent)
 {
 	struct isis_tlvs *tlvs = dest;
-	struct isis_srv6_locator *rv = NULL;
+	struct isis_srv6_locator_tlv *rv = NULL;
 	size_t consume;
-	uint8_t control, subtlv_len;
+	uint8_t subtlv_len;
 	struct isis_item_list *items;
 
 	sbuf_push(log, indent, "Unpacking SRv6 Locator...\n");
@@ -5455,28 +5455,28 @@ static int unpack_item_srv6_locator(uint16_t mtid, uint8_t len,
 	rv->flags = stream_getc(s);
 	rv->algorithm = stream_getc(s);
 
-	rv->locator.family = AF_INET6;
-	rv->locator.prefixlen = stream_getc(s);
-	if (rv->locator.prefixlen > IPV6_MAX_BITLEN) {
+	rv->prefix.family = AF_INET6;
+	rv->prefix.prefixlen = stream_getc(s);
+	if (rv->prefix.prefixlen > IPV6_MAX_BITLEN) {
 		sbuf_push(log, indent, "Loc Size %u is implausible for SRv6\n",
-			  rv->locator.prefixlen);
+			  rv->prefix.prefixlen);
 		goto out;
 	}
 
-	consume += PSIZE(rv->locator.prefixlen);
+	consume += PSIZE(rv->prefix.prefixlen);
 	if (len < consume) {
 		sbuf_push(
 			log, indent,
 			"Expected %u bytes of prefix, but only %u bytes available.\n",
-			PSIZE(rv->locator.prefixlen), len - 7);
+			PSIZE(rv->prefix.prefixlen), len - 7);
 		goto out;
 	}
-	stream_get(&rv->locator.prefix.s6_addr, s,
-		   PSIZE(rv->locator.prefixlen));
-	struct in6_addr orig_locator = rv->locator.prefix;
+	stream_get(&rv->prefix.prefix.s6_addr, s,
+		   PSIZE(rv->prefix.prefixlen));
+	struct in6_addr orig_locator = rv->prefix.prefix;
 
-	apply_mask_ipv6(&rv->locator);
-	if (memcmp(&orig_locator, &rv->locator.prefix, sizeof(orig_locator)))
+	apply_mask_ipv6(&rv->prefix);
+	if (memcmp(&orig_locator, &rv->prefix.prefix, sizeof(orig_locator)))
 		sbuf_push(log, indent + 2,
 			  "WARNING: SRv6 Locator had hostbits set.\n");
 	format_item_srv6_locator(mtid, (struct isis_item *)rv, log, NULL,
@@ -5498,7 +5498,7 @@ static int unpack_item_srv6_locator(uint16_t mtid, uint8_t len,
 				log, indent,
 				"Expected %hhu bytes of subtlvs, but only %u bytes available.\n",
 				subtlv_len,
-				len - 7 - PSIZE(rv->locator.prefixlen));
+				len - 7 - PSIZE(rv->prefix.prefixlen));
 			goto out;
 		}
 
