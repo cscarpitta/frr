@@ -5793,7 +5793,8 @@ static void format_tlvs(struct isis_tlvs *tlvs, struct sbuf *buf, struct json_ob
 
 	format_tlv_spine_leaf(tlvs->spine_leaf, buf, json, indent);
 
-	format_tlv_srv6_locator(tlvs->srv6_locator, buf, json, indent);
+	// format_tlv_srv6_locator(tlvs->srv6_locator, buf, json, indent);
+	format_items(ISIS_CONTEXT_LSP, ISIS_TLV_SRV6_LOCATOR, &tlvs->srv6_locator, buf, json, indent);
 }
 
 const char *isis_format_tlvs(struct isis_tlvs *tlvs, struct json_object *json)
