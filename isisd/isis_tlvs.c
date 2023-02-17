@@ -5714,6 +5714,9 @@ struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs)
 
 	rv->spine_leaf = copy_tlv_spine_leaf(tlvs->spine_leaf);
 
+	copy_items(ISIS_CONTEXT_LSP, ISIS_TLV_SRV6_LOCATOR, &tlvs->srv6_locator,
+		   &rv->srv6_locator);
+
 	return rv;
 }
 
