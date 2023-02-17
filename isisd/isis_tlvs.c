@@ -3590,20 +3590,20 @@ static struct isis_router_cap *copy_tlv_router_cap(
 }
 
 /* Functions related to TLV 27 Router Capability as per TODO:*/
-static struct isis_srv6_locator *copy_tlv_srv6_locator(
-			       const struct isis_srv6_locator *srv6_locator)
-{
-	struct isis_srv6_locator *rv;
+// static struct isis_srv6_locator *copy_tlv_srv6_locator(
+// 			       const struct isis_srv6_locator *srv6_locator)
+// {
+// 	struct isis_srv6_locator *rv;
 
-	if (!srv6_locator)
-		return NULL;
+// 	if (!srv6_locator)
+// 		return NULL;
 
-	rv = XMALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+// 	rv = XMALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 
-	memcpy(rv, srv6_locator, sizeof(*rv));
+// 	memcpy(rv, srv6_locator, sizeof(*rv));
 
-	return rv;
-}
+// 	return rv;
+// }
 
 static void format_tlv_router_cap_json(const struct isis_router_cap *router_cap,
 				  struct json_object *json)
