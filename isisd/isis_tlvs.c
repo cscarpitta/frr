@@ -4165,271 +4165,271 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 	return 0;
 }
 
-static int pack_tlv_srv6_locator(const struct isis_srv6_locator *srv6_locator,
-				 struct stream *s)
-{
-	size_t tlv_len = ISIS_SRV6_LOCATOR_HDR_SIZE;
-	size_t subtlv_len;
-	size_t subsubtlv_len;
-	size_t len_pos, sub_len_pos, subsub_len_pos, subtlv_len_pos;
-	struct listnode *sid_node;
-	struct isis_srv6_sid *sid;
-	// uint8_t nb_algo;
-	// size_t msd_len, msd_len_pos;
+// static int pack_tlv_srv6_locator(const struct isis_srv6_locator *srv6_locator,
+// 				 struct stream *s)
+// {
+// 	size_t tlv_len = ISIS_SRV6_LOCATOR_HDR_SIZE;
+// 	size_t subtlv_len;
+// 	size_t subsubtlv_len;
+// 	size_t len_pos, sub_len_pos, subsub_len_pos, subtlv_len_pos;
+// 	struct listnode *sid_node;
+// 	struct isis_srv6_sid *sid;
+// 	// uint8_t nb_algo;
+// 	// size_t msd_len, msd_len_pos;
 
-	// if (IS_DEBUG_SR)
-	// 	zlog_debug("Pack SRv6 Locator TLV");
+// 	// if (IS_DEBUG_SR)
+// 	// 	zlog_debug("Pack SRv6 Locator TLV");
 
-	if (!srv6_locator)
-		return 0;
+// 	if (!srv6_locator)
+// 		return 0;
 
-	// if (IS_DEBUG_SR)
-	// 	zlog_debug("Packed SRv6 Locator TLV");
+// 	// if (IS_DEBUG_SR)
+// 	// 	zlog_debug("Packed SRv6 Locator TLV");
 
 
-	// /* Compute Maximum TLV size */
-	// tlv_len += ISIS_SUBTLV_SID_LABEL_RANGE_SIZE
-	// 	+ ISIS_SUBTLV_HDR_SIZE
-	// 	+ ISIS_SUBTLV_ALGORITHM_SIZE
-	// 	+ ISIS_SUBTLV_NODE_MSD_SIZE;
+// 	// /* Compute Maximum TLV size */
+// 	// tlv_len += ISIS_SUBTLV_SID_LABEL_RANGE_SIZE
+// 	// 	+ ISIS_SUBTLV_HDR_SIZE
+// 	// 	+ ISIS_SUBTLV_ALGORITHM_SIZE
+// 	// 	+ ISIS_SUBTLV_NODE_MSD_SIZE;
 
-	// if (STREAM_WRITEABLE(s) < (unsigned int)(2 + tlv_len))
-	// 	return 1;
+// 	// if (STREAM_WRITEABLE(s) < (unsigned int)(2 + tlv_len))
+// 	// 	return 1;
 
-	/* Add SRv6 Locator TLV 27 with Reserved bits and MT ID */
-	stream_putc(s, ISIS_TLV_SRV6_LOCATOR);
-	/* Real length will be adjusted later */
-	len_pos = stream_get_endp(s);
-	stream_putc(s, tlv_len);
-	// stream_put(s, 0, 4);
-	// stream_put(s, 0, 12); // MT ID TODO: to be implemented
-	stream_putw(s, 0);  // Reserved + MT ID
+// 	/* Add SRv6 Locator TLV 27 with Reserved bits and MT ID */
+// 	stream_putc(s, ISIS_TLV_SRV6_LOCATOR);
+// 	/* Real length will be adjusted later */
+// 	len_pos = stream_get_endp(s);
+// 	stream_putc(s, tlv_len);
+// 	// stream_put(s, 0, 4);
+// 	// stream_put(s, 0, 12); // MT ID TODO: to be implemented
+// 	stream_putw(s, 0);  // Reserved + MT ID
 
-	zlog_debug("\n\n\n\n metric %d", srv6_locator->metric);
-	zlog_debug("prefixlen %u", srv6_locator->locator.prefixlen);
-	zlog_debug("prefix %pFX", &srv6_locator->locator);
-	/* Add Locator Entries */
-	stream_putl(s, srv6_locator->metric);		 // Metric
-	stream_putc(s, srv6_locator->flags);		 // Flags
-	stream_putc(s, srv6_locator->algorithm);	 // Algorithm
-	stream_putc(s, srv6_locator->locator.prefixlen); // Locator Size
-	stream_put(s, &srv6_locator->locator.prefix,	// TODO: add padding
-		   ceil((double) srv6_locator->locator.prefixlen / 8)); // Locator
+// 	zlog_debug("\n\n\n\n metric %d", srv6_locator->metric);
+// 	zlog_debug("prefixlen %u", srv6_locator->locator.prefixlen);
+// 	zlog_debug("prefix %pFX", &srv6_locator->locator);
+// 	/* Add Locator Entries */
+// 	stream_putl(s, srv6_locator->metric);		 // Metric
+// 	stream_putc(s, srv6_locator->flags);		 // Flags
+// 	stream_putc(s, srv6_locator->algorithm);	 // Algorithm
+// 	stream_putc(s, srv6_locator->locator.prefixlen); // Locator Size
+// 	stream_put(s, &srv6_locator->locator.prefix,	// TODO: add padding
+// 		   ceil((double) srv6_locator->locator.prefixlen / 8)); // Locator
 
-	subtlv_len_pos = stream_get_endp(s);
-	/* Real length will be adjusted after adding Sub-TLVs */
-	stream_putc(s, 0);			     // Sub-TLV Length
+// 	subtlv_len_pos = stream_get_endp(s);
+// 	/* Real length will be adjusted after adding Sub-TLVs */
+// 	stream_putc(s, 0);			     // Sub-TLV Length
 
-	/* Prefix Attribute Flags Sub-TLV as per RFC 7794 section#2.1 */
-	stream_putc(s, ISIS_SUBTLV_PREFIX_ATTRIBUTE_FLAGS);	 /* Type */
-	stream_putc(s, ISIS_SUBTLV_PREFIX_ATTRIBUTE_FLAGS_SIZE); /* Length */
-	stream_putc(s, srv6_locator->prefix_attribute_flags);	 /* Flags */
+// 	/* Prefix Attribute Flags Sub-TLV as per RFC 7794 section#2.1 */
+// 	stream_putc(s, ISIS_SUBTLV_PREFIX_ATTRIBUTE_FLAGS);	 /* Type */
+// 	stream_putc(s, ISIS_SUBTLV_PREFIX_ATTRIBUTE_FLAGS_SIZE); /* Length */
+// 	stream_putc(s, srv6_locator->prefix_attribute_flags);	 /* Flags */
 
-	for (ALL_LIST_ELEMENTS_RO(srv6_locator->srv6_sids, sid_node, sid)) {
-		switch (sid->behavior) {
-		case ZEBRA_SEG6_LOCAL_ACTION_END:
-			stream_putc(s, ISIS_SUBTLV_SRV6_END_SID); /* Type */
+// 	for (ALL_LIST_ELEMENTS_RO(srv6_locator->srv6_sids, sid_node, sid)) {
+// 		switch (sid->behavior) {
+// 		case ZEBRA_SEG6_LOCAL_ACTION_END:
+// 			stream_putc(s, ISIS_SUBTLV_SRV6_END_SID); /* Type */
 
-			sub_len_pos = stream_get_endp(s);
-			/* Real length will be adjusted after adding
-			 * Sub-Sub-TLVs */
-			stream_putc(s, 31); /* Sub-TLV Length */
+// 			sub_len_pos = stream_get_endp(s);
+// 			/* Real length will be adjusted after adding
+// 			 * Sub-Sub-TLVs */
+// 			stream_putc(s, 31); /* Sub-TLV Length */
 
-			stream_putw(s, sid->behavior); /* Endpoint Behavior */
+// 			stream_putw(s, sid->behavior); /* Endpoint Behavior */
 
-			stream_put(s, &sid->val, IPV6_MAX_BYTELEN); /* SID */
+// 			stream_put(s, &sid->val, IPV6_MAX_BYTELEN); /* SID */
 
-			/* Real length will be adjusted after adding Sub-TLVs */
-			stream_putc(s, 0); /* Sub-Sub-TLV-len */
+// 			/* Real length will be adjusted after adding Sub-TLVs */
+// 			stream_putc(s, 0); /* Sub-Sub-TLV-len */
 
-			/* SRv6 SID Structure Sub-Sub-TLV */
+// 			/* SRv6 SID Structure Sub-Sub-TLV */
 
-			/* Type, length */
-			stream_putc(s, ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE);
-			stream_putc(s, 4);
+// 			/* Type, length */
+// 			stream_putc(s, ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE);
+// 			stream_putc(s, 4);
 
-			/* LB Length, LN Length, Fun. Length, Arg. Length */
-			stream_putc(s, sid->structure.loc_block_len);
-			stream_putc(s, sid->structure.loc_node_len);
-			stream_putc(s, sid->structure.func_len);
-			stream_putc(s, sid->structure.arg_len);
+// 			/* LB Length, LN Length, Fun. Length, Arg. Length */
+// 			stream_putc(s, sid->structure.loc_block_len);
+// 			stream_putc(s, sid->structure.loc_node_len);
+// 			stream_putc(s, sid->structure.func_len);
+// 			stream_putc(s, sid->structure.arg_len);
 
-			subsubtlv_len = stream_get_endp(s) - subsub_len_pos - 1;
-			stream_putc_at(s, subsub_len_pos, subsubtlv_len);
+// 			subsubtlv_len = stream_get_endp(s) - subsub_len_pos - 1;
+// 			stream_putc_at(s, subsub_len_pos, subsubtlv_len);
 
-			/* Adjust Sub-TLV length which depends on Sub-Sub-TLVs
-			 * presence */
-			subtlv_len = stream_get_endp(s) - sub_len_pos - 1;
-			stream_putc_at(s, sub_len_pos, subtlv_len);
+// 			/* Adjust Sub-TLV length which depends on Sub-Sub-TLVs
+// 			 * presence */
+// 			subtlv_len = stream_get_endp(s) - sub_len_pos - 1;
+// 			stream_putc_at(s, sub_len_pos, subtlv_len);
 
-			subsubtlv_len = stream_get_endp(s) - subsub_len_pos - 1;
-			stream_putc_at(s, subsub_len_pos, subsubtlv_len);
-			break;
-		default:
-			/* Unsupported SRv6 SID Behavior %u, skipping */
-			break;
-		}
-	}
+// 			subsubtlv_len = stream_get_endp(s) - subsub_len_pos - 1;
+// 			stream_putc_at(s, subsub_len_pos, subsubtlv_len);
+// 			break;
+// 		default:
+// 			/* Unsupported SRv6 SID Behavior %u, skipping */
+// 			break;
+// 		}
+// 	}
 
-	/* Adjust Sub-TLVs length which depends on Sub-Sub-TLVs presence */
-	subtlv_len = stream_get_endp(s) - subtlv_len_pos - 1;
-	stream_putc_at(s, subtlv_len_pos, subtlv_len);
+// 	/* Adjust Sub-TLVs length which depends on Sub-Sub-TLVs presence */
+// 	subtlv_len = stream_get_endp(s) - subtlv_len_pos - 1;
+// 	stream_putc_at(s, subtlv_len_pos, subtlv_len);
 
-	/* Adjust TLV length which depends on subTLVs presence */
-	tlv_len = stream_get_endp(s) - len_pos - 1;
-	stream_putc_at(s, len_pos, tlv_len);
+// 	/* Adjust TLV length which depends on subTLVs presence */
+// 	tlv_len = stream_get_endp(s) - len_pos - 1;
+// 	stream_putc_at(s, len_pos, tlv_len);
 
-	return 0;
-}
+// 	return 0;
+// }
 
-static int unpack_tlv_srv6_locator(enum isis_tlv_context context,
-				   uint8_t tlv_type, uint8_t tlv_len,
-				   struct stream *s, struct sbuf *log,
-				   void *dest, int indent)
-{
-	struct isis_tlvs *tlvs = dest;
-	struct isis_srv6_locator *srv6_locator;
-	uint8_t type;
-	uint8_t length;
-	uint8_t subtlv_len, subsubtlv_len;
-	// uint8_t size;
+// static int unpack_tlv_srv6_locator(enum isis_tlv_context context,
+// 				   uint8_t tlv_type, uint8_t tlv_len,
+// 				   struct stream *s, struct sbuf *log,
+// 				   void *dest, int indent)
+// {
+// 	struct isis_tlvs *tlvs = dest;
+// 	struct isis_srv6_locator *srv6_locator;
+// 	uint8_t type;
+// 	uint8_t length;
+// 	uint8_t subtlv_len, subsubtlv_len;
+// 	// uint8_t size;
 
-	struct isis_srv6_sid sid;
+// 	struct isis_srv6_sid sid;
 
-	sbuf_push(log, indent, "Unpacking SRv6 Locator TLV...\n");
-	if (tlv_len < ISIS_SRV6_LOCATOR_HDR_SIZE) {
-		sbuf_push(log, indent, "WARNING: Unexpected TLV size\n");
-		stream_forward_getp(s, tlv_len);
-		return 0;
-	}
+// 	sbuf_push(log, indent, "Unpacking SRv6 Locator TLV...\n");
+// 	if (tlv_len < ISIS_SRV6_LOCATOR_HDR_SIZE) {
+// 		sbuf_push(log, indent, "WARNING: Unexpected TLV size\n");
+// 		stream_forward_getp(s, tlv_len);
+// 		return 0;
+// 	}
 
-	if (tlvs->srv6_locator) {
-		sbuf_push(log, indent,
-			  "WARNING: SRv6 Locator TLV present multiple times.\n");
-		stream_forward_getp(s, tlv_len);
-		return 0;
-	}
+// 	if (tlvs->srv6_locator) {
+// 		sbuf_push(log, indent,
+// 			  "WARNING: SRv6 Locator TLV present multiple times.\n");
+// 		stream_forward_getp(s, tlv_len);
+// 		return 0;
+// 	}
 
-	/* Allocate SRv6 Locator structure */
-	srv6_locator = XCALLOC(MTYPE_ISIS_TLV, sizeof(struct isis_srv6_locator));
-	srv6_locator->srv6_sids = list_new();
+// 	/* Allocate SRv6 Locator structure */
+// 	srv6_locator = XCALLOC(MTYPE_ISIS_TLV, sizeof(struct isis_srv6_locator));
+// 	srv6_locator->srv6_sids = list_new();
 
-	stream_getw(s);  /* Reserved + MT ID*/
+// 	stream_getw(s);  /* Reserved + MT ID*/
 
-	/* Get Metric, Flags, Algorithm, Locator Size, and Locator Prefix */
-	srv6_locator->metric = stream_getl(s);
-	srv6_locator->flags = stream_getc(s);
-	srv6_locator->algorithm = stream_getc(s);
-	srv6_locator->locator.prefixlen = stream_getc(s);
-	stream_get(&srv6_locator->locator.prefix, s, ceil((double) srv6_locator->locator.prefixlen / 8));
-	srv6_locator->locator.family = AF_INET6;
+// 	/* Get Metric, Flags, Algorithm, Locator Size, and Locator Prefix */
+// 	srv6_locator->metric = stream_getl(s);
+// 	srv6_locator->flags = stream_getc(s);
+// 	srv6_locator->algorithm = stream_getc(s);
+// 	srv6_locator->locator.prefixlen = stream_getc(s);
+// 	stream_get(&srv6_locator->locator.prefix, s, ceil((double) srv6_locator->locator.prefixlen / 8));
+// 	srv6_locator->locator.family = AF_INET6;
 
-	/* Parse remaining part of the TLV if present */
-	subtlv_len = stream_getc(s);
+// 	/* Parse remaining part of the TLV if present */
+// 	subtlv_len = stream_getc(s);
 
-	if (subtlv_len > 0) {
+// 	if (subtlv_len > 0) {
 
-		if (STREAM_READABLE(s) < subtlv_len) {
-			sbuf_push(
-				log, indent,
-				"WARNING: SRv6 Locator subTLV length too large compared to expected size\n");
-			stream_forward_getp(s, STREAM_READABLE(s));
-			XFREE(MTYPE_ISIS_TLV, srv6_locator);
-			return 0;
-		}
+// 		if (STREAM_READABLE(s) < subtlv_len) {
+// 			sbuf_push(
+// 				log, indent,
+// 				"WARNING: SRv6 Locator subTLV length too large compared to expected size\n");
+// 			stream_forward_getp(s, STREAM_READABLE(s));
+// 			XFREE(MTYPE_ISIS_TLV, srv6_locator);
+// 			return 0;
+// 		}
 
-		type = stream_getc(s);
-		length = stream_getc(s);
+// 		type = stream_getc(s);
+// 		length = stream_getc(s);
 
-		if (STREAM_READABLE(s) < length || length > subtlv_len - 2) {
-			sbuf_push(
-				log, indent,
-				"WARNING: Router Capability subTLV length too large compared to expected size\n");
-			stream_forward_getp(s, STREAM_READABLE(s));
-			XFREE(MTYPE_ISIS_TLV, srv6_locator);
-			return 0;
-		}
+// 		if (STREAM_READABLE(s) < length || length > subtlv_len - 2) {
+// 			sbuf_push(
+// 				log, indent,
+// 				"WARNING: Router Capability subTLV length too large compared to expected size\n");
+// 			stream_forward_getp(s, STREAM_READABLE(s));
+// 			XFREE(MTYPE_ISIS_TLV, srv6_locator);
+// 			return 0;
+// 		}
 
-		switch (type) {
-			case ISIS_SUBTLV_SRV6_END_SID:
-				/* Flags */
-				stream_getc(s);
+// 		switch (type) {
+// 			case ISIS_SUBTLV_SRV6_END_SID:
+// 				/* Flags */
+// 				stream_getc(s);
 
-				/* Endpoint Behavior */
-				sid.behavior = stream_getw(s);
+// 				/* Endpoint Behavior */
+// 				sid.behavior = stream_getw(s);
 
-				/* SID */
-				stream_get(&sid.val, s, IPV6_MAX_BYTELEN);
+// 				/* SID */
+// 				stream_get(&sid.val, s, IPV6_MAX_BYTELEN);
 
-				/* Sub-Sub-TLVs Length */
-				subsubtlv_len = stream_getc(s);
+// 				/* Sub-Sub-TLVs Length */
+// 				subsubtlv_len = stream_getc(s);
 
-				listnode_add(srv6_locator->srv6_sids, &sid);  /* FIXME: sid is wrongly on the stack */
+// 				listnode_add(srv6_locator->srv6_sids, &sid);  /* FIXME: sid is wrongly on the stack */
 
-				if (subsubtlv_len > 0) {
+// 				if (subsubtlv_len > 0) {
 
-					if (STREAM_READABLE(s) < subsubtlv_len) {
-						sbuf_push(
-							log, indent,
-							"WARNING: SRv6 Locator subTLV length too large compared to expected size\n");
-						stream_forward_getp(s, STREAM_READABLE(s));
-						XFREE(MTYPE_ISIS_TLV, srv6_locator);
-						return 0;
-					}
+// 					if (STREAM_READABLE(s) < subsubtlv_len) {
+// 						sbuf_push(
+// 							log, indent,
+// 							"WARNING: SRv6 Locator subTLV length too large compared to expected size\n");
+// 						stream_forward_getp(s, STREAM_READABLE(s));
+// 						XFREE(MTYPE_ISIS_TLV, srv6_locator);
+// 						return 0;
+// 					}
 
-					type = stream_getc(s);
-					length = stream_getc(s);
+// 					type = stream_getc(s);
+// 					length = stream_getc(s);
 
-					if (STREAM_READABLE(s) < length || length > subtlv_len - 2) {
-						sbuf_push(
-							log, indent,
-							"WARNING: Router Capability subTLV length too large compared to expected size\n");
-						stream_forward_getp(s, STREAM_READABLE(s));
-						XFREE(MTYPE_ISIS_TLV, srv6_locator);
-						return 0;
-					}
+// 					if (STREAM_READABLE(s) < length || length > subtlv_len - 2) {
+// 						sbuf_push(
+// 							log, indent,
+// 							"WARNING: Router Capability subTLV length too large compared to expected size\n");
+// 						stream_forward_getp(s, STREAM_READABLE(s));
+// 						XFREE(MTYPE_ISIS_TLV, srv6_locator);
+// 						return 0;
+// 					}
 
-					switch (type) {		/* FIXME: we cannot reuse length variable; maybe move to a different funct? */
-						case ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE:
-							sid.structure.loc_block_len = stream_getc(s);
-							sid.structure.loc_node_len = stream_getc(s);
-							sid.structure.func_len = stream_getc(s);
-							sid.structure.arg_len = stream_getc(s);
-						break;
-						default:
-							stream_forward_getp(
-								s, length);
-							break;
-					}
-				}
-			break;
-			case ISIS_SUBTLV_PREFIX_ATTRIBUTE_FLAGS:
-				/* Skip Prefix Attribute Flags Sub-TLV if it
-				 * does not contain any information */
-				if (length == 0)
-					break;
+// 					switch (type) {		/* FIXME: we cannot reuse length variable; maybe move to a different funct? */
+// 						case ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE:
+// 							sid.structure.loc_block_len = stream_getc(s);
+// 							sid.structure.loc_node_len = stream_getc(s);
+// 							sid.structure.func_len = stream_getc(s);
+// 							sid.structure.arg_len = stream_getc(s);
+// 						break;
+// 						default:
+// 							stream_forward_getp(
+// 								s, length);
+// 							break;
+// 					}
+// 				}
+// 			break;
+// 			case ISIS_SUBTLV_PREFIX_ATTRIBUTE_FLAGS:
+// 				/* Skip Prefix Attribute Flags Sub-TLV if it
+// 				 * does not contain any information */
+// 				if (length == 0)
+// 					break;
 
-				/* Prefix Attribute Flags Sub-TLV may carry any
-				 * number of bits. We read the first 8 bits of
-				 * the Flags field and skip the remaining ones
-				 * because they are not currently supported by
-				 * IS-IS. */
-				srv6_locator->prefix_attribute_flags =
-					stream_getc(s); /* Flags */
-				if (length -
-					    ISIS_SUBTLV_PREFIX_ATTRIBUTE_FLAGS_SIZE >
-				    0)
-					stream_forward_getp(
-						s,
-						length -
-							ISIS_SUBTLV_PREFIX_ATTRIBUTE_FLAGS_SIZE);
+// 				/* Prefix Attribute Flags Sub-TLV may carry any
+// 				 * number of bits. We read the first 8 bits of
+// 				 * the Flags field and skip the remaining ones
+// 				 * because they are not currently supported by
+// 				 * IS-IS. */
+// 				srv6_locator->prefix_attribute_flags =
+// 					stream_getc(s); /* Flags */
+// 				if (length -
+// 					    ISIS_SUBTLV_PREFIX_ATTRIBUTE_FLAGS_SIZE >
+// 				    0)
+// 					stream_forward_getp(
+// 						s,
+// 						length -
+// 							ISIS_SUBTLV_PREFIX_ATTRIBUTE_FLAGS_SIZE);
 
-				break;
-			default:
-				stream_forward_getp(s, length);
-				break;
-		}		
-	}
+// 				break;
+// 			default:
+// 				stream_forward_getp(s, length);
+// 				break;
+// 		}		
+// 	}
 	// while (subtlv_len > 2) {
 	// 	uint8_t msd_type;
 
@@ -4652,10 +4652,10 @@ static int unpack_tlv_srv6_locator(enum isis_tlv_context context,
 	// 	}
 	// 	subtlv_len = subtlv_len - length - 2;
 	// }
-	tlvs->srv6_locator = srv6_locator;
-	format_tlv_srv6_locator(tlvs->srv6_locator, log, NULL, indent + 2);
-	return 0;
-}
+// 	tlvs->srv6_locator = srv6_locator;
+// 	format_tlv_srv6_locator(tlvs->srv6_locator, log, NULL, indent + 2);
+// 	return 0;
+// }
 
 /* Functions related to TLV 10 Authentication */
 static struct isis_item *copy_item_auth(struct isis_item *i)
