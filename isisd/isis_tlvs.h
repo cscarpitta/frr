@@ -224,12 +224,12 @@ struct isis_srv6_sid_structure_subsubtlv {
 	uint8_t arg_len;
 };
 
-/* SRv6 SID */
-struct isis_srv6_sid {
-	enum seg6local_action_t behavior;
-	struct in6_addr val;
-	struct isis_sid_structure structure;
-};
+// /* SRv6 SID */
+// struct isis_srv6_sid {
+// 	enum seg6local_action_t behavior;
+// 	struct in6_addr val;
+// 	struct isis_sid_structure structure;
+// };
 
 /* SRv6 End SID */
 struct isis_srv6_end_sid_subtlv {
