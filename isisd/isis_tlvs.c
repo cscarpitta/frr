@@ -1479,7 +1479,7 @@ static void free_item_srv6_end_sid(struct isis_item *i)
 static int pack_item_srv6_end_sid(struct isis_item *i, struct stream *s,
 				size_t *min_len)
 {
-	struct isis_srv6_end_sid *sid = (struct isis_srv6_end_sid *)i;
+	struct isis_srv6_end_sid_subtlv *sid = (struct isis_srv6_end_sid_subtlv *)i;
 
 	if (STREAM_WRITEABLE(s) < 19) {
 		*min_len = 19;
