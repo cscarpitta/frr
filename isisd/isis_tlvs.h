@@ -398,7 +398,7 @@ struct isis_tlvs {
 	struct isis_threeway_adj *threeway_adj;
 	struct isis_router_cap *router_cap;
 	struct isis_spine_leaf *spine_leaf;
-	struct isis_srv6_locator_tlv *srv6_locator;
+	struct isis_item_list *srv6_locator;
 };
 
 enum isis_tlv_context {
