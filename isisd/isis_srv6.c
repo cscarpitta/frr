@@ -36,78 +36,13 @@
 /* Local variables and functions */
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SRV6_SID, "ISIS SRv6 Segment ID");
 
-/**
- * Fill in SRv6 SID Structure Sub-Sub-TLV according to the corresponding
- * configuration.
- *
- * @param sid	      SRv6 SID configuration
- * @param structure   SRv6 SID Structure Sub-Sub-TLV to be updated
- */
-void isis_srv6_sid_structure2subsubtlv(
-	const struct isis_srv6_sid *sid,
-	struct isis_srv6_sid_structure_subsubtlv *structure_subsubtlv)
-{
-	/* Set Locator Block length */
-	structure_subsubtlv->loc_block_len = sid->structure.loc_block_len;
-
-	/* Set Locator Node length */
-	structure_subsubtlv->loc_node_len = sid->structure.loc_node_len;
-
-	/* Set Function length */
-	structure_subsubtlv->func_len = sid->structure.func_len;
-
-	/* Set Argument length */
-	structure_subsubtlv->arg_len = sid->structure.arg_len;
-}
-
-/**
- * Fill in SRv6 End SID Sub-TLV according to the corresponding configuration.
- *
- * @param sid	      SRv6 End SID configuration
- * @param sid_subtlv  SRv6 End SID Sub-TLV to be updated
- */
-void isis_srv6_end_sid2subtlv(const struct isis_srv6_sid *sid,
-			      struct isis_srv6_end_sid_subtlv *sid_subtlv)
-{
-	/* Set SRv6 End SID flags */
-	sid_subtlv->flags = sid->flags;
-
-	/* Set SRv6 EndSID behavior */
-	sid_subtlv->behavior = sid->behavior;
-
-	/* Set SRv6 End SID value */
-	sid_subtlv->value = sid->value;
-}
-
-/**
- * Fill in SRv6 Locator TLV according to the corresponding configuration.
- *
- * @param loc	     SRv6 Locator configuration
- * @param loc_tlv    SRv6 Locator TLV to be updated
- */
-void isis_srv6_locator2tlv(const struct isis_srv6_locator *loc,
-			   struct isis_srv6_locator_tlv *loc_tlv)
-{
-	/* Set SRv6 Locator metric */
-	loc_tlv->metric = loc->metric;
-
-	/* Set SRv6 Locator flags */
-	loc_tlv->flags = loc->flags;
-
-	/* Set SRv6 Locator algorithm */
-	loc_tlv->algorithm = loc->algorithm;
-
-	/* Set SRv6 Locator prefix */
-	loc_tlv->prefix = loc->prefix;
-}
-
 /* Unset SRv6 locator */
 int isis_srv6_locator_unset(struct isis_area *area)
 {
 	int ret;
 	struct listnode *node, *nnode;
 	struct srv6_locator_chunk *chunk;
-	struct srv6_sid *sid;
+	struct isis_srv6_sid *sid;
 
 	if (strmatch(area->srv6db.config.srv6_locator_name, "")) {
 		zlog_err("BUG: locator name not set (isis_srv6_locator_unset)");
@@ -142,10 +77,10 @@ int isis_srv6_locator_unset(struct isis_area *area)
 		if (IS_DEBUG_SR)
 			zlog_debug(
 				"Deleting SRv6 SID (locator %s, sid %pI6) from IS-IS area %s",
-				area->srv6db.config.srv6_locator_name, &sid->val, area->area_tag);
+				area->srv6db.config.srv6_locator_name, &sid->value, area->area_tag);
 
 		/* Uninstall the SRv6 SID from the forwarding plane through Zebra */
-		isis_zebra_end_sid_uninstall(area, &sid->val);
+		isis_zebra_end_sid_uninstall(area, sid);
 
 		listnode_delete(area->srv6db.srv6_sids, sid);
 		XFREE(MTYPE_ISIS_SRV6_SID, sid);
@@ -231,14 +166,14 @@ struct isis_srv6_sid * srv6_sid_alloc(struct isis_area *area, uint32_t index,
 
 	sid = XCALLOC(MTYPE_ISIS_SRV6_SID, sizeof(struct isis_srv6_sid));
 
-	sid->val = srv6_locator_chunk->prefix.prefix;
+	sid->value = srv6_locator_chunk->prefix.prefix;
 	sid->behavior = behavior;
 	sid->locator = srv6_locator_chunk;
 
 
 	if (index != 0) {
-		transpose_sid(&sid->val, index, offset, func_len);
-		if (sid_exist(area, &sid->val)) {
+		transpose_sid(&sid->value, index, offset, func_len);
+		if (sid_exist(area, &sid->value)) {
 			sr_debug("ISIS-SRv6 (%s): SID %pI6 already in use",
 				area->area_tag, sid);
 			return NULL;
@@ -246,8 +181,8 @@ struct isis_srv6_sid * srv6_sid_alloc(struct isis_area *area, uint32_t index,
 	} else {
 		index_max = (1 << srv6_locator_chunk->function_bits_length) - 1;
 		for (uint32_t i = 1; i < index_max; i++) {
-			transpose_sid(&sid->val, i, offset, func_len);
-			if (sid_exist(area, &sid->val))
+			transpose_sid(&sid->value, i, offset, func_len);
+			if (sid_exist(area, &sid->value))
 				continue;
 			alloced = true;
 			break;
@@ -275,7 +210,7 @@ void srv6_sid_free(struct in6_addr **sid)
 }
 
 /* Local variables and functions */
-DEFINE_MTYPE_STATIC(ISISD, ISIS_SRV6_SID, "ISIS SRv6 Segment ID");
+//DEFINE_MTYPE_STATIC(ISISD, ISIS_SRV6_SID, "ISIS SRv6 Segment ID");
 
 void isis_srv6_sid_free(struct isis_srv6_sid **sid)
 {

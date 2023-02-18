@@ -1424,139 +1424,100 @@ static int unpack_subtlv_ipv6_source_prefix(enum isis_tlv_context context,
 	return 0;
 }
 
-/* Functions for Sub-TLV 5 SRv6 End SID as per draft-ietf-lsr-isis-srv6-extensions section 7.2 */
-static struct isis_item *copy_item_srv6_end_sid(struct isis_item *i)
+
+/* Functions related to Sub-Sub-TLV 1 SRv6 SID Structure as per
+ * draft-ietf-lsr-isis-srv6-extensions-19 section#9*/
+static struct isis_srv6_sid_structure_subsubtlv *copy_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure_subsubtlv *sid_struct)
 {
-	struct isis_srv6_end_sid_subtlv *sid = (struct isis_srv6_end_sid_subtlv *)i;
-	struct isis_srv6_end_sid_subtlv *rv = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*rv));
+	if (!sid_struct)
+		return NULL;
 
-	rv->behavior = sid->behavior;
-	rv->value = sid->value;
-	rv->subsubtlvs = copy_subsubtlvs(sid->subsubtlvs);
+	struct isis_srv6_sid_structure_subsubtlv *rv =
+		XCALLOC(MTYPE_ISIS_SUBSUBTLV, sizeof(*rv));
 
-	return (struct isis_item *)rv;
+	rv->loc_block_len = sid_struct->loc_block_len;
+	rv->loc_node_len = sid_struct->loc_node_len;
+	rv->func_len = sid_struct->func_len;
+	rv->arg_len = sid_struct->arg_len;
+
+	return rv;
 }
 
-static void format_item_srv6_end_sid(uint16_t mtid, struct isis_item *i,
-				   struct sbuf *buf, struct json_object *json,
-				   int indent)
+static void format_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure_subsubtlv *sid_struct,
+					struct sbuf *buf,
+					struct json_object *json, int indent)
 {
-	struct isis_srv6_end_sid_subtlv *sid = (struct isis_srv6_end_sid_subtlv *)i;
-	char prefixbuf[PREFIX2STR_BUFFER];
+	if (!sid_struct)
+		return;
 
 	if (json) {
-		struct json_object *sid_json;
-		sid_json = json_object_new_object();
-		json_object_object_add(json, "srv6-end-sid", sid_json);
-		json_object_string_add(
-			sid_json, "endpoint-behavior", seg6local_action2str(sid->behavior));
-		prefix2str(sid->value, prefixbuf, sizeof(prefixbuf));
-		json_object_string_add(sid_json, "sid-value", prefixbuf);
-		if (sid->subsubtlvs) {
-			struct json_object *subtlvs_json;
-			subtlvs_json = json_object_new_object();
-			json_object_object_add(json, "sub-sub-tlvs", subtlvs_json);
-			format_subtlvs(sid->subsubtlvs, NULL, subtlvs_json, 0);
-		}
+		struct json_object *sid_struct_json;
+		sid_struct_json = json_object_new_object();
+		json_object_object_add(json, "srv6-sid-structure",
+				       sid_struct_json);
+		json_object_int_add(sid_struct_json, "loc-block-len",
+				    sid_struct->loc_block_len);
+		json_object_int_add(sid_struct_json, "loc-node-len",
+				    sid_struct->loc_node_len);
+		json_object_int_add(sid_struct_json, "func-len", sid_struct->func_len);
+		json_object_int_add(sid_struct_json, "arg-len", sid_struct->arg_len);
 	} else {
-		sbuf_push(buf, indent, "SRv6 End SID ");
-		sbuf_push(buf, 0, "Endpoint Behavior: %s, ", seg6local_action2str(sid->behavior));
-		sbuf_push(buf, 0, "SID value: %s\n", prefix2str(sid->value, prefixbuf, sizeof(prefixbuf)));
-
-		if (sid->subsubtlvs) {
-			sbuf_push(buf, indent, "  Sub-Sub-TLVs:\n");
-			format_subsubtlvs(sid->subsubtlvs, buf, NULL, indent + 4);
-		}
+		sbuf_push(buf, indent, "SRv6 SID Structure ");
+		sbuf_push(buf, 0, "Locator Block length: %hhu, ",
+			  sid_struct->loc_block_len);
+		sbuf_push(buf, 0, "Locator Node length: %hhu, ",
+			  sid_struct->loc_node_len);
+		sbuf_push(buf, 0, "Function length: %hhu, ", sid_struct->func_len);
+		sbuf_push(buf, 0, "Argument length: %hhu, ", sid_struct->arg_len);
+		sbuf_push(buf, 0, "\n");
 	}
 }
 
-static void free_item_srv6_end_sid(struct isis_item *i)
+static void free_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure_subsubtlv *sid_struct)
 {
-	struct isis_srv6_end_sid_subtlv *item = (struct isis_srv6_end_sid_subtlv *)i;
-
-	isis_free_subsubtlvs(item->subsubtlvs);
-	XFREE(MTYPE_ISIS_SUBTLV, i);
+	XFREE(MTYPE_ISIS_SUBSUBTLV, sid_struct);
 }
 
-static int pack_item_srv6_end_sid(struct isis_item *i, struct stream *s,
-				size_t *min_len)
+static int pack_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure_subsubtlv *sid_struct, struct stream *s)
 {
-	struct isis_srv6_end_sid_subtlv *sid = (struct isis_srv6_end_sid_subtlv *)i;
+	if (!sid_struct)
+		return 0;
 
-	if (STREAM_WRITEABLE(s) < 19) {
-		*min_len = 19;
+	if (STREAM_WRITEABLE(s) < 6) {
 		return 1;
 	}
 
-	stream_putc(s, sid->flags);
-	stream_putc(s, sid->behavior);
-	stream_put(s, &sid->value, IPV6_MAX_BYTELEN);
+	stream_putc(s, ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE);
+	stream_putc(s, 6);
+	stream_putc(s, sid_struct->loc_block_len);
+	stream_putc(s, sid_struct->loc_node_len);
+	stream_putc(s, sid_struct->func_len);
+	stream_putc(s, sid_struct->arg_len);
 
 	return 0;
 }
 
-static int unpack_item_srv6_end_sid(uint16_t mtid, uint8_t len, struct stream *s,
-				  struct sbuf *log, void *dest, int indent)
+static int unpack_subsubtlv_srv6_sid_structure(enum isis_tlv_context context,
+				       uint8_t tlv_type, uint8_t tlv_len,
+				       struct stream *s, struct sbuf *log,
+				       void *dest, int indent)
 {
-	struct isis_subtlvs *subtlvs = dest;
-	struct isis_srv6_end_sid_subtlv *sid;
-	size_t consume;
-	uint8_t subsubtlv_len;
+	struct isis_subsubtlvs *subsubtlvs = dest;
+	struct isis_srv6_sid_structure_subsubtlv sid_struct = {};
 
-	sbuf_push(log, indent, "Unpacking SRv6 End SID...\n");
-
-	consume = 19;
-	if (len < consume) {
-		sbuf_push(log, indent,
-			  "Not enough data left. (expected 19 or more bytes, got %hhu)\n",
-			  len);
+	sbuf_push(log, indent, "Unpacking SRv6 SID Structure...\n");
+	if (tlv_len != 6) {
+		sbuf_push(log, indent, "Invalid SRv6 SID Structure Sub-Sub-TLV size. (Expected 6 bytes, got %hhu)\n", tlv_len);
 		return 1;
 	}
 
-	sid = XCALLOC(MTYPE_ISIS_TLV, sizeof(*sid));
+	sid_struct.loc_block_len = stream_getc(s);
+	sid_struct.loc_node_len = stream_getc(s);
+	sid_struct.func_len = stream_getc(s);
+	sid_struct.arg_len = stream_getc(s);
 
-	sid->flags = stream_getc(s);
-	sid->behavior = stream_getw(s);
-	stream_get(&sid->value, s, IPV6_MAX_BYTELEN);
-
-	format_item_srv6_end_sid(mtid, (struct isis_item *)sid, log, NULL, indent + 2);
-
-	/* Process Sub-Sub-TLVs */
-	consume += 1;
-	if (len < consume) {
-		sbuf_push(log, indent,
-				"Expected 1 byte of subtlv len, but no more data persent.\n");
-		goto out;
-	}
-	subsubtlv_len = stream_getc(s);
-
-	consume += subsubtlv_len;
-	if (len < consume) {
-		sbuf_push(log, indent,
-				"Expected %hhu bytes of subtlvs, but only %u bytes available.\n",
-				subsubtlv_len,
-				len - 20);
-		goto out;
-	}
-
-	sid->subsubtlvs = isis_alloc_subsubtlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_END_SID);
-	bool unpacked_known_tlvs = false;
-
-	if (unpack_tlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_END_SID, subsubtlv_len, s,
-			log, sid->subsubtlvs, indent + 4, &unpacked_known_tlvs)) {
-		goto out;
-	}
-	if (!unpacked_known_tlvs) {
-		isis_free_subsubtlvs(sid->subsubtlvs);
-		sid->subsubtlvs = NULL;
-	}
-
-	append_item(&subtlvs->srv6_end_sids, copy_item_srv6_end_sid((struct isis_item *)sid));
+	subsubtlvs->srv6_sid_structure = copy_subsubtlv_srv6_sid_structure(&sid_struct);
 	return 0;
-out:
-	if (sid)
-		free_item_srv6_end_sid((struct isis_item *)sid);
-	return 1;
 }
 
 static struct isis_item *copy_item(enum isis_tlv_context context,
@@ -1610,6 +1571,28 @@ static void isis_free_subsubtlvs(struct isis_subsubtlvs *subsubtlvs)
 	free_subsubtlv_srv6_sid_structure(subsubtlvs->srv6_sid_structure);
 
 	XFREE(MTYPE_ISIS_SUBSUBTLV, subsubtlvs);
+}
+
+static int pack_subsubtlvs(struct isis_subsubtlvs *subsubtlvs, struct stream *s)
+{
+	int rv;
+	size_t subsubtlv_len_pos = stream_get_endp(s);
+
+	if (STREAM_WRITEABLE(s) < 1)
+		return 1;
+
+	stream_putc(s, 0); /* Put 0 as subtlvs length, filled in later */
+
+	rv = pack_subsubtlv_srv6_sid_structure(subsubtlvs->srv6_sid_structure, s);
+	if (rv)
+		return rv;
+
+	size_t subsubtlv_len = stream_get_endp(s) - subsubtlv_len_pos - 1;
+	if (subsubtlv_len > 255)
+		return 1;
+
+	stream_putc_at(s, subsubtlv_len_pos, subsubtlv_len);
+	return 0;
 }
 
 /* Functions related to subtlvs */
@@ -1714,7 +1697,7 @@ static int unpack_tlvs(enum isis_tlv_context context, size_t avail_len,
 
 /* Functions related to subsubtlvs */
 
-static struct isis_subtlvs *isis_alloc_subsubtlvs(enum isis_tlv_context context)
+static struct isis_subsubtlvs *isis_alloc_subsubtlvs(enum isis_tlv_context context)
 {
 	struct isis_subsubtlvs *result;
 
@@ -1722,6 +1705,144 @@ static struct isis_subtlvs *isis_alloc_subsubtlvs(enum isis_tlv_context context)
 	result->context = context;
 
 	return result;
+}
+
+/* Functions for Sub-TLV 5 SRv6 End SID as per draft-ietf-lsr-isis-srv6-extensions section 7.2 */
+static struct isis_item *copy_item_srv6_end_sid(struct isis_item *i)
+{
+	struct isis_srv6_end_sid_subtlv *sid = (struct isis_srv6_end_sid_subtlv *)i;
+	struct isis_srv6_end_sid_subtlv *rv = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*rv));
+
+	rv->behavior = sid->behavior;
+	rv->value = sid->value;
+	rv->subsubtlvs = copy_subsubtlvs(sid->subsubtlvs);
+
+	return (struct isis_item *)rv;
+}
+
+static void format_item_srv6_end_sid(uint16_t mtid, struct isis_item *i,
+				   struct sbuf *buf, struct json_object *json,
+				   int indent)
+{
+	struct isis_srv6_end_sid_subtlv *sid = (struct isis_srv6_end_sid_subtlv *)i;
+	char prefixbuf[PREFIX2STR_BUFFER];
+
+	if (json) {
+		struct json_object *sid_json;
+		sid_json = json_object_new_object();
+		json_object_object_add(json, "srv6-end-sid", sid_json);
+		json_object_string_add(
+			sid_json, "endpoint-behavior", seg6local_action2str(sid->behavior));
+		inet_ntop(AF_INET6, &sid->value, prefixbuf, sizeof(prefixbuf));
+		json_object_string_add(sid_json, "sid-value", prefixbuf);
+		if (sid->subsubtlvs) {
+			struct json_object *subtlvs_json;
+			subtlvs_json = json_object_new_object();
+			json_object_object_add(json, "sub-sub-tlvs", subtlvs_json);
+			format_subsubtlvs(sid->subsubtlvs, NULL, subtlvs_json, 0);
+		}
+	} else {
+		sbuf_push(buf, indent, "SRv6 End SID ");
+		sbuf_push(buf, 0, "Endpoint Behavior: %s, ", seg6local_action2str(sid->behavior));
+		sbuf_push(buf, 0, "SID value: %s\n", inet_ntop(AF_INET6, &sid->value, prefixbuf, sizeof(prefixbuf)));
+
+		if (sid->subsubtlvs) {
+			sbuf_push(buf, indent, "  Sub-Sub-TLVs:\n");
+			format_subsubtlvs(sid->subsubtlvs, buf, NULL, indent + 4);
+		}
+	}
+}
+
+static void free_item_srv6_end_sid(struct isis_item *i)
+{
+	struct isis_srv6_end_sid_subtlv *item = (struct isis_srv6_end_sid_subtlv *)i;
+
+	isis_free_subsubtlvs(item->subsubtlvs);
+	XFREE(MTYPE_ISIS_SUBTLV, i);
+}
+
+static int pack_item_srv6_end_sid(struct isis_item *i, struct stream *s,
+				size_t *min_len)
+{
+	struct isis_srv6_end_sid_subtlv *sid = (struct isis_srv6_end_sid_subtlv *)i;
+
+	if (STREAM_WRITEABLE(s) < 19) {
+		*min_len = 19;
+		return 1;
+	}
+
+	stream_putc(s, sid->flags);
+	stream_putc(s, sid->behavior);
+	stream_put(s, &sid->value, IPV6_MAX_BYTELEN);
+
+	if (sid->subsubtlvs)
+		return pack_subsubtlvs(sid->subsubtlvs, s);
+
+	return 0;
+}
+
+static int unpack_item_srv6_end_sid(uint16_t mtid, uint8_t len, struct stream *s,
+				  struct sbuf *log, void *dest, int indent)
+{
+	struct isis_subtlvs *subtlvs = dest;
+	struct isis_srv6_end_sid_subtlv *sid;
+	size_t consume;
+	uint8_t subsubtlv_len;
+
+	sbuf_push(log, indent, "Unpacking SRv6 End SID...\n");
+
+	consume = 19;
+	if (len < consume) {
+		sbuf_push(log, indent,
+			  "Not enough data left. (expected 19 or more bytes, got %hhu)\n",
+			  len);
+		return 1;
+	}
+
+	sid = XCALLOC(MTYPE_ISIS_TLV, sizeof(*sid));
+
+	sid->flags = stream_getc(s);
+	sid->behavior = stream_getw(s);
+	stream_get(&sid->value, s, IPV6_MAX_BYTELEN);
+
+	format_item_srv6_end_sid(mtid, (struct isis_item *)sid, log, NULL, indent + 2);
+
+	/* Process Sub-Sub-TLVs */
+	consume += 1;
+	if (len < consume) {
+		sbuf_push(log, indent,
+				"Expected 1 byte of subtlv len, but no more data persent.\n");
+		goto out;
+	}
+	subsubtlv_len = stream_getc(s);
+
+	consume += subsubtlv_len;
+	if (len < consume) {
+		sbuf_push(log, indent,
+				"Expected %hhu bytes of subtlvs, but only %u bytes available.\n",
+				subsubtlv_len,
+				len - 20);
+		goto out;
+	}
+
+	sid->subsubtlvs = isis_alloc_subsubtlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_END_SID);
+	bool unpacked_known_tlvs = false;
+
+	if (unpack_tlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_END_SID, subsubtlv_len, s,
+			log, sid->subsubtlvs, indent + 4, &unpacked_known_tlvs)) {
+		goto out;
+	}
+	if (!unpacked_known_tlvs) {
+		isis_free_subsubtlvs(sid->subsubtlvs);
+		sid->subsubtlvs = NULL;
+	}
+
+	append_item(&subtlvs->srv6_end_sids, copy_item_srv6_end_sid((struct isis_item *)sid));
+	return 0;
+out:
+	if (sid)
+		free_item_srv6_end_sid((struct isis_item *)sid);
+	return 1;
 }
 
 /* Functions related to TLVs 1 Area Addresses */
@@ -5478,7 +5599,6 @@ static int unpack_item_srv6_locator(uint16_t mtid, uint8_t len,
 	struct isis_srv6_locator_tlv *rv = NULL;
 	size_t consume;
 	uint8_t subtlv_len;
-	struct isis_item_list *items;
 
 	sbuf_push(log, indent, "Unpacking SRv6 Locator...\n");
 	consume = 7;
@@ -5558,107 +5678,12 @@ static int unpack_item_srv6_locator(uint16_t mtid, uint8_t len,
 		}
 	}
 
-	append_item(tlvs->srv6_locator, (struct isis_item *)rv);
+	append_item(&tlvs->srv6_locator, (struct isis_item *)rv);
 	return 0;
 out:
 	if (rv)
 		free_item_srv6_locator((struct isis_item *)rv);
 	return 1;
-}
-
-/* Functions related to Sub-Sub-TLV 1 SRv6 SID Structure as per
- * draft-ietf-lsr-isis-srv6-extensions-19 section#9*/
-static struct isis_srv6_sid_structure_subsubtlv *copy_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure_subsubtlv *sid_struct)
-{
-	if (!sid_struct)
-		return NULL;
-
-	struct isis_srv6_sid_structure_subsubtlv *rv =
-		XCALLOC(MTYPE_ISIS_SUBSUBTLV, sizeof(*rv));
-
-	rv->loc_block_len = sid_struct->loc_block_len;
-	rv->loc_node_len = sid_struct->loc_node_len;
-	rv->func_len = sid_struct->func_len;
-	rv->arg_len = sid_struct->arg_len;
-
-	return rv;
-}
-
-static void format_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure_subsubtlv *sid_struct,
-					struct sbuf *buf,
-					struct json_object *json, int indent)
-{
-	if (!sid_struct)
-		return NULL;
-
-	if (json) {
-		struct json_object *sid_struct_json;
-		sid_struct_json = json_object_new_object();
-		json_object_object_add(json, "srv6-sid-structure",
-				       sid_struct_json);
-		json_object_int_add(sid_struct_json, "loc-block-len",
-				    sid_struct->loc_block_len);
-		json_object_int_add(sid_struct_json, "loc-node-len",
-				    sid_struct->loc_node_len);
-		json_object_int_add(sid_struct_json, "func-len", sid_struct->func_len);
-		json_object_int_add(sid_struct_json, "arg-len", sid_struct->arg_len);
-	} else {
-		sbuf_push(buf, indent, "SRv6 SID Structure ");
-		sbuf_push(buf, 0, "Locator Block length: %hhu, ",
-			  sid_struct->loc_block_len);
-		sbuf_push(buf, 0, "Locator Node length: %hhu, ",
-			  sid_struct->loc_node_len);
-		sbuf_push(buf, 0, "Function length: %hhu, ", sid_struct->func_len);
-		sbuf_push(buf, 0, "Argument length: %hhu, ", sid_struct->arg_len);
-		sbuf_push(buf, 0, "\n");
-	}
-}
-
-static void free_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure_subsubtlv *sid_struct)
-{
-	XFREE(MTYPE_ISIS_SUBSUBTLV, sid_struct);
-}
-
-static int pack_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure_subsubtlv *sid_struct, struct stream *s)
-{
-	if (!sid_struct)
-		return NULL;
-
-	if (STREAM_WRITEABLE(s) < 6) {
-		return 1;
-	}
-
-	stream_putc(s, ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE);
-	stream_putc(s, 6);
-	stream_putc(s, sid_struct->loc_block_len);
-	stream_putc(s, sid_struct->loc_node_len);
-	stream_putc(s, sid_struct->func_len);
-	stream_putc(s, sid_struct->arg_len);
-
-	return 0;
-}
-
-static int unpack_subsubtlv_srv6_sid_structure(enum isis_tlv_context context,
-				       uint8_t tlv_type, uint8_t tlv_len,
-				       struct stream *s, struct sbuf *log,
-				       void *dest, int indent)
-{
-	struct isis_subsubtlvs *subsubtlvs = dest;
-	struct isis_srv6_sid_structure_subsubtlv sid_struct = {};
-
-	sbuf_push(log, indent, "Unpacking SRv6 SID Structure...\n");
-	if (tlv_len != 6) {
-		sbuf_push(log, indent, "Invalid SRv6 SID Structure Sub-Sub-TLV size. (Expected 6 bytes, got %hhu)\n", tlv_len);
-		return 1;
-	}
-
-	sid_struct.loc_block_len = stream_getc(s);
-	sid_struct.loc_node_len = stream_getc(s);
-	sid_struct.func_len = stream_getc(s);
-	sid_struct.arg_len = stream_getc(s);
-
-	subsubtlvs->srv6_sid_structure = copy_subsubtlv_srv6_sid_structure(&sid_struct);
-	return 0;
 }
 
 /* Functions related to tlvs in general */
@@ -5765,7 +5790,7 @@ struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs)
 
 	rv->router_cap = copy_tlv_router_cap(tlvs->router_cap);
 
-	rv->srv6_locator = copy_tlv_srv6_locator(tlvs->srv6_locator);
+	//rv->srv6_locator = copy_tlv_srv6_locator(tlvs->srv6_locator);
 
 	rv->spine_leaf = copy_tlv_spine_leaf(tlvs->spine_leaf);
 
@@ -6366,7 +6391,7 @@ ITEM_TLV_OPS(ipv6_address, "TLV 232 IPv6 Interface Address");
 ITEM_TLV_OPS(global_ipv6_address, "TLV 233 Global IPv6 Interface Address");
 ITEM_TLV_OPS(ipv6_reach, "TLV 236 IPv6 Reachability");
 TLV_OPS(router_cap, "TLV 242 Router Capability");
-TLV_OPS(srv6_locator, "TLV 27 SRv6 Locator");
+//TLV_OPS(srv6_locator, "TLV 27 SRv6 Locator");
 
 ITEM_SUBTLV_OPS(prefix_sid, "Sub-TLV 3 SR Prefix-SID");
 SUBTLV_OPS(ipv6_source_prefix, "Sub-TLV 22 IPv6 Source Prefix");
@@ -7246,8 +7271,7 @@ void isis_subtlvs_add_srv6_end_sid(struct isis_subtlvs *subtlvs,
 
 /* Add an SRv6 Locator to the SRv6 Locator TLV */
 void isis_tlvs_add_srv6_locator(struct isis_tlvs *tlvs,
-				struct isis_srv6_locator *loc,
-				struct isis_subtlvs *subtlvs)
+				struct isis_srv6_locator *loc)
 {
 	bool subtlvs_present = false;
 	struct listnode *node;
@@ -7278,4 +7302,69 @@ void isis_tlvs_add_srv6_locator(struct isis_tlvs *tlvs,
 
 	/* Append the SRv6 Locator TLV to the TLVs list */
 	append_item(&tlvs->srv6_locator, (struct isis_item *)loc);
+}
+
+/**
+ * Fill in SRv6 SID Structure Sub-Sub-TLV according to the corresponding
+ * configuration.
+ *
+ * @param sid	      SRv6 SID configuration
+ * @param structure   SRv6 SID Structure Sub-Sub-TLV to be updated
+ */
+void isis_srv6_sid_structure2subsubtlv(
+	const struct isis_srv6_sid *sid,
+	struct isis_srv6_sid_structure_subsubtlv *structure_subsubtlv)
+{
+	/* Set Locator Block length */
+	structure_subsubtlv->loc_block_len = sid->structure.loc_block_len;
+
+	/* Set Locator Node length */
+	structure_subsubtlv->loc_node_len = sid->structure.loc_node_len;
+
+	/* Set Function length */
+	structure_subsubtlv->func_len = sid->structure.func_len;
+
+	/* Set Argument length */
+	structure_subsubtlv->arg_len = sid->structure.arg_len;
+}
+
+/**
+ * Fill in SRv6 End SID Sub-TLV according to the corresponding configuration.
+ *
+ * @param sid	      SRv6 End SID configuration
+ * @param sid_subtlv  SRv6 End SID Sub-TLV to be updated
+ */
+void isis_srv6_end_sid2subtlv(const struct isis_srv6_sid *sid,
+			      struct isis_srv6_end_sid_subtlv *sid_subtlv)
+{
+	/* Set SRv6 End SID flags */
+	sid_subtlv->flags = sid->flags;
+
+	/* Set SRv6 EndSID behavior */
+	sid_subtlv->behavior = sid->behavior;
+
+	/* Set SRv6 End SID value */
+	sid_subtlv->value = sid->value;
+}
+
+/**
+ * Fill in SRv6 Locator TLV according to the corresponding configuration.
+ *
+ * @param loc	     SRv6 Locator configuration
+ * @param loc_tlv    SRv6 Locator TLV to be updated
+ */
+void isis_srv6_locator2tlv(const struct isis_srv6_locator *loc,
+			   struct isis_srv6_locator_tlv *loc_tlv)
+{
+	/* Set SRv6 Locator metric */
+	loc_tlv->metric = loc->metric;
+
+	/* Set SRv6 Locator flags */
+	loc_tlv->flags = loc->flags;
+
+	/* Set SRv6 Locator algorithm */
+	loc_tlv->algorithm = loc->algorithm;
+
+	/* Set SRv6 Locator prefix */
+	loc_tlv->prefix = loc->prefix;
 }

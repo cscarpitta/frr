@@ -844,13 +844,13 @@ void isis_zebra_end_sid_install(struct isis_area *area,
 		return;
 
 	sr_debug("ISIS-SRv6 (%s): setting End SID %pI6",
-		 area->area_tag, &sid->val);
+		 area->area_tag, &sid->value);
 
 	ifp = if_lookup_by_name("lo", VRF_DEFAULT);
 	if (!ifp) {
 		zlog_warn(
 			"Couldn't install End SRv6 SID %pI6: loopback interface not found",
-			&sid->val);
+			&sid->value);
 		return;
 	}
 
@@ -866,7 +866,7 @@ void isis_zebra_end_sid_install(struct isis_area *area,
 		return;
 	/* END TEMPORARY WORKAROUND */
 
-	zclient_send_localsid(zclient, &sid->val, ifp->ifindex, sid->behavior, &ctx);
+	zclient_send_localsid(zclient, &sid->value, ifp->ifindex, sid->behavior, &ctx);
 }
 
 /**
@@ -884,9 +884,9 @@ void isis_zebra_end_sid_uninstall(struct isis_area *area,
 		return;
 
 	sr_debug("ISIS-SRv6 (%s): delete End SID %pI6",
-		 area->area_tag, sid->val);
+		 area->area_tag, sid->value);
 
-	zclient_send_localsid(zclient, sid->val, 2, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, &ctx);
+	zclient_send_localsid(zclient, &sid->value, 2, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, &ctx);
 }
 
 /*

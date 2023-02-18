@@ -28,7 +28,8 @@
 #include "openbsd-tree.h"
 #include "prefix.h"
 
-#include <lib/srv6.h>
+#include "lib/srv6.h"
+#include "isis_srv6.h"
 
 DECLARE_MTYPE(ISIS_SUBTLV);
 
@@ -398,7 +399,7 @@ struct isis_tlvs {
 	struct isis_threeway_adj *threeway_adj;
 	struct isis_router_cap *router_cap;
 	struct isis_spine_leaf *spine_leaf;
-	struct isis_item_list *srv6_locator;
+	struct isis_item_list srv6_locator;
 };
 
 enum isis_tlv_context {
@@ -640,7 +641,7 @@ struct isis_ext_subtlvs {
 
 #define IS_COMPAT_MT_TLV(tlv_type)                                             \
 	((tlv_type == ISIS_TLV_MT_REACH) || (tlv_type == ISIS_TLV_MT_IP_REACH) \
-	 || (tlv_type == ISIS_TLV_MT_IPV6_REACH) || || (tlv_type == ISIS_TLV_SRV6_LOCATOR))
+	 || (tlv_type == ISIS_TLV_MT_IPV6_REACH) || (tlv_type == ISIS_TLV_SRV6_LOCATOR))
 
 struct stream;
 int isis_pack_tlvs(struct isis_tlvs *tlvs, struct stream *stream,
@@ -751,14 +752,21 @@ void isis_tlvs_set_purge_originator(struct isis_tlvs *tlvs,
 				    const uint8_t *generator,
 				    const uint8_t *sender);
 
-void isis_tlvs_set_srv6_locator(struct isis_tlvs *tlvs,
-				     const struct isis_srv6_locator *locator);
+// void isis_tlvs_set_srv6_locator(struct isis_tlvs *tlvs,
+// 				     const struct isis_srv6_locator *locator);
 
 void isis_subsubtlvs_set_srv6_sid_structure(struct isis_subsubtlvs *subsubtlvs,
 					    struct isis_srv6_sid *sid);
 void isis_subtlvs_add_srv6_end_sid(struct isis_subtlvs *subtlvs,
 				   struct isis_srv6_sid *sid);
 void isis_tlvs_add_srv6_locator(struct isis_tlvs *tlvs,
-				struct isis_srv6_locator *loc,
-				struct isis_subtlvs *subtlvs);
+				struct isis_srv6_locator *loc);
+
+void isis_srv6_locator2tlv(const struct isis_srv6_locator *loc,
+			   struct isis_srv6_locator_tlv *loc_tlv);
+void isis_srv6_end_sid2subtlv(const struct isis_srv6_sid *sid,
+			      struct isis_srv6_end_sid_subtlv *sid_subtlv);
+void isis_srv6_sid_structure2subsubtlv(
+	const struct isis_srv6_sid *sid,
+	struct isis_srv6_sid_structure_subsubtlv *structure_subsubtlv);
 #endif
