@@ -7257,7 +7257,7 @@ void isis_tlvs_add_srv6_locator(struct isis_tlvs *tlvs,
 
 	/* Fill in the SRv6 Locator TLV according to the SRv6 Locator
 	 * configuration */
-	isis_srv6_locatortlv(loc, loc_tlv);
+	isis_srv6_locator2tlv(loc, loc_tlv);
 
 	/* Add the SRv6 End SID Sub-TLVs */
 	loc_tlv->subtlvs = isis_alloc_subtlvs(ISIS_CONTEXT_SUBTLV_SRV6_LOCATOR);
