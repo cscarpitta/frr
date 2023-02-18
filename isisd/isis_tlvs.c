@@ -1497,7 +1497,7 @@ static int unpack_item_srv6_end_sid(uint16_t mtid, uint8_t len, struct stream *s
 				  struct sbuf *log, void *dest, int indent)
 {
 	struct isis_subtlvs *subtlvs = dest;
-	struct isis_srv6_end_sid sid = {};
+	struct isis_srv6_end_sid_subtlv sid = {};
 
 	sbuf_push(log, indent, "Unpacking SRv6 End SID...\n");
 
