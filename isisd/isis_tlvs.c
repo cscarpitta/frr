@@ -1497,24 +1497,64 @@ static int unpack_item_srv6_end_sid(uint16_t mtid, uint8_t len, struct stream *s
 				  struct sbuf *log, void *dest, int indent)
 {
 	struct isis_subtlvs *subtlvs = dest;
-	struct isis_srv6_end_sid_subtlv sid = {};
+	struct isis_srv6_end_sid_subtlv *sid;
+	size_t consume;
+	uint8_t subsubtlv_len;
 
 	sbuf_push(log, indent, "Unpacking SRv6 End SID...\n");
 
-	if (len < 19) {
+	consume = 19;
+	if (len < consume) {
 		sbuf_push(log, indent,
 			  "Not enough data left. (expected 19 or more bytes, got %hhu)\n",
 			  len);
 		return 1;
 	}
 
-	sid.flags = stream_getc(s);
-	sid.behavior = stream_getw(s);
-	stream_get(&sid.value, s, IPV6_MAX_BYTELEN);
+	sid = XCALLOC(MTYPE_ISIS_TLV, sizeof(*sid));
 
-	format_item_srv6_end_sid(mtid, (struct isis_item *)&sid, log, NULL, indent + 2);
-	append_item(&subtlvs->srv6_end_sids, copy_item_srv6_end_sid((struct isis_item *)&sid));
+	sid->flags = stream_getc(s);
+	sid->behavior = stream_getw(s);
+	stream_get(&sid->value, s, IPV6_MAX_BYTELEN);
+
+	format_item_srv6_end_sid(mtid, (struct isis_item *)sid, log, NULL, indent + 2);
+
+	/* Process Sub-Sub-TLVs */
+	consume += 1;
+	if (len < consume) {
+		sbuf_push(log, indent,
+				"Expected 1 byte of subtlv len, but no more data persent.\n");
+		goto out;
+	}
+	subsubtlv_len = stream_getc(s);
+
+	consume += subsubtlv_len;
+	if (len < consume) {
+		sbuf_push(log, indent,
+				"Expected %hhu bytes of subtlvs, but only %u bytes available.\n",
+				subsubtlv_len,
+				len - 20);
+		goto out;
+	}
+
+	sid->subsubtlvs = isis_alloc_subsubtlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_END_SID);
+	bool unpacked_known_tlvs = false;
+
+	if (unpack_tlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_END_SID, subsubtlv_len, s,
+			log, sid->subsubtlvs, indent + 4, &unpacked_known_tlvs)) {
+		goto out;
+	}
+	if (!unpacked_known_tlvs) {
+		isis_free_subsubtlvs(sid->subsubtlvs);
+		sid->subsubtlvs = NULL;
+	}
+
+	append_item(&subtlvs->srv6_end_sids, copy_item_srv6_end_sid((struct isis_item *)sid));
 	return 0;
+out:
+	if (sid)
+		free_item_srv6_end_sid((struct isis_item *)sid);
+	return 1;
 }
 
 static struct isis_item *copy_item(enum isis_tlv_context context,
