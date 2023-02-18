@@ -234,6 +234,8 @@ struct isis_srv6_sid_structure_subsubtlv {
 
 /* SRv6 End SID */
 struct isis_srv6_end_sid_subtlv {
+	struct isis_srv6_end_sid_subtlv *next;
+
 	uint8_t flags;
 	enum seg6local_action_t behavior;
 	struct in6_addr value;
@@ -399,7 +401,7 @@ struct isis_tlvs {
 	struct isis_threeway_adj *threeway_adj;
 	struct isis_router_cap *router_cap;
 	struct isis_spine_leaf *spine_leaf;
-	struct isis_item_list srv6_locator;
+	struct isis_mt_item_list srv6_locator;
 };
 
 enum isis_tlv_context {
@@ -641,7 +643,7 @@ struct isis_ext_subtlvs {
 
 #define IS_COMPAT_MT_TLV(tlv_type)                                             \
 	((tlv_type == ISIS_TLV_MT_REACH) || (tlv_type == ISIS_TLV_MT_IP_REACH) \
-	 || (tlv_type == ISIS_TLV_MT_IPV6_REACH) || (tlv_type == ISIS_TLV_SRV6_LOCATOR))
+	 || (tlv_type == ISIS_TLV_MT_IPV6_REACH))
 
 struct stream;
 int isis_pack_tlvs(struct isis_tlvs *tlvs, struct stream *stream,
@@ -760,7 +762,7 @@ void isis_subsubtlvs_set_srv6_sid_structure(struct isis_subsubtlvs *subsubtlvs,
 void isis_subtlvs_add_srv6_end_sid(struct isis_subtlvs *subtlvs,
 				   struct isis_srv6_sid *sid);
 void isis_tlvs_add_srv6_locator(struct isis_tlvs *tlvs,
-				struct isis_srv6_locator *loc);
+				uint16_t mtid, struct isis_srv6_locator *loc);
 
 void isis_srv6_locator2tlv(const struct isis_srv6_locator *loc,
 			   struct isis_srv6_locator_tlv *loc_tlv);

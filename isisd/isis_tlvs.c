@@ -111,7 +111,7 @@ static const struct pack_order_entry pack_order[] = {
 	PACK_ENTRY(MT_IP_REACH, ISIS_MT_ITEMS, mt_ip_reach),
 	PACK_ENTRY(IPV6_REACH, ISIS_ITEMS, ipv6_reach),
 	PACK_ENTRY(MT_IPV6_REACH, ISIS_MT_ITEMS, mt_ipv6_reach),
-	PACK_ENTRY(SRV6_LOCATOR, ISIS_ITEMS, srv6_locator)
+	PACK_ENTRY(SRV6_LOCATOR, ISIS_MT_ITEMS, srv6_locator)
 };
 
 /* This is a forward definition. The table is actually initialized
@@ -1488,7 +1488,7 @@ static int pack_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure_subs
 	}
 
 	stream_putc(s, ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE);
-	stream_putc(s, 6);
+	stream_putc(s, 4);
 	stream_putc(s, sid_struct->loc_block_len);
 	stream_putc(s, sid_struct->loc_node_len);
 	stream_putc(s, sid_struct->func_len);
@@ -1590,6 +1590,8 @@ static int pack_subsubtlvs(struct isis_subsubtlvs *subsubtlvs, struct stream *s)
 	size_t subsubtlv_len = stream_get_endp(s) - subsubtlv_len_pos - 1;
 	if (subsubtlv_len > 255)
 		return 1;
+
+	zlog_info("\n\n\n****sub sub tlv len %u", subsubtlv_len);
 
 	stream_putc_at(s, subsubtlv_len_pos, subsubtlv_len);
 	return 0;
@@ -1738,7 +1740,7 @@ static void format_item_srv6_end_sid(uint16_t mtid, struct isis_item *i,
 		if (sid->subsubtlvs) {
 			struct json_object *subtlvs_json;
 			subtlvs_json = json_object_new_object();
-			json_object_object_add(json, "sub-sub-tlvs", subtlvs_json);
+			json_object_object_add(json, "subsubtlvs", subtlvs_json);
 			format_subsubtlvs(sid->subsubtlvs, NULL, subtlvs_json, 0);
 		}
 	} else {
@@ -1772,11 +1774,19 @@ static int pack_item_srv6_end_sid(struct isis_item *i, struct stream *s,
 	}
 
 	stream_putc(s, sid->flags);
-	stream_putc(s, sid->behavior);
+	stream_putw(s, sid->behavior);
 	stream_put(s, &sid->value, IPV6_MAX_BYTELEN);
 
-	if (sid->subsubtlvs)
-		return pack_subsubtlvs(sid->subsubtlvs, s);
+	if (sid->subsubtlvs) {
+		if (pack_subsubtlvs(sid->subsubtlvs, s))
+			return 1;
+	} else {
+		if (STREAM_WRITEABLE(s) < 1) {
+			*min_len = 20;
+			return 1;
+		}
+		stream_putc(s, 0);  /* Put 0 as Sub-Sub-TLV length, because there are no Sub-Sub-TLVs */
+	}
 
 	return 0;
 }
@@ -5215,6 +5225,12 @@ top:
 		stream_putw(s, mtid);
 	}
 
+	if (context == ISIS_CONTEXT_LSP && type == ISIS_TLV_SRV6_LOCATOR) {
+		if (STREAM_WRITEABLE(s) < 2)
+			goto too_long;
+		stream_putw(s, mtid);
+	}
+
 	if (context == ISIS_CONTEXT_LSP && type == ISIS_TLV_OLDSTYLE_REACH) {
 		if (STREAM_WRITEABLE(s) < 1)
 			goto too_long;
@@ -5347,7 +5363,7 @@ static int unpack_tlv_with_items(enum isis_tlv_context context,
 	tlv_start = stream_get_getp(s);
 	tlv_pos = 0;
 
-	if (context == ISIS_CONTEXT_LSP && IS_COMPAT_MT_TLV(tlv_type)) {
+	if (context == ISIS_CONTEXT_LSP && (IS_COMPAT_MT_TLV(tlv_type) || tlv_type == ISIS_TLV_SRV6_LOCATOR)) {
 		if (tlv_len < 2) {
 			sbuf_push(log, indent,
 				  "TLV is too short to contain MTID\n");
@@ -5549,7 +5565,7 @@ static void format_item_srv6_locator(uint16_t mtid, struct isis_item *i,
 		if (loc->subtlvs) {
 			struct json_object *subtlvs_json;
 			subtlvs_json = json_object_new_object();
-			json_object_object_add(json, "sub-tlvs", subtlvs_json);
+			json_object_object_add(json, "subtlvs", subtlvs_json);
 			format_subtlvs(loc->subtlvs, NULL, subtlvs_json, 0);
 		}
 	} else {
@@ -5585,8 +5601,14 @@ static int pack_item_srv6_locator(struct isis_item *i, struct stream *s,
 	stream_put(s, &loc->prefix.prefix.s6_addr,
 		   PSIZE(loc->prefix.prefixlen)); /* Locator prefix*/
 
-	if (loc->subtlvs)
-		return pack_subtlvs(loc->subtlvs, s);
+	if (loc->subtlvs) {
+		if (pack_subtlvs(loc->subtlvs, s))
+			return 1;
+	} else {
+		if (STREAM_WRITEABLE(s) < 1)
+			return 1;
+		stream_putc(s, 0);  /* Put 0 as Sub-TLV length, because we have no Sub-TLVs  */
+	}
 
 	return 0;
 }
@@ -5599,6 +5621,9 @@ static int unpack_item_srv6_locator(uint16_t mtid, uint8_t len,
 	struct isis_srv6_locator_tlv *rv = NULL;
 	size_t consume;
 	uint8_t subtlv_len;
+	struct isis_item_list *items;
+
+	items = isis_get_mt_items(&tlvs->srv6_locator, mtid);
 
 	sbuf_push(log, indent, "Unpacking SRv6 Locator...\n");
 	consume = 7;
@@ -5678,7 +5703,7 @@ static int unpack_item_srv6_locator(uint16_t mtid, uint8_t len,
 		}
 	}
 
-	append_item(&tlvs->srv6_locator, (struct isis_item *)rv);
+	append_item(items, (struct isis_item *)rv);
 	return 0;
 out:
 	if (rv)
@@ -5711,7 +5736,7 @@ struct isis_tlvs *isis_alloc_tlvs(void)
 	RB_INIT(isis_mt_item_list, &result->mt_ip_reach);
 	init_item_list(&result->ipv6_reach);
 	RB_INIT(isis_mt_item_list, &result->mt_ipv6_reach);
-	init_item_list(&result->srv6_locator);
+	RB_INIT(isis_mt_item_list, &result->srv6_locator);
 
 	return result;
 }
@@ -5794,7 +5819,7 @@ struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs)
 
 	rv->spine_leaf = copy_tlv_spine_leaf(tlvs->spine_leaf);
 
-	copy_items(ISIS_CONTEXT_LSP, ISIS_TLV_SRV6_LOCATOR, &tlvs->srv6_locator,
+	copy_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_SRV6_LOCATOR, &tlvs->srv6_locator,
 		   &rv->srv6_locator);
 
 	return rv;
@@ -5879,7 +5904,7 @@ static void format_tlvs(struct isis_tlvs *tlvs, struct sbuf *buf, struct json_ob
 	format_tlv_spine_leaf(tlvs->spine_leaf, buf, json, indent);
 
 	// format_tlv_srv6_locator(tlvs->srv6_locator, buf, json, indent);
-	format_items(ISIS_CONTEXT_LSP, ISIS_TLV_SRV6_LOCATOR, &tlvs->srv6_locator, buf, json, indent);
+	format_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_SRV6_LOCATOR, &tlvs->srv6_locator, buf, json, indent);
 }
 
 const char *isis_format_tlvs(struct isis_tlvs *tlvs, struct json_object *json)
@@ -5943,7 +5968,7 @@ void isis_free_tlvs(struct isis_tlvs *tlvs)
 	free_tlv_router_cap(tlvs->router_cap);
 	free_tlv_spine_leaf(tlvs->spine_leaf);
 	//free_tlv_srv6_locator(tlvs->srv6_locator);
-	free_items(ISIS_CONTEXT_LSP, ISIS_TLV_SRV6_LOCATOR, &tlvs->srv6_locator);
+	free_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_SRV6_LOCATOR, &tlvs->srv6_locator);
 
 	XFREE(MTYPE_ISIS_TLV, tlvs);
 }
@@ -7271,7 +7296,7 @@ void isis_subtlvs_add_srv6_end_sid(struct isis_subtlvs *subtlvs,
 
 /* Add an SRv6 Locator to the SRv6 Locator TLV */
 void isis_tlvs_add_srv6_locator(struct isis_tlvs *tlvs,
-				struct isis_srv6_locator *loc)
+				 uint16_t mtid, struct isis_srv6_locator *loc)
 {
 	bool subtlvs_present = false;
 	struct listnode *node;
@@ -7301,7 +7326,9 @@ void isis_tlvs_add_srv6_locator(struct isis_tlvs *tlvs,
 	}
 
 	/* Append the SRv6 Locator TLV to the TLVs list */
-	append_item(&tlvs->srv6_locator, (struct isis_item *)loc);
+	struct isis_item_list *l;
+	l = isis_get_mt_items(&tlvs->srv6_locator, mtid);
+	append_item(l, (struct isis_item *)loc_tlv);
 }
 
 /**

@@ -1155,14 +1155,14 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 		locator.algorithm = 0;
 
 		struct listnode *sid_node;
-		struct srv6_sid *sid;
+		struct isis_srv6_sid *sid;
 		locator.srv6_sid = list_new();
 		for (ALL_LIST_ELEMENTS_RO(area->srv6db.srv6_sids, sid_node,
 					  sid)) {
 			listnode_add(locator.srv6_sid, sid);
 		}
 
-		isis_tlvs_add_srv6_locator(lsp->tlvs, &locator);
+		isis_tlvs_add_srv6_locator(lsp->tlvs, 0, &locator);
 		lsp_debug("ISIS (%s): Adding SRv6 Locator information",
 			  area->area_tag);
 
