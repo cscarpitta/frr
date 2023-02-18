@@ -640,7 +640,7 @@ struct isis_ext_subtlvs {
 
 #define IS_COMPAT_MT_TLV(tlv_type)                                             \
 	((tlv_type == ISIS_TLV_MT_REACH) || (tlv_type == ISIS_TLV_MT_IP_REACH) \
-	 || (tlv_type == ISIS_TLV_MT_IPV6_REACH))
+	 || (tlv_type == ISIS_TLV_MT_IPV6_REACH) || || (tlv_type == ISIS_TLV_SRV6_LOCATOR))
 
 struct stream;
 int isis_pack_tlvs(struct isis_tlvs *tlvs, struct stream *stream,
