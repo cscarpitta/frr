@@ -1506,8 +1506,8 @@ static int unpack_subsubtlv_srv6_sid_structure(enum isis_tlv_context context,
 	struct isis_srv6_sid_structure_subsubtlv sid_struct = {};
 
 	sbuf_push(log, indent, "Unpacking SRv6 SID Structure...\n");
-	if (tlv_len != 6) {
-		sbuf_push(log, indent, "Invalid SRv6 SID Structure Sub-Sub-TLV size. (Expected 6 bytes, got %hhu)\n", tlv_len);
+	if (tlv_len != 4) {
+		sbuf_push(log, indent, "Invalid SRv6 SID Structure Sub-Sub-TLV size. (Expected 4 bytes, got %hhu)\n", tlv_len);
 		return 1;
 	}
 
@@ -1809,7 +1809,7 @@ static int unpack_item_srv6_end_sid(uint16_t mtid, uint8_t len, struct stream *s
 		return 1;
 	}
 
-	sid = XCALLOC(MTYPE_ISIS_TLV, sizeof(*sid));
+	sid = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*sid));
 
 	sid->flags = stream_getc(s);
 	sid->behavior = stream_getw(s);
