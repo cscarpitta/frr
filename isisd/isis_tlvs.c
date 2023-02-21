@@ -5524,6 +5524,43 @@ static struct isis_srv6_sid_structure *copy_subsubtlv_srv6_sid_structure(struct 
 	return rv;
 }
 
+static void format_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure *sid_struct,
+					struct sbuf *buf,
+					struct json_object *json, int indent)
+{
+	if (!sid_struct)
+		return NULL;
+
+	char locatorbuf[PREFIX2STR_BUFFER];
+
+	if (json) {
+		struct json_object *sid_struct_json;
+		sid_struct_json = json_object_new_object();
+		json_object_object_add(json, "srv6-sid-structure",
+				       sid_struct_json);
+		json_object_int_add(sid_struct_json, "loc-block-len",
+				    sid_struct->loc_block_len);
+		json_object_int_add(sid_struct_json, "loc-node-len",
+				    sid_struct->loc_node_len);
+		json_object_int_add(sid_struct_json, "func-len", sid_struct->func_len);
+		json_object_int_add(sid_struct_json, "arg-len", sid_struct->arg_len);
+	} else {
+		sbuf_push(buf, indent, "SRv6 SID Structure ");
+		sbuf_push(buf, 0, "Locator Block length: %hhu, ",
+			  sid_struct->loc_block_len);
+		sbuf_push(buf, 0, "Locator Node length: %hhu, ",
+			  sid_struct->loc_node_len);
+		sbuf_push(buf, 0, "Function length: %hhu, ", sid_struct->func_len);
+		sbuf_push(buf, 0, "Argument length: %hhu, ", sid_struct->arg_len);
+		sbuf_push(buf, 0, "\n");
+	}
+}
+
+static void free_subsubtlv_srv6_sid_structure(struct isis_srv6_sid_structure *sid_struct)
+{
+	XFREE(MTYPE_ISIS_SUBSUBTLV, sid_struct);
+}
+
 /* Functions related to tlvs in general */
 
 struct isis_tlvs *isis_alloc_tlvs(void)
