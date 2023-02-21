@@ -27,6 +27,8 @@
 
 #include "lib/srv6.h"
 
+#include "isisd/isis_tlvs.h"
+
 /* Maximum SRv6 SID Depths supported by the router */
 #define SRV6_MAX_SEG_LEFT 16
 #define SRV6_MAX_END_POP 0
@@ -114,12 +116,12 @@ extern void isis_srv6_area_term(struct isis_area *area);
 void isis_srv6_init(void);
 void isis_srv6_term(void);
 
-void isis_srv6_locator2tlv(const struct isis_srv6_locator *loc,
-			   struct isis_srv6_locator_tlv *loc_tlv);
-void isis_srv6_end_sid2subtlv(const struct isis_srv6_sid *sid,
-			      struct isis_srv6_end_sid_subtlv *sid_subtlv);
 void isis_srv6_sid_structure2subsubtlv(
 	const struct isis_srv6_sid *sid,
 	struct isis_srv6_sid_structure_subsubtlv *structure_subsubtlv);
+void isis_srv6_end_sid2subtlv(const struct isis_srv6_sid *sid,
+			      struct isis_srv6_end_sid_subtlv *sid_subtlv);
+void isis_srv6_locator2tlv(const struct isis_srv6_locator *loc,
+			   struct isis_srv6_locator_tlv *loc_tlv);
 
 #endif /* _FRR_ISIS_SRV6_H */
