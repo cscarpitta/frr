@@ -1453,6 +1453,30 @@ static int pack_item_srv6_end_sid(struct isis_item *i, struct stream *s,
 	return 0;
 }
 
+static int unpack_item_srv6_end_sid(uint16_t mtid, uint8_t len, struct stream *s,
+				  struct sbuf *log, void *dest, int indent)
+{
+	struct isis_subtlvs *subtlvs = dest;
+	struct isis_srv6_end_sid sid = {};
+
+	sbuf_push(log, indent, "Unpacking SRv6 End SID...\n");
+
+	if (len < 19) {
+		sbuf_push(log, indent,
+			  "Not enough data left. (expected 19 or more bytes, got %hhu)\n",
+			  len);
+		return 1;
+	}
+
+	sid.flags = stream_getc(s);
+	sid.behavior = stream_getw(s);
+	stream_get(&sid.value, s, IPV6_MAX_BYTELEN);
+
+	format_item_srv6_end_sid(mtid, (struct isis_item *)&sid, log, NULL, indent + 2);
+	append_item(&subtlvs->srv6_end_sids, copy_item_srv6_end_sid((struct isis_item *)&sid));
+	return 0;
+}
+
 static struct isis_item *copy_item(enum isis_tlv_context context,
 				   enum isis_tlv_type type,
 				   struct isis_item *item);
