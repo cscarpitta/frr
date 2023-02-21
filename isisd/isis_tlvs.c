@@ -5615,14 +5615,11 @@ static int unpack_subsubtlv_srv6_sid_structure(enum isis_tlv_context context,
 				       void *dest, int indent)
 {
 	struct isis_subsubtlvs *subsubtlvs = dest;
-	struct isis_srv6_sid_structure sid_struct = {};
-	size_t consume;
-	uint8_t control, subtlv_len;
-	struct isis_item_list *items;
+	struct isis_srv6_sid_structure_subsubtlv sid_struct = {};
 
 	sbuf_push(log, indent, "Unpacking SRv6 SID Structure...\n");
-	if (tlv_len != 6) {
-		sbuf_push(log, indent, "Invalid SRv6 SID Structure Sub-Sub-TLV size. (Expected 6 bytes, got %hhu)\n", tlv_len);
+	if (tlv_len != 4) {
+		sbuf_push(log, indent, "Invalid SRv6 SID Structure Sub-Sub-TLV size. (Expected 4 bytes, got %hhu)\n", tlv_len);
 		return 1;
 	}
 
