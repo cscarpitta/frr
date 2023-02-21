@@ -4011,7 +4011,10 @@ static int pack_tlv_srv6_locator(const struct isis_srv6_locator *srv6_locator,
 				 struct stream *s)
 {
 	size_t tlv_len = ISIS_SRV6_LOCATOR_HDR_SIZE;
-	size_t len_pos;
+	size_t subtlv_len;
+	size_t len_pos, sub_len_pos, subtlv_len_pos;
+	struct listnode *sid_node;
+	struct isis_srv6_sid *sid;
 	// uint8_t nb_algo;
 	// size_t msd_len, msd_len_pos;
 
@@ -4053,7 +4056,22 @@ static int pack_tlv_srv6_locator(const struct isis_srv6_locator *srv6_locator,
 	stream_putc(s, srv6_locator->locator.prefixlen); // Locator Size
 	stream_put(s, &srv6_locator->locator.prefix,	// TODO: add padding
 		   ceil((double) srv6_locator->locator.prefixlen / 8)); // Locator
+
+	subtlv_len_pos = stream_get_endp(s);
+	/* Real length will be adjusted after adding Sub-TLVs */
 	stream_putc(s, 0);			     // Sub-TLV Length
+
+	for (ALL_LIST_ELEMENTS_RO(srv6_locator->srv6_sids, sid_node, sid)) {
+		switch (sid->behavior) {
+		default:
+			/* Unsupported SRv6 SID Behavior %u, skipping */
+			break;
+		}
+	}
+
+	/* Adjust Sub-TLVs length which depends on Sub-Sub-TLVs presence */
+	subtlv_len = stream_get_endp(s) - subtlv_len_pos - 1;
+	stream_putc_at(s, subtlv_len_pos, subtlv_len);
 
 	/* Adjust TLV length which depends on subTLVs presence */
 	tlv_len = stream_get_endp(s) - len_pos - 1;
