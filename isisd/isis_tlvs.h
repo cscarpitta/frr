@@ -25,6 +25,8 @@ DECLARE_MTYPE(ISIS_SUBTLV);
 
 struct lspdb_head;
 struct sr_prefix_cfg;
+struct isis_srv6_sid;
+struct isis_srv6_locator;
 
 struct isis_area_address {
 	struct isis_area_address *next;

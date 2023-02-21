@@ -243,6 +243,12 @@ isis_srv6_sid_alloc(struct isis_area *area, uint32_t index,
 	sid->behavior = behavior;
 	sid->locator = srv6_locator_chunk;
 
+	/* Fill SRv6 SID structure */
+	sid->structure.loc_block_len = srv6_locator_chunk->block_bits_length;
+	sid->structure.loc_node_len = srv6_locator_chunk->node_bits_length;
+	sid->structure.func_len = srv6_locator_chunk->function_bits_length;
+	sid->structure.arg_len = srv6_locator_chunk->argument_bits_length;
+
 
 	if (index != 0) {
 		transpose_sid(&sid->value, index, offset, func_len);
