@@ -28,6 +28,8 @@
 #include "openbsd-tree.h"
 #include "prefix.h"
 
+#include <lib/srv6.h>
+
 DECLARE_MTYPE(ISIS_SUBTLV);
 
 struct lspdb_head;
