@@ -206,6 +206,17 @@ struct isis_lan_adj_sid {
 #define MSD_TYPE_BASE_MPLS_IMPOSITION  0x01
 #define MSD_TLV_SIZE            2
 
+/* SRv6 End SID */
+struct isis_srv6_end_sid_subtlv {
+	struct isis_srv6_end_sid_subtlv *next;
+
+	uint8_t flags;
+	enum seg6local_action_t behavior;
+	struct in6_addr value;
+
+	struct isis_subsubtlvs *subsubtlvs;
+};
+
 /* draft-ietf-lsr-isis-srv6-extensions-19 section 7.1 */
 struct isis_srv6_locator_tlv {
 	struct isis_srv6_locator_tlv *next;
@@ -383,6 +394,9 @@ struct isis_subtlvs {
 	struct prefix_ipv6 *source_prefix;
 	/* RFC 8667 section #2.4 */
 	struct isis_item_list prefix_sids;
+
+	/* draft-ietf-lsr-isis-srv6-extensions-19 section #7.2 */
+	struct isis_item_list srv6_end_sids;
 };
 
 enum isis_tlv_type {
