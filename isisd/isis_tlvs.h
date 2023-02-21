@@ -216,6 +216,17 @@ struct isis_sid_structure {
 	uint8_t arg_len;
 };
 
+/* SRv6 End SID */
+struct isis_srv6_end_sid_subtlv {
+	struct isis_srv6_end_sid_subtlv *next;
+
+	uint8_t flags;
+	enum seg6local_action_t behavior;
+	struct in6_addr value;
+
+	struct isis_subsubtlvs *subsubtlvs;
+};
+
 /* draft-ietf-lsr-isis-srv6-extensions-19 section 7.1 */
 struct isis_srv6_locator_tlv {
 	struct isis_srv6_locator_tlv *next;
