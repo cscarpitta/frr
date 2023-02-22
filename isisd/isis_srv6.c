@@ -30,6 +30,125 @@
 #include "isisd/isisd.h"
 #include "isisd/isis_misc.h"
 #include "isisd/isis_srv6.h"
+#include "isisd/isis_zebra.h"
+
+
+/* Local variables and functions */
+DEFINE_MTYPE_STATIC(ISISD, ISIS_SRV6_SID, "ISIS SRv6 Segment ID");
+
+
+/**
+ * Transpose SID.
+ * 
+ * @param sid 
+ * @param label 
+ * @param offset 
+ * @param len 
+ */
+static void transpose_sid(struct in6_addr *sid, uint32_t index, uint8_t offset,
+		   uint8_t len)
+{
+	for (uint8_t idx = 0; idx < len; idx++) {
+		uint8_t tidx = offset + idx;
+		sid->s6_addr[tidx / 8] &= ~(0x1 << (7 - tidx % 8));
+		if (index >> (len - 1 - idx) & 0x1)
+			sid->s6_addr[tidx / 8] |= 0x1 << (7 - tidx % 8);
+	}
+}
+
+static bool sid_exist(struct isis_area *area, const struct in6_addr *sid)
+{
+	struct listnode *node;
+	struct in6_addr *s;
+
+	for (ALL_LIST_ELEMENTS_RO(area->srv6db.srv6_sids, node, s))
+		if (sid_same(s, sid))
+			return true;
+	return false;
+}
+
+
+/**
+ * Allocate an SRv6 SID from an SRv6 locator.
+ * 
+ */
+
+/*
+ * This function generates a new SID based on bgp->srv6_locator_chunks and  TODO:fix desc
+ * index. The locator and generated SID are stored in arguments sid_locator
+ * and sid, respectively.
+ *
+ * if index != 0: try to allocate as index-mode
+ * else: try to allocate as auto-mode
+ */
+struct isis_srv6_sid * srv6_sid_alloc(struct isis_area *area, uint32_t index,
+			      struct srv6_locator_chunk *srv6_locator_chunk, enum seg6local_action_t behavior)
+{
+	// int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
+	// struct listnode *node;
+	// struct srv6_locator_chunk *chunk;
+	// bool alloced = false;
+	// int label = 0;
+	// uint8_t offset = 0;
+	// uint8_t func_len = 0, shift_len = 0;
+	// uint32_t index_max = 0;
+
+	struct isis_srv6_sid *sid = NULL;
+	uint8_t offset = 0;
+	uint8_t func_len = 0;
+	uint32_t index_max;
+	bool alloced = false;
+
+	offset = srv6_locator_chunk->block_bits_length + srv6_locator_chunk->node_bits_length;
+	func_len = srv6_locator_chunk->function_bits_length;
+
+	if (!area || !srv6_locator_chunk)
+		return false;
+
+	sid = XCALLOC(MTYPE_ISIS_SRV6_SID, sizeof(struct isis_srv6_sid));
+
+	sid->val = srv6_locator_chunk->prefix.prefix;
+	sid->behavior = behavior;
+	sid->locator = srv6_locator_chunk;
+
+
+	if (index != 0) {
+		transpose_sid(&sid->val, index, offset, func_len);
+		if (sid_exist(area, &sid->val)) {
+			sr_debug("ISIS-SRv6 (%s): SID %pI6 already in use",
+				area->area_tag, sid);
+			return NULL;
+		}
+	} else {
+		index_max = (1 << srv6_locator_chunk->function_bits_length) - 1;
+		for (uint32_t i = 1; i < index_max; i++) {
+			transpose_sid(&sid->val, i, offset, func_len);
+			if (sid_exist(area, &sid->val))
+				continue;
+			alloced = true;
+			break;
+		}
+	}
+
+	if (!alloced) {
+		sr_debug("ISIS-SRv6 (%s): no SIDs available in locator",
+			area->area_tag);
+		return NULL;
+	}
+
+	// transpose_sid(sid, index, offset, func_len);
+
+	sr_debug("ISIS-SRv6 (%s): allocating new SID %pI6",
+		 area->area_tag, sid);
+
+	return sid;
+}
+
+// TODO: add desc
+void srv6_sid_free(struct in6_addr **sid)
+{
+	XFREE(MTYPE_ISIS_SRV6_SID, *sid);
+}
 
 /* Local variables and functions */
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SRV6_SID, "ISIS SRv6 Segment ID");
