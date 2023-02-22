@@ -829,6 +829,37 @@ static int isis_zebra_client_close_notify(ZAPI_CALLBACK_ARGS)
 }
 
 /**
+ * Install SRv6 End SID in the forwarding plane through Zebra.
+ *
+ * @param area		IS-IS area
+ * @param sid		End SID
+ */
+void isis_zebra_end_sid_install(struct isis_area *area,
+				   struct isis_srv6_sid *sid)
+{
+	struct seg6local_context ctx = {};
+	struct interface *ifp;
+
+	if (!area || !sid)
+		return;
+
+	sr_debug("ISIS-SRv6 (%s): setting End SID %pI6",
+		 area->area_tag, &sid->value);
+
+	ifp = if_lookup_by_name("lo", VRF_DEFAULT);
+	if (!ifp) {
+		zlog_warn(
+			"Couldn't install End SRv6 SID %pI6: loopback interface not found",
+			&sid->value);
+		return;
+	}
+
+	/* TODO: implement seg6local context */
+
+	zclient_send_localsid(zclient, &sid->value, ifp->ifindex, sid->behavior, &ctx);
+}
+
+/**
  * Callback to process an SRv6 Locator chunk received from SRv6 Manager (zebra).
  *
  * @result 0 on success, -1 otherwise
