@@ -364,6 +364,8 @@ def test_isis_database_json():
         )
         assert json_output["areas"][0]["area"]["name"] == "1", assertmsg
         assert json_output["areas"][0]["levels"][0]["id"] != "3", assertmsg
+        assert json_output["areas"][0]["levels"][0]["id"] != "3", assertmsg
+        assert json_output["areas"][0]["levels"][0]["count"] == "3", assertmsg
 
 
 def test_isis_overload_on_startup():
