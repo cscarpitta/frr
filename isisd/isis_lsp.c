@@ -822,20 +822,46 @@ int lsp_print_all(struct vty *vty, struct json_object *json,
 		  struct isis *isis)
 {
 	struct isis_lsp *lsp;
+	struct json_object *lsps_arr_json, *lsp_json;
 	int lsp_count = 0;
 
 	if (detail == ISIS_UI_LEVEL_BRIEF) {
-		frr_each (lspdb, head, lsp) {
-			lsp_print_common(lsp, vty, json, dynhost, isis);
-			lsp_count++;
+		if (json) {
+			lsps_arr_json = json_object_new_array();
+			json_object_object_add(json, "lsps", lsps_arr_json);
+
+			frr_each (lspdb, head, lsp) {
+				lsp_json = json_object_new_object();
+				lsp_print_common(lsp, vty, lsp_json, dynhost,
+						 isis);
+				json_object_array_add(lsps_arr_json, lsp_json);
+				lsp_count++;
+			}
+		} else {
+			frr_each (lspdb, head, lsp) {
+				lsp_print_common(lsp, vty, json, dynhost, isis);
+				lsp_count++;
+			}
 		}
 	} else if (detail == ISIS_UI_LEVEL_DETAIL) {
-		frr_each (lspdb, head, lsp) {
-			lsp_print_detail(lsp, vty, json, dynhost, isis);
-			lsp_count++;
+		if (json) {
+			lsps_arr_json = json_object_new_array();
+			json_object_object_add(json, "lsps", lsps_arr_json);
+
+			frr_each (lspdb, head, lsp) {
+				lsp_json = json_object_new_object();
+				lsp_print_detail(lsp, vty, lsp_json, dynhost,
+						 isis);
+				json_object_array_add(lsps_arr_json, lsp_json);
+				lsp_count++;
+			}
+		} else {
+			frr_each (lspdb, head, lsp) {
+				lsp_print_detail(lsp, vty, NULL, dynhost, isis);
+				lsp_count++;
+			}
 		}
 	}
-
 	return lsp_count;
 }
 
