@@ -848,6 +848,27 @@ void isis_zebra_end_sid_install(struct isis_area *area,
 }
 
 /**
+ * Uninstall SRv6 End SID from the forwarding plane through Zebra.
+ *
+ * @param area		IS-IS area
+ * @param sid		End SID
+ */
+void isis_zebra_end_sid_uninstall(struct isis_area *area,
+				  struct isis_srv6_sid *sid)
+{
+	struct seg6local_context ctx = {};
+
+	if (!area || !sid)
+		return;
+
+	sr_debug("ISIS-SRv6 (%s): delete End SID %pI6", area->area_tag,
+		 &sid->value);
+
+	zclient_send_localsid(zclient, &sid->value, 2,
+			      ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, &ctx);
+}
+
+/**
  * Callback to process an SRv6 locator chunk received from SRv6 Manager (zebra).
  *
  * @result 0 on success, -1 otherwise
