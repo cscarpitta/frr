@@ -87,6 +87,10 @@ struct isis_srv6_db {
 
 int isis_srv6_locator_unset(struct isis_area *area);
 
+struct isis_srv6_sid *
+isis_srv6_sid_alloc(struct isis_area *area, uint32_t index,
+	       struct srv6_locator_chunk *srv6_locator_chunk,
+	       enum seg6local_action_t behavior);
 extern void isis_srv6_sid_free(struct isis_srv6_sid **sid);
 
 extern void isis_srv6_area_init(struct isis_area *area);
