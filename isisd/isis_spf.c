@@ -1057,6 +1057,48 @@ lspfragloop:
 				process_N(spftree, vtype, &ip_info, dist,
 					  depth + 1, NULL, parent);
 		}
+
+		struct isis_item_list *srv6_locators = isis_lookup_mt_items(
+			&lsp->tlvs->srv6_locator, spftree->mtid);
+
+		struct isis_srv6_locator_tlv *loc;
+		for (loc = srv6_locators ? (struct isis_srv6_locator_tlv *)
+						   srv6_locators->head
+					 : NULL;
+		     loc; loc = loc->next) {
+
+			if (loc->algorithm != SR_ALGORITHM_SPF)
+				continue;
+
+			dist = cost + loc->metric;
+			vtype = VTYPE_IP6REACH_INTERNAL;
+			memset(&ip_info, 0, sizeof(ip_info));
+			ip_info.dest.family = AF_INET6;
+			ip_info.dest.u.prefix6 = loc->prefix.prefix;
+			ip_info.dest.prefixlen = loc->prefix.prefixlen;
+
+			/* An SRv6 Locator can be received in both a Prefix
+			Reachability TLV and an SRv6 Locator TLV (as per
+			draft-ietf-lsr-isis-srv6-extensions#19 section #5). We
+			go through the Prefix Reachability TLVs and check if the
+			SRv6 Locator is present in some of them. If we find the
+			SRv6 Locator in some Prefix Reachbility TLV then it
+			means that we have already processed it before and we
+			can skip it. */
+			bool loc_is_in_ipv6_reach = false;
+			for (r = ipv6_reachs ? (struct isis_ipv6_reach *)
+						       ipv6_reachs->head
+					     : NULL;
+			     r; r = r->next) {
+				if (prefix_same((struct prefix *)&r->prefix,
+						(struct prefix *)&loc->prefix))
+					loc_is_in_ipv6_reach = true;
+			}
+
+			if (!loc_is_in_ipv6_reach)
+				process_N(spftree, vtype, &ip_info, dist,
+					  depth + 1, NULL, parent);
+		}
 	}
 
 end:
