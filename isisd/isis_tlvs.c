@@ -6743,6 +6743,30 @@ void isis_tlvs_add_srv6_locator(struct isis_tlvs *tlvs,
 }
 
 /**
+ * Fill in SRv6 SID Structure Sub-Sub-TLV according to the corresponding
+ * configuration.
+ *
+ * @param sid	      SRv6 SID configuration
+ * @param structure   SRv6 SID Structure Sub-Sub-TLV to be updated
+ */
+void isis_srv6_sid_structure2subsubtlv(
+	const struct isis_srv6_sid *sid,
+	struct isis_srv6_sid_structure_subsubtlv *structure_subsubtlv)
+{
+	/* Set Locator Block length */
+	structure_subsubtlv->loc_block_len = sid->structure.loc_block_len;
+
+	/* Set Locator Node length */
+	structure_subsubtlv->loc_node_len = sid->structure.loc_node_len;
+
+	/* Set Function length */
+	structure_subsubtlv->func_len = sid->structure.func_len;
+
+	/* Set Argument length */
+	structure_subsubtlv->arg_len = sid->structure.arg_len;
+}
+
+/**
  * Fill in SRv6 End SID Sub-TLV according to the corresponding configuration.
  *
  * @param sid	      SRv6 End SID configuration
