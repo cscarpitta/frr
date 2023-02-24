@@ -6741,3 +6741,25 @@ void isis_tlvs_add_srv6_locator(struct isis_tlvs *tlvs,
 	l = isis_get_mt_items(&tlvs->srv6_locator, mtid);
 	append_item(l, (struct isis_item *)loc_tlv);
 }
+
+/**
+ * Fill in SRv6 Locator TLV according to the corresponding configuration.
+ *
+ * @param loc	     SRv6 Locator configuration
+ * @param loc_tlv    SRv6 Locator TLV to be updated
+ */
+void isis_srv6_locator2tlv(const struct isis_srv6_locator *loc,
+			   struct isis_srv6_locator_tlv *loc_tlv)
+{
+	/* Set SRv6 Locator metric */
+	loc_tlv->metric = loc->metric;
+
+	/* Set SRv6 Locator flags */
+	loc_tlv->flags = loc->flags;
+
+	/* Set SRv6 Locator algorithm */
+	loc_tlv->algorithm = loc->algorithm;
+
+	/* Set SRv6 Locator prefix */
+	loc_tlv->prefix = loc->prefix;
+}
