@@ -6789,6 +6789,25 @@ void isis_tlvs_add_srv6_locator(struct isis_tlvs *tlvs,
 }
 
 /**
+ * Fill in SRv6 End SID Sub-TLV according to the corresponding configuration.
+ *
+ * @param sid	      SRv6 End SID configuration
+ * @param sid_subtlv  SRv6 End SID Sub-TLV to be updated
+ */
+void isis_srv6_end_sid2subtlv(const struct isis_srv6_sid *sid,
+			      struct isis_srv6_end_sid_subtlv *sid_subtlv)
+{
+	/* Set SRv6 End SID flags */
+	sid_subtlv->flags = sid->flags;
+
+	/* Set SRv6 EndSID behavior */
+	sid_subtlv->behavior = sid->behavior;
+
+	/* Set SRv6 End SID value */
+	sid_subtlv->value = sid->value;
+}
+
+/**
  * Fill in SRv6 Locator TLV according to the corresponding configuration.
  *
  * @param loc	     SRv6 Locator configuration
