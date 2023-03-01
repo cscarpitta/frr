@@ -5178,6 +5178,12 @@ static void format_subsubtlv_srv6_sid_structure(
 	}
 }
 
+static void free_subsubtlv_srv6_sid_structure(
+	struct isis_srv6_sid_structure_subsubtlv *sid_struct)
+{
+	XFREE(MTYPE_ISIS_SUBSUBTLV, sid_struct);
+}
+
 /* Functions related to tlvs in general */
 
 struct isis_tlvs *isis_alloc_tlvs(void)
