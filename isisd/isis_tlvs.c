@@ -1989,6 +1989,12 @@ isis_copy_subsubtlvs(struct isis_subsubtlvs *subsubtlvs)
 	return rv;
 }
 
+static void isis_format_subsubtlvs(struct isis_subsubtlvs *subsubtlvs,
+			      struct sbuf *buf, struct json_object *json,
+			      int indent)
+{
+}
+
 /* Functions related to subtlvs */
 
 static struct isis_subtlvs *isis_alloc_subtlvs(enum isis_tlv_context context)
