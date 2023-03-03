@@ -3557,6 +3557,13 @@ static void format_tlv_router_cap(const struct isis_router_cap *router_cap,
 	if (router_cap->msd != 0)
 		sbuf_push(buf, indent, "  Node Maximum SID Depth: %u\n",
 			  router_cap->msd);
+
+	/* SRv6 Flags as per RFC 9352 section #2 */
+	if (router_cap->srv6_cap.enabled)
+		sbuf_push(
+			buf, indent,
+			"  SRv6: O:%s\n",
+			SUPPORTS_SRV6_OAM(&router_cap->srv6_cap) ? "1" : "0");
 }
 
 static void free_tlv_router_cap(struct isis_router_cap *router_cap)
