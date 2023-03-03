@@ -3557,6 +3557,8 @@ static void format_tlv_router_cap(const struct isis_router_cap *router_cap,
 	if (router_cap->msd != 0)
 		sbuf_push(buf, indent, "  Node Maximum SID Depth: %u\n",
 			  router_cap->msd);
+
+	/* TODO: add srv6 cap */
 }
 
 static void free_tlv_router_cap(struct isis_router_cap *router_cap)
