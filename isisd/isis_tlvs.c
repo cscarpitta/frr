@@ -1710,6 +1710,7 @@ static void free_item_srv6_end_sid(struct isis_item *i)
 	struct isis_srv6_end_sid_subtlv *item =
 		(struct isis_srv6_end_sid_subtlv *)i;
 
+	isis_free_subsubtlvs(item->subsubtlvs);
 	XFREE(MTYPE_ISIS_SUBTLV, i);
 }
 
