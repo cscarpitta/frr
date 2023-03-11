@@ -1660,6 +1660,7 @@ static struct isis_item *copy_item_srv6_end_sid(struct isis_item *i)
 
 	rv->behavior = sid->behavior;
 	rv->value = sid->value;
+	rv->subsubtlvs = isis_copy_subsubtlvs(sid->subsubtlvs);
 
 	return (struct isis_item *)rv;
 }
