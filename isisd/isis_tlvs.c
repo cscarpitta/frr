@@ -2005,6 +2005,8 @@ static void isis_free_subsubtlvs(struct isis_subsubtlvs *subsubtlvs)
 	if (!subsubtlvs)
 		return;
 
+	free_subsubtlv_srv6_sid_structure(subsubtlvs->srv6_sid_structure);
+
 	XFREE(MTYPE_ISIS_SUBSUBTLV, subsubtlvs);
 }
 
