@@ -1986,6 +1986,9 @@ isis_copy_subsubtlvs(struct isis_subsubtlvs *subsubtlvs)
 
 	rv->context = subsubtlvs->context;
 
+	rv->srv6_sid_structure = copy_subsubtlv_srv6_sid_structure(
+		subsubtlvs->srv6_sid_structure);
+
 	return rv;
 }
 
