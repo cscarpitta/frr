@@ -1217,6 +1217,16 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 
 			/* SRv6 flags */
 			rcap->srv6_cap.flags = 0;
+
+			/* And finally MSDs */
+			rcap->srv6_msd.max_seg_left_msd =
+				srv6db->config.max_seg_left_msd;
+			rcap->srv6_msd.max_end_pop_msd =
+				srv6db->config.max_end_pop_msd;
+			rcap->srv6_msd.max_h_encaps_msd =
+				srv6db->config.max_h_encaps_msd;
+			rcap->srv6_msd.max_end_d_msd =
+				srv6db->config.max_end_d_msd;
 		}
 	}
 
