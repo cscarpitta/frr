@@ -453,8 +453,8 @@ struct zapi_nexthop {
 #define ZAPI_NEXTHOP_FLAG_HAS_BACKUP	0x08 /* Nexthop has a backup */
 #define ZAPI_NEXTHOP_FLAG_SEG6		0x10
 #define ZAPI_NEXTHOP_FLAG_SEG6LOCAL	0x20
-#define ZAPI_NEXTHOP_FLAG_SEG6LOCAL_HAS_SID_FORMAT 0x40
 #define ZAPI_NEXTHOP_FLAG_EVPN		0x40
+#define ZAPI_NEXTHOP_FLAG_SEG6LOCAL_HAS_SID_FORMAT 0x80
 
 /*
  * ZAPI Nexthop Group. For use with protocol creation of nexthop groups.
