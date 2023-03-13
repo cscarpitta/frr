@@ -1108,6 +1108,16 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			/* Then Algorithm */
 			cap.algo[0] = SR_ALGORITHM_SPF;
 			cap.algo[1] = SR_ALGORITHM_UNSET;
+
+			/* And finally MSDs */
+			cap.srv6_msd.max_seg_left_msd =
+				srv6db->config.max_seg_left_msd;
+			cap.srv6_msd.max_end_pop_msd =
+				srv6db->config.max_end_pop_msd;
+			cap.srv6_msd.max_h_encaps_msd =
+				srv6db->config.max_h_encaps_msd;
+			cap.srv6_msd.max_end_d_msd =
+				srv6db->config.max_end_d_msd;
 		}
 
 		isis_tlvs_set_router_capability(lsp->tlvs, &cap);
