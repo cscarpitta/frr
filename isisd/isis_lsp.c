@@ -1104,6 +1104,10 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 
 			/* SRv6 flags */
 			cap.srv6_cap.flags = 0;
+
+			/* Then Algorithm */
+			cap.algo[0] = SR_ALGORITHM_SPF;
+			cap.algo[1] = SR_ALGORITHM_UNSET;
 		}
 
 		isis_tlvs_set_router_capability(lsp->tlvs, &cap);
