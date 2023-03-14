@@ -32,6 +32,9 @@
 #include "isisd/isis_srv6.h"
 #include "isisd/isis_zebra.h"
 
+/* Local variables and functions */
+DEFINE_MTYPE_STATIC(ISISD, ISIS_SRV6_SID, "ISIS SRv6 Segment ID");
+
 /* Unset SRv6 locator */
 int isis_srv6_locator_unset(struct isis_area *area)
 {
