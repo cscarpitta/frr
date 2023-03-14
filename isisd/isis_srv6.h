@@ -49,6 +49,7 @@ struct isis_srv6_sid {
 	enum seg6local_action_t behavior;
 	struct in6_addr value;
 	struct srv6_locator_chunk *locator;
+	struct isis_srv6_sid_structure structure;
 };
 
 /* Per-area IS-IS SRv6 Data Base (SRv6 DB) */
