@@ -25,11 +25,23 @@
 #ifndef _FRR_ISIS_SRV6_H
 #define _FRR_ISIS_SRV6_H
 
+#include "lib/srv6.h"
+
 /* Maximum SRv6 SID Depths supported by the router */
 #define SRV6_MAX_SEG_LEFT 16
 #define SRV6_MAX_END_POP 0
 #define SRV6_MAX_H_ENCAPS 1
 #define SRV6_MAX_END_D 2
+
+/* SRv6 SID */
+struct isis_srv6_sid {
+	struct isis_srv6_sid *next;
+
+	uint8_t flags;
+	enum seg6local_action_t behavior;
+	struct in6_addr value;
+	struct srv6_locator_chunk *locator;
+};
 
 /* Per-area IS-IS SRv6 Data Base (SRv6 DB) */
 struct isis_srv6_db {
