@@ -84,6 +84,11 @@ int isis_srv6_locator_unset(struct isis_area *area)
 	return 0;
 }
 
+void isis_srv6_sid_free(struct isis_srv6_sid **sid)
+{
+	XFREE(MTYPE_ISIS_SRV6_SID, *sid);
+}
+
 /**
  * Show Segment Routing over IPv6 (SRv6) Node.
  *
