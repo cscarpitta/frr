@@ -6813,6 +6813,23 @@ void isis_tlvs_add_srv6_locator(struct isis_tlvs *tlvs,
 	 * configuration */
 	isis_srv6_locator2tlv(loc, loc_tlv);
 
+	/* Add the SRv6 End SID Sub-TLVs */
+	loc_tlv->subtlvs = isis_alloc_subtlvs(ISIS_CONTEXT_SUBTLV_SRV6_LOCATOR);
+	for (ALL_LIST_ELEMENTS_RO(loc->srv6_sid, node, sid)) {
+		if (sid->behavior == ZEBRA_SEG6_LOCAL_ACTION_END ||
+		    sid->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT6 ||
+		    sid->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT4 ||
+		    sid->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_DT46) {
+			isis_subtlvs_add_srv6_end_sid(loc_tlv->subtlvs, sid);
+			subtlvs_present = true;
+		}
+	}
+
+	if (!subtlvs_present) {
+		isis_free_subtlvs(loc_tlv->subtlvs);
+		loc_tlv->subtlvs = NULL;
+	}
+
 	/* Append the SRv6 Locator TLV to the TLVs list */
 	struct isis_item_list *l;
 	l = isis_get_mt_items(&tlvs->srv6_locator, mtid);
