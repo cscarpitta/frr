@@ -436,7 +436,8 @@ static int parse_encap_mpls(struct rtattr *tb, mpls_label_t *labels)
 
 static enum seg6local_action_t
 parse_encap_seg6local(struct rtattr *tb,
-		      struct seg6local_context *ctx)
+		      struct seg6local_context *ctx,
+			  struct seg6local_flavor_info *flv)
 {
 	struct rtattr *tb_encap[SEG6_LOCAL_MAX + 1] = {};
 	enum seg6local_action_t act = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
@@ -460,6 +461,18 @@ parse_encap_seg6local(struct rtattr *tb,
 	if (tb_encap[SEG6_LOCAL_VRFTABLE])
 		ctx->table =
 			*(uint32_t *)RTA_DATA(tb_encap[SEG6_LOCAL_VRFTABLE]);
+
+	if (tb_encap[SEG6_LOCAL_FLV_OPERATION])
+		flv->flv_op = 
+			*(uint32_t *)RTA_DATA(tb_encap[SEG6_LOCAL_FLV_OPERATION]);
+
+	if (tb_encap[SEG6_LOCAL_FLV_LCBLOCK_BITS])
+		flv->lcblock_len = 
+			*(uint8_t *)RTA_DATA(tb_encap[SEG6_LOCAL_FLV_LCBLOCK_BITS]);
+
+	if (tb_encap[SEG6_LOCAL_FLV_LCNODE_FN_BITS])
+		flv->lcnode_func_len = 
+			*(uint8_t *)RTA_DATA(tb_encap[SEG6_LOCAL_FLV_LCNODE_FN_BITS]);
 
 	return act;
 }
