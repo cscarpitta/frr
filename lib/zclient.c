@@ -1429,6 +1429,8 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 		STREAM_GETL(s, api_nh->seg6local_action);
 		STREAM_GET(&api_nh->seg6local_ctx, s,
 			   sizeof(struct seg6local_context));
+		STREAM_GET(&api_nh->seg6local_flv, s,
+			   sizeof(struct seg6local_flavor_info));
 	}
 
 	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6))
