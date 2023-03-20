@@ -1720,7 +1720,6 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 				return false;
 			}
 
-			flv = &nexthop->nh_srv6->seg6local_flv;
 			if (!_netlink_nexthop_encode_seg6local_flavor(
 				    nexthop, nlmsg, req_size))
 				return false;
@@ -2863,7 +2862,6 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 					uint16_t encap;
 					struct rtattr *nest;
 					const struct seg6local_context *ctx;
-					const struct seg6local_flavor *flv;
 
 					req->nhm.nh_family = AF_INET6;
 					action = nh->nh_srv6->seg6local_action;
@@ -2966,9 +2964,8 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 						return 0;
 					}
 
-					flv = &nexthop->nh_srv6->seg6local_flv;
 					if (!_netlink_nexthop_encode_seg6local_flavor(
-							nexthop, nlmsg, req_size))
+							nh, &req->n, buflen))
 						return false;
 
 					nl_attr_nest_end(&req->n, nest);
