@@ -555,7 +555,8 @@ void nexthop_del_labels(struct nexthop *nexthop)
 }
 
 void nexthop_add_srv6_seg6local(struct nexthop *nexthop, uint32_t action,
-				const struct seg6local_context *ctx)
+				const struct seg6local_context *ctx,
+				const struct seg6local_flavor_info *flv)
 {
 	if (action == ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
 		return;
@@ -566,6 +567,9 @@ void nexthop_add_srv6_seg6local(struct nexthop *nexthop, uint32_t action,
 
 	nexthop->nh_srv6->seg6local_action = action;
 	nexthop->nh_srv6->seg6local_ctx = *ctx;
+
+	if (flv)
+		nexthop->nh_srv6->seg6local_flv = *flv;
 }
 
 void nexthop_del_srv6_seg6local(struct nexthop *nexthop)
