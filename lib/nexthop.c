@@ -578,6 +578,7 @@ void nexthop_del_srv6_seg6local(struct nexthop *nexthop)
 		return;
 
 	nexthop->nh_srv6->seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
+	nexthop->nh_srv6->seg6local_flv.flv_op = ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID;
 
 	if (sid_zero(&nexthop->nh_srv6->seg6_segs))
 		XFREE(MTYPE_NH_SRV6, nexthop->nh_srv6);
