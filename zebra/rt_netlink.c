@@ -1763,7 +1763,7 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 
 		if (cmd == RTM_NEWROUTE) {
 			if (!_netlink_route_encode_nexthop_src(
-				    nexthop, nlmsg, req_size))
+				    nexthop, AF_INET, nlmsg, req_size, bytelen))
 				return false;
 		}
 
@@ -1787,7 +1787,7 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 
 		if (cmd == RTM_NEWROUTE) {
 			if (!_netlink_route_encode_nexthop_src(
-				    nexthop, nlmsg, req_size))
+				    nexthop, AF_INET, nlmsg, req_size, bytelen))
 				return false;
 		}
 
