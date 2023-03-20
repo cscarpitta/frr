@@ -429,6 +429,7 @@ struct zapi_nexthop {
 	/* SRv6 localsid info for Endpoint-behaviour */
 	uint32_t seg6local_action;
 	struct seg6local_context seg6local_ctx;
+	struct seg6local_flavor_info seg6local_flv;
 
 	/* SRv6 Headend-behaviour */
 	struct in6_addr seg6_segs;
@@ -902,7 +903,8 @@ zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id, afi_t afi,
 extern enum zclient_send_status
 zclient_send_localsid(struct zclient *zclient, const struct in6_addr *sid,
 		      ifindex_t oif, enum seg6local_action_t action,
-		      const struct seg6local_context *context);
+		      const struct seg6local_context *context,
+			  const struct seg6local_flavor_info *flv);
 
 extern void zclient_send_reg_requests(struct zclient *, vrf_id_t);
 extern void zclient_send_dereg_requests(struct zclient *, vrf_id_t);
