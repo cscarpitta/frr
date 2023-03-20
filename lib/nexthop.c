@@ -78,8 +78,9 @@ static int _nexthop_srv6_cmp(const struct nexthop *nh1,
 	if (ret != 0)
 		return ret;
 
-	ret = memcmp(&nh1->nh_srv6->seg6local_flv, &nh2->nh_srv6->seg6local_flv,
-		     sizeof(struct seg6local_flavors_info));
+	ret = memcmp(&nh1->nh_srv6->seg6local_flv,
+		     &nh2->nh_srv6->seg6local_flv,
+		     sizeof(struct seg6local_flavor_info));
 	if (ret != 0)
 		return ret;
 
@@ -756,10 +757,10 @@ uint32_t nexthop_hash_quick(const struct nexthop *nexthop)
 		key = jhash_1word(nexthop->nh_srv6->seg6local_action, key);
 		key = jhash(&nexthop->nh_srv6->seg6local_ctx,
 			    sizeof(nexthop->nh_srv6->seg6local_ctx), key);
-		key = jhash(&nexthop->nh_srv6->seg6_segs,
-			    sizeof(nexthop->nh_srv6->seg6_segs), key);
 		key = jhash(&nexthop->nh_srv6->seg6local_flv,
 			    sizeof(nexthop->nh_srv6->seg6local_flv), key);
+		key = jhash(&nexthop->nh_srv6->seg6_segs,
+			    sizeof(nexthop->nh_srv6->seg6_segs), key);
 	}
 
 	return key;
