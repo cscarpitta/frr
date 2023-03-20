@@ -1058,6 +1058,8 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 		stream_putl(s, api_nh->seg6local_action);
 		stream_write(s, &api_nh->seg6local_ctx,
 			     sizeof(struct seg6local_context));
+		stream_write(s, &api_nh->seg6local_flv,
+			     sizeof(struct seg6local_flavor_info));
 	}
 
 	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_SEG6))
