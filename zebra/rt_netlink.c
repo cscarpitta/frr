@@ -556,7 +556,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	if (tb[RTA_ENCAP] && tb[RTA_ENCAP_TYPE]
 	    && *(uint16_t *)RTA_DATA(tb[RTA_ENCAP_TYPE])
 		       == LWTUNNEL_ENCAP_SEG6_LOCAL) {
-		seg6l_act = parse_encap_seg6local(tb[RTA_ENCAP], &seg6l_ctx);
+		seg6l_act = parse_encap_seg6local(tb[RTA_ENCAP], &seg6l_ctx, &seg6l_flv);
 	}
 	if (tb[RTA_ENCAP] && tb[RTA_ENCAP_TYPE]
 	    && *(uint16_t *)RTA_DATA(tb[RTA_ENCAP_TYPE])
