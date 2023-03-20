@@ -418,6 +418,7 @@ DEFPY (install_seg6local_routes,
 	      End_DT6$seg6l_enddt6 (1-4294967295)$seg6l_enddt6_table|\
 	      End_DT4$seg6l_enddt4 (1-4294967295)$seg6l_enddt4_table|\
 	      End_DT46$seg6l_enddt46 (1-4294967295)$seg6l_enddt46_table>\
+		 [flavors <next-csid>$flavor [lblen (0-64)$lblen] [nflen (0-64)$nflen]]\
 	  (1-1000000)$routes [repeat (2-1000)$rpt]",
        "Sharp routing Protocol\n"
        "install some routes\n"
@@ -441,6 +442,12 @@ DEFPY (install_seg6local_routes,
        "SRv6 End.DT46 function to use\n"
        "Redirect table id to use\n"
        "How many to create\n"
+	   "flavors\n"
+	   "next-csid\n"
+	   "lblen\n"
+	   "lblen val\n"
+	   "nflen\n"
+	   "nflen val\n"
        "Should we repeat this command\n"
        "How many times to repeat this command\n")
 {
@@ -500,6 +507,12 @@ DEFPY (install_seg6local_routes,
 		ctx.table = seg6l_enddt46_table;
 	} else {
 		action = ZEBRA_SEG6_LOCAL_ACTION_END;
+	}
+
+	if (strmatch(flavor, "next-csid")) {
+		ctx.flv.flv_ops = 1 << ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID;
+		ctx.flv.lcblock_len = lblen;
+		ctx.flv.lcnode_func_len = nflen;
 	}
 
 	sg.r.nhop.type = NEXTHOP_TYPE_IFINDEX;
