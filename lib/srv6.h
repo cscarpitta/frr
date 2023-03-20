@@ -24,6 +24,10 @@ extern "C" {
 #define sid2str(sid, str, size) \
 	inet_ntop(AF_INET6, sid, str, size)
 
+/* SRv6 Flavors default values */
+#define ZEBRA_DEFAULT_SEG6_LOCAL_FLV_LCBLOCK_LEN 32
+#define ZEBRA_DEFAULT_SEG6_LOCAL_FLV_LCNODE_FN_LEN 16
+
 enum seg6_mode_t {
 	INLINE,
 	ENCAP,
