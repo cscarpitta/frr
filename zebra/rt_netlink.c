@@ -1545,8 +1545,14 @@ static bool _netlink_nexthop_encode_seg6local_flavor(const struct nexthop *nexth
 					       size_t buflen)
 {
 	struct rtattr *nest;
+	struct seg6local_flavor_info *flv;
 
 	assert(nexthop);
+
+	if (!nexthop->nh_srv6)
+		return false;
+
+	flv = &nexthop->nh_srv6->seg6local_flv;
 
 	nest = nl_attr_nest(nlmsg, buflen, SEG6_LOCAL_FLAVORS);
 	if (!nest)
