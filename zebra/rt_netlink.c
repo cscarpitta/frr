@@ -1579,7 +1579,7 @@ static bool _netlink_nexthop_encode_seg6local_flavor(const struct nexthop *nexth
 	case ZEBRA_SEG6_LOCAL_FLV_OP_UNSPEC:
 		zlog_err("%s: unsupport seg6local flavor operation=%u",
 				__func__,
-				nexthop->nh_srv6->seg6local_flv);
+				nexthop->nh_srv6->seg6local_flv.flv_op);
 		return false;
 	}
 
