@@ -820,7 +820,8 @@ void nexthop_copy_no_recurse(struct nexthop *copy,
 		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
 			nexthop_add_srv6_seg6local(copy,
 				nexthop->nh_srv6->seg6local_action,
-				&nexthop->nh_srv6->seg6local_ctx);
+				&nexthop->nh_srv6->seg6local_ctx,
+				&nexthop->nh_srv6->seg6local_flv);
 		if (!sid_zero(&nexthop->nh_srv6->seg6_segs))
 			nexthop_add_srv6_seg6(copy,
 				&nexthop->nh_srv6->seg6_segs);
