@@ -753,6 +753,8 @@ uint32_t nexthop_hash_quick(const struct nexthop *nexthop)
 			    sizeof(nexthop->nh_srv6->seg6local_ctx), key);
 		key = jhash(&nexthop->nh_srv6->seg6_segs,
 			    sizeof(nexthop->nh_srv6->seg6_segs), key);
+		key = jhash(&nexthop->nh_srv6->seg6local_flv,
+			    sizeof(nexthop->nh_srv6->seg6local_flv), key);
 	}
 
 	return key;
