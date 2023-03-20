@@ -149,7 +149,8 @@ void nexthop_add_labels(struct nexthop *nexthop, enum lsp_types_t ltype,
 			uint8_t num_labels, const mpls_label_t *labels);
 void nexthop_del_labels(struct nexthop *);
 void nexthop_add_srv6_seg6local(struct nexthop *nexthop, uint32_t action,
-				const struct seg6local_context *ctx);
+				const struct seg6local_context *ctx,
+				const struct seg6local_flavor_info *flv);
 void nexthop_del_srv6_seg6local(struct nexthop *nexthop);
 void nexthop_add_srv6_seg6(struct nexthop *nexthop,
 			   const struct in6_addr *segs);
