@@ -852,6 +852,13 @@ void isis_zebra_end_sid_install(struct isis_area *area,
 		return;
 	/* END TEMPORARY WORKAROUND */
 
+	/* If the SID belongs to a uSID locator, we need to install the End SID with the NEXT C-SID flavor in the data plane */
+	if (CHECK_FLAG(sid->locator->flags, SRV6_LOCATOR_USID)) {
+		ctx.flv.flv_ops = 1 << ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID;
+		ctx.flv.lcblock_len = sid->locator->block_bits_length;
+		ctx.flv.lcnode_func_len = sid->locator->node_bits_length;
+	}
+
 	zclient_send_localsid(zclient, &sid->value, ifp->ifindex, sid->behavior,
 			      &ctx);
 }
