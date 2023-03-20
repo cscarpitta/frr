@@ -604,6 +604,7 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 	int num_labels = 0;
 	enum seg6local_action_t seg6l_act = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
 	struct seg6local_context seg6l_ctx = {};
+	struct seg6local_flavor_info seg6l_flv = {};
 	struct in6_addr seg6_segs = {};
 	int num_segs = 0;
 	struct rtattr *rtnh_tb[RTA_MAX + 1] = {};
@@ -654,7 +655,7 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 			    && *(uint16_t *)RTA_DATA(rtnh_tb[RTA_ENCAP_TYPE])
 				       == LWTUNNEL_ENCAP_SEG6_LOCAL) {
 				seg6l_act = parse_encap_seg6local(
-					rtnh_tb[RTA_ENCAP], &seg6l_ctx);
+					rtnh_tb[RTA_ENCAP], &seg6l_ctx, &seg6l_flv);
 			}
 			if (rtnh_tb[RTA_ENCAP] && rtnh_tb[RTA_ENCAP_TYPE]
 			    && *(uint16_t *)RTA_DATA(rtnh_tb[RTA_ENCAP_TYPE])
