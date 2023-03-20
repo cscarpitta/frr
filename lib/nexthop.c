@@ -78,6 +78,11 @@ static int _nexthop_srv6_cmp(const struct nexthop *nh1,
 	if (ret != 0)
 		return ret;
 
+	ret = memcmp(&nh1->nh_srv6->seg6local_flv, &nh2->nh_srv6->seg6local_flv,
+		     sizeof(struct seg6local_flavors_info));
+	if (ret != 0)
+		return ret;
+
 	ret = memcmp(&nh1->nh_srv6->seg6_segs,
 		     &nh2->nh_srv6->seg6_segs,
 		     sizeof(struct in6_addr));
