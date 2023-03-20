@@ -690,7 +690,7 @@ static uint8_t parse_multipath_nexthops_unicast(ns_id_t ns_id,
 
 			if (seg6l_act != ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
 				nexthop_add_srv6_seg6local(nh, seg6l_act,
-							   &seg6l_ctx);
+							   &seg6l_ctx, &seg6l_flv);
 
 			if (num_segs)
 				nexthop_add_srv6_seg6(nh, &seg6_segs);
