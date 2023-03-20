@@ -1899,7 +1899,7 @@ struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 
 	if (znh->seg6local_action != ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
 		nexthop_add_srv6_seg6local(n, znh->seg6local_action,
-					   &znh->seg6local_ctx);
+					   &znh->seg6local_ctx, &znh->seg6local_flv);
 
 	if (!sid_zero(&znh->seg6_segs))
 		nexthop_add_srv6_seg6(n, &znh->seg6_segs);
