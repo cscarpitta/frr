@@ -1792,7 +1792,8 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 
 			nexthop_add_srv6_seg6local(nexthop,
 						   api_nh->seg6local_action,
-						   &api_nh->seg6local_ctx);
+						   &api_nh->seg6local_ctx,
+						   &api_nh->seg6local_flv);
 		}
 
 		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6)
