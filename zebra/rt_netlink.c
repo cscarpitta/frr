@@ -1540,6 +1540,48 @@ static ssize_t fill_seg6ipt_encap(char *buffer, size_t buflen,
 	return srhlen + 4;
 }
 
+static bool _netlink_nexthop_encode_seg6local_flavor(const struct nexthop *nexthop,
+					       struct nlmsghdr *nlmsg,
+					       size_t buflen)
+{
+	struct rtattr *nest;
+
+	assert(nexthop);
+
+	nest = nl_attr_nest(nlmsg, buflen, SEG6_LOCAL_FLAVORS);
+	if (!nest)
+		return false;
+
+	switch (nexthop->nh_srv6->seg6local_flv.flv_op) {
+	case ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID:
+		if (!nl_attr_put32(nlmsg, buflen,
+					SEG6_LOCAL_FLV_OPERATION,
+					SEG6_LOCAL_FLV_OP_NEXT_CSID))
+			return false;
+		if (!nl_attr_put8(nlmsg, buflen,
+					SEG6_LOCAL_FLV_LCBLOCK_BITS,
+					flv->lcblock_len))
+			return false;
+		if (!nl_attr_put8(nlmsg, buflen,
+					SEG6_LOCAL_FLV_LCNODE_FN_BITS,
+					flv->lcnode_func_len))
+			return false;
+		break;
+	case ZEBRA_SEG6_LOCAL_FLV_OP_PSP:
+	case ZEBRA_SEG6_LOCAL_FLV_OP_USP:
+	case ZEBRA_SEG6_LOCAL_FLV_OP_USD:
+	case ZEBRA_SEG6_LOCAL_FLV_OP_UNSPEC:
+		zlog_err("%s: unsupport seg6local flavor operation=%u",
+				__func__,
+				nexthop->nh_srv6->seg6local_flv);
+		return false;
+	}
+
+	nl_attr_nest_end(nlmsg, nest);
+
+	return true;
+}
+
 /* This function takes a nexthop as argument and adds
  * the appropriate netlink attributes to an existing
  * netlink message.
@@ -1579,6 +1621,7 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
 			struct rtattr *nest;
 			const struct seg6local_context *ctx;
+			const struct seg6local_flavor_info *flv;
 
 			ctx = &nexthop->nh_srv6->seg6local_ctx;
 			if (!nl_attr_put16(nlmsg, req_size, RTA_ENCAP_TYPE,
@@ -1671,6 +1714,12 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 					 nexthop->nh_srv6->seg6local_action);
 				return false;
 			}
+
+			flv = &nexthop->nh_srv6->seg6local_flv;
+			if (!_netlink_nexthop_encode_seg6local_flavor(
+				    nexthop, nlmsg, req_size, bytelen))
+				return false;
+			
 			nl_attr_nest_end(nlmsg, nest);
 		}
 
@@ -1708,7 +1757,7 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 
 		if (cmd == RTM_NEWROUTE) {
 			if (!_netlink_route_encode_nexthop_src(
-				    nexthop, AF_INET, nlmsg, req_size, bytelen))
+				    nexthop, nlmsg, req_size))
 				return false;
 		}
 
@@ -1732,7 +1781,7 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 
 		if (cmd == RTM_NEWROUTE) {
 			if (!_netlink_route_encode_nexthop_src(
-				    nexthop, AF_INET, nlmsg, req_size, bytelen))
+				    nexthop, nlmsg, req_size))
 				return false;
 		}
 
@@ -2809,6 +2858,7 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 					uint16_t encap;
 					struct rtattr *nest;
 					const struct seg6local_context *ctx;
+					const struct seg6local_flavor *flv;
 
 					req->nhm.nh_family = AF_INET6;
 					action = nh->nh_srv6->seg6local_action;
@@ -2910,6 +2960,12 @@ ssize_t netlink_nexthop_msg_encode(uint16_t cmd,
 							 __func__, action);
 						return 0;
 					}
+
+					flv = &nexthop->nh_srv6->seg6local_flv;
+					if (!_netlink_nexthop_encode_seg6local_flavor(
+							nexthop, nlmsg, req_size, bytelen))
+						return false;
+
 					nl_attr_nest_end(&req->n, nest);
 				}
 
