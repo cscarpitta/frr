@@ -1627,7 +1627,6 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
 			struct rtattr *nest;
 			const struct seg6local_context *ctx;
-			const struct seg6local_flavor_info *flv;
 
 			ctx = &nexthop->nh_srv6->seg6local_ctx;
 			if (!nl_attr_put16(nlmsg, req_size, RTA_ENCAP_TYPE,
