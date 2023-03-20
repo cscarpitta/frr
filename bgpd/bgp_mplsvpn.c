@@ -381,7 +381,7 @@ void vpn_leak_zebra_vrf_sid_update_per_af(struct bgp *bgp, afi_t afi)
 	ctx.table = vrf->data.l.table_id;
 	act = afi == AFI_IP ? ZEBRA_SEG6_LOCAL_ACTION_END_DT4
 		: ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
-	zclient_send_localsid(zclient, tovpn_sid, bgp->vrf_id, act, &ctx);
+	zclient_send_localsid(zclient, tovpn_sid, bgp->vrf_id, act, &ctx, NULL);
 
 	tovpn_sid_ls = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
 	*tovpn_sid_ls = *tovpn_sid;
@@ -428,7 +428,7 @@ void vpn_leak_zebra_vrf_sid_update_per_vrf(struct bgp *bgp)
 
 	ctx.table = vrf->data.l.table_id;
 	act = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
-	zclient_send_localsid(zclient, tovpn_sid, bgp->vrf_id, act, &ctx);
+	zclient_send_localsid(zclient, tovpn_sid, bgp->vrf_id, act, &ctx, NULL);
 
 	tovpn_sid_ls = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
 	*tovpn_sid_ls = *tovpn_sid;
@@ -476,7 +476,7 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_af(struct bgp *bgp, afi_t afi)
 
 	zclient_send_localsid(zclient,
 		bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent,
-		bgp->vrf_id, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, NULL);
+		bgp->vrf_id, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, NULL, NULL);
 	XFREE(MTYPE_BGP_SRV6_SID,
 	      bgp->vpn_policy[afi].tovpn_zebra_vrf_sid_last_sent);
 }
@@ -503,7 +503,7 @@ void vpn_leak_zebra_vrf_sid_withdraw_per_vrf(struct bgp *bgp)
 
 	zclient_send_localsid(zclient, bgp->tovpn_zebra_vrf_sid_last_sent,
 			      bgp->vrf_id, ZEBRA_SEG6_LOCAL_ACTION_UNSPEC,
-			      NULL);
+			      NULL, NULL);
 	XFREE(MTYPE_BGP_SRV6_SID, bgp->tovpn_zebra_vrf_sid_last_sent);
 }
 
