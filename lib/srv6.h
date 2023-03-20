@@ -75,6 +75,16 @@ struct seg6local_context {
 	uint32_t table;
 };
 
+struct seg6local_flavors_info {
+	/* Flavor operations */
+	uint32_t flv_ops;
+
+	/* Locator-Block length, expressed in bits */
+	uint8_t lcblock_len;
+	/* Locator-Node Function length, expressed in bits */
+	uint8_t lcnode_func_len;
+};
+
 struct srv6_locator {
 	char name[SRV6_LOCNAME_SIZE];
 	struct prefix_ipv6 prefix;
