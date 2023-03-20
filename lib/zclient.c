@@ -429,7 +429,8 @@ enum zclient_send_status zclient_send_vrf_label(struct zclient *zclient,
 enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
 		const struct in6_addr *sid, ifindex_t oif,
 		enum seg6local_action_t action,
-		const struct seg6local_context *context)
+		const struct seg6local_context *context,
+		const struct seg6local_flavor_info *flv)
 {
 	struct prefix_ipv6 p = {};
 	struct zapi_route api = {};
@@ -460,6 +461,9 @@ enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
 	SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
 	znh->seg6local_action = action;
 	memcpy(&znh->seg6local_ctx, context, sizeof(struct seg6local_context));
+
+	if (flv)
+		memcpy(&znh->seg6local_flv, flv, sizeof(struct seg6local_flavor_info));
 
 	api.nexthop_num = 1;
 
@@ -1956,6 +1960,9 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 			memcpy(&znh->seg6local_ctx,
 			       &nh->nh_srv6->seg6local_ctx,
 			       sizeof(struct seg6local_context));
+			memcpy(&znh->seg6local_flv,
+			       &nh->nh_srv6->seg6local_flv,
+			       sizeof(struct seg6local_flavor_info));
 		}
 
 		if (!sid_zero(&nh->nh_srv6->seg6_segs)) {
