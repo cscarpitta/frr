@@ -153,6 +153,7 @@ struct nexthop_srv6 {
 	/* SRv6 localsid info for Endpoint-behaviour */
 	enum seg6local_action_t seg6local_action;
 	struct seg6local_context seg6local_ctx;
+	struct seg6local_flavors_info seg6local_flv;
 
 	/* SRv6 Headend-behaviour */
 	struct in6_addr seg6_segs;
