@@ -826,6 +826,7 @@ void isis_zebra_end_sid_install(struct isis_area *area,
 {
 	struct seg6local_context ctx = {};
 	struct interface *ifp;
+	struct seg6local_flavor_info *flv = NULL;
 
 	if (!area || !sid)
 		return;
@@ -853,8 +854,17 @@ void isis_zebra_end_sid_install(struct isis_area *area,
 		return;
 	/* END TEMPORARY WORKAROUND */
 
+	/* If the SID belongs to a uSID locator, we need to install the End SID with the NEXT C-SID flavor in the data plane */
+	if (CHECK_FLAG(sid->locator->flags, SRV6_LOCATOR_USID)) {
+		flv = XCALLOC(..., sizeof(struct seg6local_flavor_info));
+
+		flv->flv_op = ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID;
+		flv->lcblock_len = sid->locator->block_bits_length;
+		flv->lcnode_func_len = sid->locator->node_bits_length;
+	}
+
 	zclient_send_localsid(zclient, &sid->value, ifp->ifindex, sid->behavior,
-			      &ctx);
+			      &ctx, flv);
 }
 
 /**
@@ -875,7 +885,7 @@ void isis_zebra_end_sid_uninstall(struct isis_area *area,
 		 &sid->value);
 
 	zclient_send_localsid(zclient, &sid->value, 2,
-			      ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, &ctx);
+			      ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, &ctx, NULL);
 }
 
 /**
