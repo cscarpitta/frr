@@ -511,6 +511,7 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 	int num_labels = 0;
 	enum seg6local_action_t seg6l_act = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
 	struct seg6local_context seg6l_ctx = {};
+	struct seg6local_flavor_info seg6l_flv = {};
 	struct in6_addr seg6_segs = {};
 	int num_segs = 0;
 
@@ -573,7 +574,14 @@ parse_nexthop_unicast(ns_id_t ns_id, struct rtmsg *rtm, struct rtattr **tb,
 		nexthop_add_labels(&nh, ZEBRA_LSP_STATIC, num_labels, labels);
 
 	if (seg6l_act != ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
-		nexthop_add_srv6_seg6local(&nh, seg6l_act, &seg6l_ctx);
+		nexthop_add_srv6_seg6local(&nh, seg6l_act, &seg6l_ctx, &seg6l_flv);
+
+	if (seg6l_flv != ZEBRA_SEG6_LOCAL_FLV_OP_UNSPEC) {
+		if (seg6_flv.lcblock_len == 0)
+			seg6_flv.lcblock_len = ZEBRA_DEFAULT_SEG6_LOCAL_FLV_LCBLOCK_LEN;
+		if (seg6_flv.lcnode_func_len == 0)
+			seg6_flv.lcnode_func_len = ZEBRA_DEFAULT_SEG6_LOCAL_FLV_LCNODE_FN_LEN;
+	}
 
 	if (num_segs)
 		nexthop_add_srv6_seg6(&nh, &seg6_segs);
