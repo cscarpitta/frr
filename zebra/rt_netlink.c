@@ -1552,6 +1552,9 @@ static bool _netlink_nexthop_encode_seg6local_flavor(const struct nexthop *nexth
 	if (!nexthop->nh_srv6)
 		return false;
 
+	if (nexthop->nh_srv6->seg6local_flv.flv_op == ZEBRA_SEG6_LOCAL_FLV_OP_UNSPEC)
+		return true;
+
 	flv = &nexthop->nh_srv6->seg6local_flv;
 
 	nest = nl_attr_nest(nlmsg, buflen, SEG6_LOCAL_FLAVORS);
@@ -1562,7 +1565,7 @@ static bool _netlink_nexthop_encode_seg6local_flavor(const struct nexthop *nexth
 	case ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID:
 		if (!nl_attr_put32(nlmsg, buflen,
 					SEG6_LOCAL_FLV_OPERATION,
-					SEG6_LOCAL_FLV_OP_NEXT_CSID))
+					1 << SEG6_LOCAL_FLV_OP_NEXT_CSID))
 			return false;
 		if (!nl_attr_put8(nlmsg, buflen,
 					SEG6_LOCAL_FLV_LCBLOCK_BITS,
@@ -1577,7 +1580,7 @@ static bool _netlink_nexthop_encode_seg6local_flavor(const struct nexthop *nexth
 	case ZEBRA_SEG6_LOCAL_FLV_OP_USP:
 	case ZEBRA_SEG6_LOCAL_FLV_OP_USD:
 	case ZEBRA_SEG6_LOCAL_FLV_OP_UNSPEC:
-		zlog_err("%s: unsupport seg6local flavor operation=%u",
+		zlog_err("%s: unsupported seg6local flavor operation=%u",
 				__func__,
 				nexthop->nh_srv6->seg6local_flv.flv_op);
 		return false;
