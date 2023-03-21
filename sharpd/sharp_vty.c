@@ -418,7 +418,7 @@ DEFPY (install_seg6local_routes,
 	      End_DT6$seg6l_enddt6 (1-4294967295)$seg6l_enddt6_table|\
 	      End_DT4$seg6l_enddt4 (1-4294967295)$seg6l_enddt4_table|\
 	      End_DT46$seg6l_enddt46 (1-4294967295)$seg6l_enddt46_table>\
-		 [flavors <next-c-sid>$flavor [lblen (0-64)$lblen] [nflen (0-64)$nflen]]\
+		 [flavors <next-csid>$flavor [lblen (0-64)$lblen] [nflen (0-64)$nflen]]\
 	  (1-1000000)$routes [repeat (2-1000)$rpt]",
        "Sharp routing Protocol\n"
        "install some routes\n"
@@ -510,7 +510,7 @@ DEFPY (install_seg6local_routes,
 		action = ZEBRA_SEG6_LOCAL_ACTION_END;
 	}
 
-	if (strmatch(flavor, "next-c-sid")) {
+	if (strmatch(flavor, "next-csid")) {
 		flv.flv_op = ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID;
 		flv.lcblock_len = lblen;
 		flv.lcnode_func_len = nflen;
