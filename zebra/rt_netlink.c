@@ -1595,27 +1595,46 @@ _netlink_nexthop_encode_seg6local_flavor(const struct nexthop *nexthop,
 	if (!nest)
 		return false;
 
-	switch (flv->flv_ops) {
-	case ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID:
-		if (!nl_attr_put32(nlmsg, buflen,
-					SEG6_LOCAL_FLV_OPERATION,
-					1 << SEG6_LOCAL_FLV_OP_NEXT_CSID))
-			return false;
-		if (!nl_attr_put8(nlmsg, buflen, SEG6_LOCAL_FLV_LCBLOCK_BITS,
-				  flv->lcblock_len))
-			return false;
-		if (!nl_attr_put8(nlmsg, buflen, SEG6_LOCAL_FLV_LCNODE_FN_BITS,
-				  flv->lcnode_func_len))
-			return false;
-		break;
-	case ZEBRA_SEG6_LOCAL_FLV_OP_PSP:
-	case ZEBRA_SEG6_LOCAL_FLV_OP_USP:
-	case ZEBRA_SEG6_LOCAL_FLV_OP_USD:
-	case ZEBRA_SEG6_LOCAL_FLV_OP_UNSPEC:
-		zlog_err("%s: unsupported seg6local flavor operation=%u",
-			 __func__, flv->flv_ops);
+	zlog_info("_netlink_nexthop_encode_seg6local_flavo\n\n");
+
+	if (!nl_attr_put32(nlmsg, buflen,
+				SEG6_LOCAL_FLV_OPERATION,
+				flv->flv_ops))
 		return false;
-	}
+
+	if (flv->lcblock_len)
+		if (!nl_attr_put8(nlmsg, buflen, SEG6_LOCAL_FLV_LCBLOCK_BITS,
+					flv->lcblock_len))
+			return false;
+
+	if (flv->lcnode_func_len)
+		if (!nl_attr_put8(nlmsg, buflen, SEG6_LOCAL_FLV_LCNODE_FN_BITS,
+					flv->lcnode_func_len))
+			return false;
+
+	// switch (flv->flv_ops) {
+	// case ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID:
+	// 	zlog_info("encoding next csid\n\n");
+	// 	if (!nl_attr_put32(nlmsg, buflen,
+	// 				SEG6_LOCAL_FLV_OPERATION,
+	// 				1 << SEG6_LOCAL_FLV_OP_NEXT_CSID))
+	// 		return false;
+	// 	if (!nl_attr_put8(nlmsg, buflen, SEG6_LOCAL_FLV_LCBLOCK_BITS,
+	// 			  flv->lcblock_len))
+	// 		return false;
+	// 	if (!nl_attr_put8(nlmsg, buflen, SEG6_LOCAL_FLV_LCNODE_FN_BITS,
+	// 			  flv->lcnode_func_len))
+	// 		return false;
+	// 	break;
+	// case ZEBRA_SEG6_LOCAL_FLV_OP_PSP:
+	// case ZEBRA_SEG6_LOCAL_FLV_OP_USP:
+	// case ZEBRA_SEG6_LOCAL_FLV_OP_USD:
+	// case ZEBRA_SEG6_LOCAL_FLV_OP_UNSPEC:
+	// default:
+	// 	zlog_err("%s: unsupported seg6local flavor operation=%u",
+	// 		 __func__, flv->flv_ops);
+	// 	return false;
+	// }
 
 	nl_attr_nest_end(nlmsg, nest);
 
