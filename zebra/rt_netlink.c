@@ -1601,12 +1601,12 @@ _netlink_nexthop_encode_seg6local_flavor(const struct nexthop *nexthop,
 
 	if (flv->lcblock_len)
 		if (!nl_attr_put8(nlmsg, buflen, SEG6_LOCAL_FLV_LCBLOCK_BITS,
-				  flv->lcblock_len))
+					flv->lcblock_len))
 			return false;
 
 	if (flv->lcnode_func_len)
 		if (!nl_attr_put8(nlmsg, buflen, SEG6_LOCAL_FLV_LCNODE_FN_BITS,
-				  flv->lcnode_func_len))
+					flv->lcnode_func_len))
 			return false;
 
 	nl_attr_nest_end(nlmsg, nest);

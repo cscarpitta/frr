@@ -124,7 +124,9 @@
     "in": {
       "dest": "6::1",
       "context": "End",
-      "flavors": "flavors next-csid"
+      "flavors": ["next-csid"],
+      "lblen": 32,
+      "nflen": 16
     },
     "out":[{
         "prefix":"6::1/128",
@@ -150,7 +152,8 @@
     "in": {
       "dest": "7::1",
       "context": "End",
-      "flavors": "flavors next-csid lblen 32"
+      "flavors": ["next-csid"],
+      "lblen": 32
     },
     "out":[{
         "prefix":"7::1/128",
@@ -176,10 +179,37 @@
     "in": {
       "dest": "8::1",
       "context": "End",
-      "flavors": "flavors next-csid nflen 16"
+      "flavors": ["next-csid"],
+      "nflen": 16
     },
     "out":[{
         "prefix":"8::1/128",
+        "protocol":"sharp",
+        "selected":true,
+        "destSelected":true,
+        "distance":150,
+        "metric":0,
+        "installed":true,
+        "table":254,
+        "nexthops":[{
+            "flags":3,
+            "fib":true,
+            "active":true,
+            "directlyConnected":true,
+            "interfaceName": "dum0",
+            "seg6local": { "action": "End" }
+        }]
+    }],
+    "required_kernel": "6.1"
+  },
+  {
+    "in": {
+      "dest": "9::1",
+      "context": "End",
+      "flavors": ["next-csid"]
+    },
+    "out":[{
+        "prefix":"9::1/128",
         "protocol":"sharp",
         "selected":true,
         "destSelected":true,

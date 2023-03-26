@@ -418,7 +418,7 @@ DEFPY (install_seg6local_routes,
 	      End_DT6$seg6l_enddt6 (1-4294967295)$seg6l_enddt6_table|\
 	      End_DT4$seg6l_enddt4 (1-4294967295)$seg6l_enddt4_table|\
 	      End_DT46$seg6l_enddt46 (1-4294967295)$seg6l_enddt46_table>\
-		 [flavors <next-csid>$flavor [lblen (0-64)$lblen] [nflen (0-64)$nflen]]\
+		 [flavors WORD$flavors [lblen (0-64)$lblen] [nflen (0-64)$nflen]]\
 	  (1-1000000)$routes [repeat (2-1000)$rpt]",
        "Sharp routing Protocol\n"
        "install some routes\n"
@@ -455,6 +455,8 @@ DEFPY (install_seg6local_routes,
 	uint32_t route_flags = 0;
 	struct seg6local_context ctx = {};
 	enum seg6local_action_t action;
+	char *flv;
+	char buf[32];
 
 	sg.r.total_routes = routes;
 	sg.r.installed_routes = 0;
@@ -509,11 +511,24 @@ DEFPY (install_seg6local_routes,
 		action = ZEBRA_SEG6_LOCAL_ACTION_END;
 	}
 
-	if (strmatch(flavor, "next-csid")) {
-		ctx.flv.flv_ops = 1 << ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID;
-		ctx.flv.lcblock_len = lblen;
-		ctx.flv.lcnode_func_len = nflen;
+	/* strtok changes first parameter, so we need to make a local copy */
+	strlcpy(buf, flavors, 32);
+
+	/* Process SRv6 flavors */
+	for (flv = strtok(buf, ","); flv; flv = strtok(NULL, ",")) {
+		if (strmatch(flv, "next-csid"))
+			ctx.flv.flv_ops |= (1 << ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+		else {
+			vty_out(vty, "Unsupported seg6local flavor operation: %s\n", flv);
+			return CMD_WARNING;
+		}
 	}
+
+	if (lblen)
+		ctx.flv.lcblock_len = lblen;
+
+	if (nflen)
+		ctx.flv.lcnode_func_len = nflen;
 
 	sg.r.nhop.type = NEXTHOP_TYPE_IFINDEX;
 	sg.r.nhop.ifindex = ifname2ifindex(seg6l_oif, vrf->vrf_id);

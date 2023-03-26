@@ -78,22 +78,22 @@ def test_zebra_seg6local_routes():
     for manifest in manifests:
         dest = manifest["in"]["dest"]
         context = manifest["in"]["context"]
-        flavor = manifest["in"]["flavor"]
+        flavors = manifest["in"].get("flavors", "")
 
-        logger.info("CHECK {} {} {}".format(dest, context, flavor))
+        logger.info("CHECK {} {} {}".format(dest, context, flavors))
 
         if manifest.get("required_kernel") is not None:
             if required_linux_kernel_version(manifest["required_kernel"]) is not True:
                 logger.info(
                     "Kernel requirements are not met. Skipping {} {} {}".format(
-                        dest, context, flavor
+                        dest, context, flavors
                     )
                 )
                 continue
 
         r1.vtysh_cmd(
             "sharp install seg6local-routes {} nexthop-seg6local dum0 {} {} 1".format(
-                dest, context, flavor
+                dest, context, flavors
             )
         )
         test_func = partial(
