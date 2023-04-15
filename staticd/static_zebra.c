@@ -535,9 +535,18 @@ extern void static_zebra_srv6_sid_add(struct static_srv6_sid *sid)
 	enum seg6local_action_t seg6local_action =
 		ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
 	struct seg6local_context seg6local_ctx = {};
+	struct srv6_sid_structure seg6local_structure = {};
 	struct vrf *vrf;
+	struct interface *ifp;
 	ifindex_t oif = 0;
 	int ret = 0;
+
+	/* By default, use the loopback interface as outgoing device */
+	ifp = if_lookup_by_name("lo", VRF_DEFAULT);
+	if (!ifp) {
+		return;
+	}
+	oif = ifp->ifindex;
 
 	/* convert `static_srv6_sid_behavior_t` to `seg6local_action_t` */
 	switch (sid->behavior) {
@@ -601,6 +610,9 @@ extern void static_zebra_srv6_sid_add(struct static_srv6_sid *sid)
 	case STATIC_SRV6_SID_BEHAVIOR_UDT46:
 		seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_UDT46;
 		break;
+	case STATIC_SRV6_SID_BEHAVIOR_UN:
+		seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_END;
+		break;
 	}
 
 	/* process SRv6 SID attributes */
@@ -615,9 +627,25 @@ extern void static_zebra_srv6_sid_add(struct static_srv6_sid *sid)
 		oif = vrf->vrf_id;
 	}
 
+	/* If SRv6 SID is a uSID, set flavor data structure */
+	if (sid->behavior == STATIC_SRV6_SID_BEHAVIOR_UN) {
+		SET_SRV6_FLV_OP(seg6local_ctx.flv.flv_ops,
+				ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+		seg6local_ctx.flv.lcblock_len =
+			ZEBRA_DEFAULT_SEG6_LOCAL_FLV_LCBLOCK_LEN;
+		seg6local_ctx.flv.lcnode_func_len =
+			ZEBRA_DEFAULT_SEG6_LOCAL_FLV_LCNODE_FN_LEN;
+	}
+
+	/* Prepare SRv6 SID structure. Currently we use the hardcoded default values */
+	seg6local_structure.block_bits_length = ZEBRA_DEFAULT_SEG6_LOCAL_FLV_LCBLOCK_LEN;
+	seg6local_structure.node_bits_length = ZEBRA_DEFAULT_SEG6_LOCAL_FLV_LCNODE_FN_LEN;
+	seg6local_structure.function_bits_length = ZEBRA_DEFAULT_SEG6_LOCAL_FLV_LCNODE_FN_LEN;
+	seg6local_structure.argument_bits_length = 0;
+
 	/* install the SRv6 SID in the zebra RIB */
 	ret = zclient_send_localsid(zclient, &sid->addr, oif, seg6local_action,
-				    &seg6local_ctx, NULL);
+				    &seg6local_ctx, &seg6local_structure);
 	if (ret == ZCLIENT_SEND_FAILURE)
 		flog_err(EC_LIB_ZAPI_SOCKET,
 			 "zclient_send_localsid() add failed: %s",
