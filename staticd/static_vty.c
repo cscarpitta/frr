@@ -1047,7 +1047,8 @@ DEFUN_NOSH(srv6_explicit_sids, srv6_explicit_sids_cmd,
 
 DEFUN_NOSH(srv6_sid, srv6_sid_cmd,
       "sid X:X::X:X$addr behavior\
-                <end-dt4$srv6_end_dt4|\
+                <uN$srv6_un|\
+                 end-dt4$srv6_end_dt4|\
                  end-dt6$srv6_end_dt6|\
                  end-dt46$srv6_end_dt46|\
                  end-dt4-usid$srv6_end_dt4_usid|\
@@ -1056,6 +1057,7 @@ DEFUN_NOSH(srv6_sid, srv6_sid_cmd,
       "Install an SRv6 SID\n"
       "SRv6 SID address\n"
       "Specify the SRv6 behavior\n"
+      "uN behavior\n"
       "End.DT4 behavior\n"
       "End.DT6 behavior\n"
       "End.DT46 behavior\n"
@@ -1066,6 +1068,7 @@ DEFUN_NOSH(srv6_sid, srv6_sid_cmd,
 	struct static_srv6_sid *sid = NULL;
 	enum static_srv6_sid_behavior_t behavior;
 	int idx = 0;
+	bool srv6_un = false;
 	bool srv6_end_dt4 = false;
 	bool srv6_end_dt6 = false;
 	bool srv6_end_dt46 = false;
@@ -1073,6 +1076,10 @@ DEFUN_NOSH(srv6_sid, srv6_sid_cmd,
 	bool srv6_end_dt6_usid = false;
 	bool srv6_end_dt46_usid = false;
 	struct in6_addr addr;
+
+	/* are we configuring an uN SRv6 SID? */
+	if (argv_find(argv, argc, "uN", &idx))
+		srv6_un = true;
 
 	/* are we configuring an End.DT4 SRv6 SID? */
 	if (argv_find(argv, argc, "end-dt4", &idx))
@@ -1102,7 +1109,9 @@ DEFUN_NOSH(srv6_sid, srv6_sid_cmd,
 	inet_pton(AF_INET6, argv[1]->arg, &addr);
 
 	/* parse SRv6 behavior */
-	if (srv6_end_dt4) {
+	if (srv6_un) {
+		behavior = STATIC_SRV6_SID_BEHAVIOR_UN;
+	} else if (srv6_end_dt4) {
 		behavior = STATIC_SRV6_SID_BEHAVIOR_END_DT4;
 	} else if (srv6_end_dt6) {
 		behavior = STATIC_SRV6_SID_BEHAVIOR_END_DT6;
@@ -1150,6 +1159,10 @@ DEFUN_NOSH(srv6_sid, srv6_sid_cmd,
 		vty_out(vty, "%% Alloc failed\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+	/* SRv6 End SID does not require any argument */
+	if (srv6_un)
+		SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID);
 
 	/* add the new SRv6 SID to the staticd SRv6 SIDs list and install it in
 	 * the zebra RIB */
