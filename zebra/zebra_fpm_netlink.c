@@ -421,7 +421,6 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
 			}
 			
 			/* Process Local SID parameters */
-			nhi.encap_info.srv6_localsid_encap.localsid_action = nexthop->nh_srv6->seg6local_action;
 			memcpy(&nhi.encap_info.srv6_localsid_encap.localsid_ctx.nh4,
 				&nexthop->nh_srv6->seg6local_ctx.nh4,
 				sizeof(struct in_addr));
