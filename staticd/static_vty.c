@@ -1179,10 +1179,12 @@ DEFUN_NOSH(srv6_sid, srv6_sid_cmd,
 }
 
 DEFUN_NOSH(no_srv6_sid, no_srv6_sid_cmd,
-      "no sid X:X::X:X$addr",
+      "no sid X:X::X:X$addr [behavior WORD]",
 	  NO_STR
 	  "Remove an SRv6 SID\n"
-	  "SRv6 SID address\n")
+	  "SRv6 SID address\n"
+	  "SRv6 behavior\n"
+	  "Specify SRv6 behavior\n")
 {
 	struct static_srv6_sid *sid = NULL;
 	struct in6_addr addr;
