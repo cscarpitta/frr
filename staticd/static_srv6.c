@@ -61,6 +61,8 @@ static_srv6_sid_behavior2str(enum static_srv6_sid_behavior_t behavior)
 		return "uDT6";
 	case STATIC_SRV6_SID_BEHAVIOR_UDT46:
 		return "uDT46";
+	case STATIC_SRV6_SID_BEHAVIOR_UN:
+		return "uN";
 	case STATIC_SRV6_SID_BEHAVIOR_UNSPEC:
 		return "unspec";
 	default:
