@@ -1060,7 +1060,8 @@ DEFUN_NOSH(srv6_sid, srv6_sid_cmd,
       "End.DT6 behavior\n"
       "End.DT46 behavior\n"
       "uDT4 behavior\n"
-      "uDT6 behavior\n")
+      "uDT6 behavior\n"
+      "uDT46 behavior\n")
 {
 	struct static_srv6_sid *sid = NULL;
 	enum static_srv6_sid_behavior_t behavior;
