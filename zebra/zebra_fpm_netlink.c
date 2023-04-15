@@ -143,6 +143,7 @@ enum srv6_localsid_action_t {
 	FPM_SRV6_LOCALSID_ACTION_UDT4         = 100,
 	FPM_SRV6_LOCALSID_ACTION_UDT6         = 101,
 	FPM_SRV6_LOCALSID_ACTION_UDT46        = 102,
+	FPM_SRV6_LOCALSID_ACTION_UN           = 103,
 	FPM_SRV6_LOCALSID_ACTION_MAX,
 };
 
@@ -380,7 +381,10 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
 			/* Process Local SID action */
 			switch (nexthop->nh_srv6->seg6local_action) {
 			case ZEBRA_SEG6_LOCAL_ACTION_END:
-				nhi.encap_info.srv6_localsid_encap.localsid_action = FPM_SRV6_LOCALSID_ACTION_END;
+				if (CHECK_SRV6_FLV_OP(nexthop->nh_srv6->seg6local_ctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID))
+					nhi.encap_info.srv6_localsid_encap.localsid_action = FPM_SRV6_LOCALSID_ACTION_UN;
+				else
+					nhi.encap_info.srv6_localsid_encap.localsid_action = FPM_SRV6_LOCALSID_ACTION_END;
 				break;
 			case ZEBRA_SEG6_LOCAL_ACTION_END_X:
 				nhi.encap_info.srv6_localsid_encap.localsid_action = FPM_SRV6_LOCALSID_ACTION_END_X;
@@ -800,6 +804,11 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 						   FPM_SRV6_LOCALSID_VRFNAME,
 						   localsid_ctx->vrf_name,
 						   strlen(localsid_ctx->vrf_name) + 1);
+				break;
+			case FPM_SRV6_LOCALSID_ACTION_UN:
+				nl_attr_put32(&req->n, in_buf_len,
+						   FPM_SRV6_LOCALSID_ACTION,
+						   FPM_SRV6_LOCALSID_ACTION_UN);
 				break;
 			default:
 				zlog_err("%s: unsupport localsid behaviour action=%u",
