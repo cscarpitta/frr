@@ -117,11 +117,9 @@ int static_sr_config_write(struct vty *vty)
 				if (sid->attributes.vrf_name[0] != '\0')
 					vty_out(vty, "     vrf-name %s\n",
 						sid->attributes.vrf_name);
+				vty_out(vty, "    exit\n");
+				vty_out(vty, "    !\n");
 			}
-			vty_out(vty, "     exit\n");
-			vty_out(vty, "     !\n");
-			vty_out(vty, "    exit\n");
-			vty_out(vty, "    !\n");
 			vty_out(vty, "   exit\n");
 			vty_out(vty, "   !\n");
 		}
