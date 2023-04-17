@@ -138,6 +138,37 @@ const char *seg6local_context2str(char *str, size_t size,
 	}
 }
 
+const char *seg6local_flavor2str(char *str, size_t size,
+				  const struct seg6local_flavors_info *flv)
+{
+	bool first = true;
+	size_t written = 0;
+
+	if (CHECK_SRV6_FLV_OP(flv->flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID)) {
+		written += snprintf(str + written, size, "next-csid");
+		first = false;
+	}
+
+	if (!first)
+		written += snprintf(str + written, size, " ");
+
+
+	if (flv->lcblock_len) {
+		written += snprintf(str + written, size, "lblen %u", flv->lcblock_len);
+		first = false;
+	}
+
+	if (!first)
+		written += snprintf(str + written, size, " ");
+
+	if (flv->lcnode_func_len) {
+		written += snprintf(str + written, size, "nflen %u", flv->lcnode_func_len);
+		first = false;
+	}
+
+	return str;
+}
+
 struct srv6_locator *srv6_locator_alloc(const char *name)
 {
 	struct srv6_locator *locator = NULL;

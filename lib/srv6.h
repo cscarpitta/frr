@@ -244,6 +244,9 @@ const char *seg6local_context2str(char *str, size_t size,
 				  const struct seg6local_context *ctx,
 				  uint32_t action);
 
+const char *seg6local_flavor2str(char *str, size_t size,
+				  const struct seg6local_flavors_info *flv);
+
 int snprintf_seg6_segs(char *str,
 		size_t size, const struct seg6_segs *segs);
 
