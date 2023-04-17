@@ -131,6 +131,17 @@ static int static_ifp_up(struct interface *ifp)
 	static_install_intf_nh(ifp);
 	static_ifindex_update(ifp, true);
 
+	/* TEMP WORKAROUND
+	 * staticd tries to install a seg6local nexthop before receiving
+	 * interface information and fails.
+	 * This workaround, calls static_zebra_srv6_sid_update() to install
+	 * SIDs after at least one interface is available
+	 */
+	struct static_srv6_sid *sid;
+	struct listnode *node;
+	for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid))
+		static_zebra_srv6_sid_update(sid);
+
 	return 0;
 }
 
@@ -541,12 +552,11 @@ extern void static_zebra_srv6_sid_add(struct static_srv6_sid *sid)
 	ifindex_t oif = 0;
 	int ret = 0;
 
-	/* By default, use the loopback interface as outgoing device */
-	ifp = if_lookup_by_name("lo", VRF_DEFAULT);
-	if (!ifp) {
-		return;
-	}
-	oif = ifp->ifindex;
+	// /* By default, use the loopback interface as outgoing device */
+	// ifp = if_lookup_by_name("lo", VRF_DEFAULT);
+	// if (!ifp) {
+	// 	return;
+	// }
 
 	/* convert `static_srv6_sid_behavior_t` to `seg6local_action_t` */
 	switch (sid->behavior) {
@@ -625,6 +635,16 @@ extern void static_zebra_srv6_sid_add(struct static_srv6_sid *sid)
 
 		seg6local_ctx.table = vrf->data.l.table_id;
 		oif = vrf->vrf_id;
+	} else {
+		/* By default, use the first non-loopback interface as outgoing device */
+		for (int i = 0; i < 256; ++i) {
+			ifp = if_lookup_by_index(i, VRF_DEFAULT);
+			if (ifp && !strmatch(ifp->name, "lo"))
+				break;
+		}
+		if (!ifp)
+			return;
+		oif = ifp->ifindex;
 	}
 
 	/* If SRv6 SID is a uSID, set flavor data structure */
