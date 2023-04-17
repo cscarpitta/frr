@@ -705,6 +705,10 @@ static void show_route_nexthop_helper(struct vty *vty,
 		vty_out(vty, ", seg6local %s %s", seg6local_action2str(
 			nexthop->nh_srv6->seg6local_action), buf);
 
+		seg6local_flavor2str(buf, sizeof(buf),
+				      &nexthop->nh_srv6->seg6local_ctx.flv);
+		vty_out(vty, ", flavors %s", buf);
+
 		inet_ntop(AF_INET6, &nexthop->nh_srv6->seg6_segs, buf,
 			  sizeof(buf));
 		vty_out(vty, ", seg6 %s", buf);
