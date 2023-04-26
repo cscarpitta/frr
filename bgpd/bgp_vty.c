@@ -9225,12 +9225,13 @@ DEFPY (af_label_vpn_export,
 
 DEFPY (af_sid_vpn_export,
        af_sid_vpn_export_cmd,
-       "[no] sid vpn export <(1-1048575)$sid_idx|auto$sid_auto>",
+       "[no] sid vpn export <(1-1048575)$sid_idx|BITPATTERN$sid_idx_hex|auto$sid_auto>",
        NO_STR
        "sid value for VRF\n"
        "Between current address-family and vpn\n"
        "For routes leaked from current address-family to vpn\n"
        "Sid allocation index\n"
+       "Sid allocation index (hex)\n"
        "Automatically assign a label\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -9260,6 +9261,19 @@ DEFPY (af_sid_vpn_export,
 			"per-vrf sid and per-af sid are mutually exclusive\n"
 			"Failed: per-vrf sid is configured. Remove per-vrf sid before configuring per-af sid\n");
 		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (sid_idx_hex) {
+		if (sscanf(sid_idx_hex, "0x%lx", &sid_idx) != 1) {
+			vty_out(vty, "af_sid_vpn_export: fscanf: %s\n",
+				safe_strerror(errno));
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		if (sid_idx > 0xFFFFFFFF) {
+			vty_out(vty, "sid_idx must be not be superior to 0xFFFFFFFF\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 	}
 
 	/* skip when it's already configured */
