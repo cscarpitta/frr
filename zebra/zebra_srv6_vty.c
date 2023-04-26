@@ -313,7 +313,7 @@ DEFPY (locator_prefix,
 	 * length to 20 bits.
 	 * This limit will be removed when the bgpd SID transposition is fixed.
 	 */
-	if (func_bit_len > 20) {
+	if (func_bit_len > 32) {
 		vty_out(vty,
 			"%% currently func_bit_len > 20 is not supported\n");
 		return CMD_WARNING_CONFIG_FAILED;
