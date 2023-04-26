@@ -9223,15 +9223,15 @@ DEFPY (af_label_vpn_export,
 	return CMD_SUCCESS;
 }
 
-DEFPY (af_sid_vpn_export,
-       af_sid_vpn_export_cmd,
-       "[no] sid vpn export <(1-1048575)$sid_idx|auto$sid_auto>",
-       NO_STR
-       "sid value for VRF\n"
-       "Between current address-family and vpn\n"
-       "For routes leaked from current address-family to vpn\n"
-       "Sid allocation index\n"
-       "Automatically assign a label\n")
+DEFPY(af_sid_vpn_export, af_sid_vpn_export_cmd,
+      "[no] sid vpn export <(1-1048575)$sid_idx|SID_IDX_HEX$sid_idx_hex|auto$sid_auto>",
+      NO_STR
+      "sid value for VRF\n"
+      "Between current address-family and vpn\n"
+      "For routes leaked from current address-family to vpn\n"
+      "Sid allocation index\n"
+      "Sid allocation index (expressed as hex)\n"
+      "Automatically assign a label\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	afi_t afi;
@@ -9260,6 +9260,22 @@ DEFPY (af_sid_vpn_export,
 			"per-vrf sid and per-af sid are mutually exclusive\n"
 			"Failed: per-vrf sid is configured. Remove per-vrf sid before configuring per-af sid\n");
 		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (sid_idx_hex) {
+		if (sscanf(sid_idx_hex, "0x%lx", &sid_idx) != 1) {
+			vty_out(vty, "%% Invalid SID index value: %s\n",
+				sid_idx_hex);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		/* Currently the maximum supported SID index is 1048575 (which
+		 * corresponds to 0xFFFFF) */
+		if (sid_idx > 0xFFFFF) {
+			vty_out(vty,
+				"%% SID index must be not greater than 0xFFFFF\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 	}
 
 	/* skip when it's already configured */
