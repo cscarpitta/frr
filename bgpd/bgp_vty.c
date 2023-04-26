@@ -326,6 +326,23 @@ static int bgp_srv6_locator_unset(struct bgp *bgp)
 		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
 	}
 
+	/* refresh tovpn_sid_untransported */
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
+			continue;
+
+		/* refresh vpnv4 tovpn_sid */
+		XFREE(MTYPE_BGP_SRV6_SID,
+		      bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_untransposed);
+
+		/* refresh vpnv6 tovpn_sid */
+		XFREE(MTYPE_BGP_SRV6_SID,
+		      bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_untransposed);
+
+		/* refresh per-vrf tovpn_sid */
+		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid_untransposed);
+	}
+
 	/* update vpn bgp processes */
 	vpn_leak_postchange_all();
 

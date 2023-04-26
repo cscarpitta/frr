@@ -3265,7 +3265,7 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	struct srv6_locator_chunk *chunk, *tovpn_sid_locator;
 	struct bgp_srv6_function *func;
 	struct bgp *bgp_vrf;
-	struct in6_addr *tovpn_sid;
+	struct in6_addr *tovpn_sid, *tovpn_sid_untransposed;
 	struct prefix_ipv6 tmp_prefi;
 
 	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
@@ -3329,6 +3329,47 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 			if (prefix_match((struct prefix *)&loc.prefix,
 					 (struct prefix *)&tmp_prefi))
 				XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
+		}
+	}
+
+	// refresh tovpn_sid_untransposed
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
+			continue;
+
+		// refresh vpnv4 tovpn_sid_untransposed
+		tovpn_sid_untransposed = bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_untransposed;
+		if (tovpn_sid_untransposed) {
+			tmp_prefi.family = AF_INET6;
+			tmp_prefi.prefixlen = 128;
+			tmp_prefi.prefix = *tovpn_sid_untransposed;
+			if (prefix_match((struct prefix *)&loc.prefix,
+					 (struct prefix *)&tmp_prefi))
+				XFREE(MTYPE_BGP_SRV6_SID,
+				      bgp_vrf->vpn_policy[AFI_IP].tovpn_sid_untransposed);
+		}
+
+		// refresh vpnv6 tovpn_sid_untransposed
+		tovpn_sid_untransposed = bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_untransposed;
+		if (tovpn_sid_untransposed) {
+			tmp_prefi.family = AF_INET6;
+			tmp_prefi.prefixlen = 128;
+			tmp_prefi.prefix = *tovpn_sid_untransposed;
+			if (prefix_match((struct prefix *)&loc.prefix,
+					 (struct prefix *)&tmp_prefi))
+				XFREE(MTYPE_BGP_SRV6_SID,
+				      bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid_untransposed);
+		}
+
+		/* refresh per-vrf tovpn_sid_untransposed */
+		tovpn_sid_untransposed = bgp_vrf->tovpn_sid_untransposed;
+		if (tovpn_sid_untransposed) {
+			tmp_prefi.family = AF_INET6;
+			tmp_prefi.prefixlen = IPV6_MAX_BITLEN;
+			tmp_prefi.prefix = *tovpn_sid_untransposed;
+			if (prefix_match((struct prefix *)&loc.prefix,
+					 (struct prefix *)&tmp_prefi))
+				XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid_untransposed);
 		}
 	}
 

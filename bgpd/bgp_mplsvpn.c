@@ -626,46 +626,55 @@ static bool sid_exist(struct bgp *bgp, const struct in6_addr *sid)
  */
 static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
 			      struct srv6_locator_chunk *sid_locator_chunk,
-			      struct in6_addr *sid)
+			      struct in6_addr *sid, struct in6_addr *sid_untransposed)
 {
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_LABEL);
 	struct listnode *node;
 	struct srv6_locator_chunk *chunk;
 	bool alloced = false;
-	int label = 0;
+	int label = 0, untransposed_label = 0;
 	uint8_t offset = 0;
 	uint8_t func_len = 0, shift_len = 0;
-	uint32_t index_max = 0;
+	uint8_t transposition_len = 0, untransposed_len = 0, untransposed_offset = 0;
+	uint64_t index_max = 0;
 
-	if (!bgp || !sid_locator_chunk || !sid)
+	if (!bgp || !sid_locator_chunk || !sid || !sid_untransposed)
 		return false;
 
 	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
 		if (chunk->function_bits_length >
-		    BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH) {
+		    32) {
 			if (debug)
 				zlog_debug(
 					"%s: invalid SRv6 Locator chunk (%pFX): Function Length must be less or equal to %d",
 					__func__, &chunk->prefix,
-					BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH);
+					32);
 			continue;
 		}
 
-		index_max = (1 << chunk->function_bits_length) - 1;
+		index_max = ((uint64_t)1 << chunk->function_bits_length) - (uint64_t)1;
 
 		if (index > index_max) {
 			if (debug)
 				zlog_debug(
-					"%s: skipped SRv6 Locator chunk (%pFX): Function Length is too short to support specified index (%u)",
-					__func__, &chunk->prefix, index);
+					"%s: skipped SRv6 Locator chunk (%pFX): Function Length %u is too short to support specified index (%u)",
+					__func__, &chunk->prefix, chunk->function_bits_length, index);
 			continue;
 		}
 
 		*sid = chunk->prefix.prefix;
 		*sid_locator_chunk = *chunk;
-		offset = chunk->block_bits_length + chunk->node_bits_length;
 		func_len = chunk->function_bits_length;
-		shift_len = BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH - func_len;
+		transposition_len = (func_len <= 20) ? func_len : 20;
+		untransposed_offset = chunk->block_bits_length + chunk->node_bits_length;
+		untransposed_len = func_len - transposition_len;
+		offset = chunk->block_bits_length + chunk->node_bits_length + untransposed_len;
+		shift_len = BGP_PREFIX_SID_SRV6_MAX_FUNCTION_LENGTH - transposition_len;
+
+		untransposed_label = index >> transposition_len;
+		untransposed_label = untransposed_label << shift_len;
+		encode_untransposed_part_sid(sid, untransposed_label, untransposed_offset, untransposed_len);
+		*sid_untransposed = *sid;
 
 		if (index != 0) {
 			label = index << shift_len;
@@ -677,8 +686,7 @@ static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
 						label);
 				continue;
 			}
-
-			transpose_sid(sid, label, offset, func_len);
+			transpose_sid(sid, label, offset, transposition_len);
 			if (sid_exist(bgp, sid))
 				continue;
 			alloced = true;
@@ -695,7 +703,7 @@ static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
 						label);
 				continue;
 			}
-			transpose_sid(sid, label, offset, func_len);
+			transpose_sid(sid, label, offset, transposition_len);
 			if (sid_exist(bgp, sid))
 				continue;
 			alloced = true;
@@ -707,7 +715,7 @@ static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
 		return 0;
 
 	sid_register(bgp, sid, bgp->srv6_locator_name);
-	return label;
+	return label & 0xFFFFF;
 }
 
 void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
@@ -715,7 +723,7 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 {
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
 	struct srv6_locator_chunk *tovpn_sid_locator;
-	struct in6_addr *tovpn_sid;
+	struct in6_addr *tovpn_sid, *tovpn_sid_untransposed;
 	uint32_t tovpn_sid_index = 0, tovpn_sid_transpose_label;
 	bool tovpn_sid_auto = false;
 
@@ -751,9 +759,10 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 
 	tovpn_sid_locator = srv6_locator_chunk_alloc();
 	tovpn_sid = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
+	tovpn_sid_untransposed = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
 
 	tovpn_sid_transpose_label = alloc_new_sid(bgp_vpn, tovpn_sid_index,
-						  tovpn_sid_locator, tovpn_sid);
+						  tovpn_sid_locator, tovpn_sid, tovpn_sid_untransposed);
 
 	if (tovpn_sid_transpose_label == 0) {
 		if (debug)
@@ -762,6 +771,7 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 				__func__, bgp_vrf->name_pretty, afi2str(afi));
 		srv6_locator_chunk_free(&tovpn_sid_locator);
 		XFREE(MTYPE_BGP_SRV6_SID, tovpn_sid);
+		XFREE(MTYPE_BGP_SRV6_SID, tovpn_sid_untransposed);
 		return;
 	}
 
@@ -771,6 +781,7 @@ void ensure_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 			   afi2str(afi));
 
 	bgp_vrf->vpn_policy[afi].tovpn_sid = tovpn_sid;
+	bgp_vrf->vpn_policy[afi].tovpn_sid_untransposed = tovpn_sid_untransposed;
 	bgp_vrf->vpn_policy[afi].tovpn_sid_locator = tovpn_sid_locator;
 	bgp_vrf->vpn_policy[afi].tovpn_sid_transpose_label =
 		tovpn_sid_transpose_label;
@@ -780,7 +791,7 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 {
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
 	struct srv6_locator_chunk *tovpn_sid_locator;
-	struct in6_addr *tovpn_sid;
+	struct in6_addr *tovpn_sid, *tovpn_sid_untransposed;
 	uint32_t tovpn_sid_index = 0, tovpn_sid_transpose_label;
 	bool tovpn_sid_auto = false;
 
@@ -815,9 +826,10 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 
 	tovpn_sid_locator = srv6_locator_chunk_alloc();
 	tovpn_sid = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
+	tovpn_sid_untransposed = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
 
 	tovpn_sid_transpose_label = alloc_new_sid(bgp_vpn, tovpn_sid_index,
-						  tovpn_sid_locator, tovpn_sid);
+						  tovpn_sid_locator, tovpn_sid, tovpn_sid_untransposed);
 
 	if (tovpn_sid_transpose_label == 0) {
 		if (debug)
@@ -825,6 +837,7 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 				   __func__, bgp_vrf->name_pretty);
 		srv6_locator_chunk_free(&tovpn_sid_locator);
 		XFREE(MTYPE_BGP_SRV6_SID, tovpn_sid);
+		XFREE(MTYPE_BGP_SRV6_SID, tovpn_sid_untransposed);
 		return;
 	}
 
@@ -833,6 +846,7 @@ void ensure_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 			   tovpn_sid, bgp_vrf->name_pretty);
 
 	bgp_vrf->tovpn_sid = tovpn_sid;
+	bgp_vrf->tovpn_sid_untransposed = tovpn_sid_untransposed;
 	bgp_vrf->tovpn_sid_locator = tovpn_sid_locator;
 	bgp_vrf->tovpn_sid_transpose_label = tovpn_sid_transpose_label;
 }
@@ -876,6 +890,7 @@ void delete_vrf_tovpn_sid_per_af(struct bgp *bgp_vpn, struct bgp *bgp_vrf,
 		sid_unregister(bgp_vpn, bgp_vrf->vpn_policy[afi].tovpn_sid);
 		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[afi].tovpn_sid);
 	}
+	XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[afi].tovpn_sid_untransposed);
 	bgp_vrf->vpn_policy[afi].tovpn_sid_transpose_label = 0;
 }
 
@@ -903,6 +918,7 @@ void delete_vrf_tovpn_sid_per_vrf(struct bgp *bgp_vpn, struct bgp *bgp_vrf)
 		sid_unregister(bgp_vpn, bgp_vrf->tovpn_sid);
 		XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
 	}
+	XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid_untransposed);
 	bgp_vrf->tovpn_sid_transpose_label = 0;
 }
 
@@ -945,6 +961,17 @@ void transpose_sid(struct in6_addr *sid, uint32_t label, uint8_t offset,
 		uint8_t tidx = offset + idx;
 		sid->s6_addr[tidx / 8] &= ~(0x1 << (7 - tidx % 8));
 		if (label >> (19 - idx) & 0x1)
+			sid->s6_addr[tidx / 8] |= 0x1 << (7 - tidx % 8);
+	}
+}
+
+void encode_untransposed_part_sid(struct in6_addr *sid, uint32_t label, uint8_t offset,
+		   uint8_t len)
+{
+	for (uint8_t idx = 0; idx < len; idx++) {
+		uint8_t tidx = offset + idx;
+		sid->s6_addr[tidx / 8] &= ~(0x1 << (7 - tidx % 8));
+		if (label >> (len - 1 - idx) & 0x1)
 			sid->s6_addr[tidx / 8] |= 0x1 << (7 - tidx % 8);
 	}
 }
@@ -1577,10 +1604,16 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 				.tovpn_sid_locator->block_bits_length +
 			from_bgp->vpn_policy[afi]
 				.tovpn_sid_locator->node_bits_length;
+
+		/* Adjust transposition length and offset */
+		if (static_attr.srv6_l3vpn->transposition_len > 20)
+			static_attr.srv6_l3vpn->transposition_len = 20;
+		if (static_attr.srv6_l3vpn->transposition_len > 20)
+			static_attr.srv6_l3vpn->transposition_offset = from_bgp->tovpn_sid_locator->block_bits_length + from_bgp->tovpn_sid_locator->node_bits_length + from_bgp->tovpn_sid_locator->function_bits_length - 20;
 		;
 		memcpy(&static_attr.srv6_l3vpn->sid,
-		       &from_bgp->vpn_policy[afi]
-				.tovpn_sid_locator->prefix.prefix,
+		       from_bgp->vpn_policy[afi]
+				.tovpn_sid_untransposed,
 		       sizeof(struct in6_addr));
 	} else if (from_bgp->tovpn_sid_locator) {
 		struct srv6_locator_chunk *locator =
@@ -1607,8 +1640,15 @@ void vpn_leak_from_vrf_update(struct bgp *to_bgp,	     /* to */
 		static_attr.srv6_l3vpn->transposition_offset =
 			from_bgp->tovpn_sid_locator->block_bits_length +
 			from_bgp->tovpn_sid_locator->node_bits_length;
+
+		/* Adjust transposition length and offset */
+		if (static_attr.srv6_l3vpn->transposition_len > 20) {
+			static_attr.srv6_l3vpn->transposition_len = 20;
+			static_attr.srv6_l3vpn->transposition_offset = from_bgp->tovpn_sid_locator->block_bits_length + from_bgp->tovpn_sid_locator->node_bits_length + from_bgp->tovpn_sid_locator->function_bits_length - 20;
+		}
+			
 		memcpy(&static_attr.srv6_l3vpn->sid,
-		       &from_bgp->tovpn_sid_locator->prefix.prefix,
+		       from_bgp->tovpn_sid_untransposed,
 		       sizeof(struct in6_addr));
 	}
 
