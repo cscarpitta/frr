@@ -642,8 +642,11 @@ extern void static_zebra_srv6_sid_add(struct static_srv6_sid *sid)
 			if (ifp && !strmatch(ifp->name, "lo"))
 				break;
 		}
-		if (!ifp)
+		if (!ifp) {
+			zlog_err("No valid interfaces found. Skipping SID %pI6",
+				 &sid->addr);
 			return;
+		}
 		oif = ifp->ifindex;
 	}
 
