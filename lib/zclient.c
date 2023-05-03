@@ -480,6 +480,17 @@ enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
 		SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL_HAS_SID_FORMAT);
 	}
 
+	/* Workaround to enforce the correct prefixlen for the uN behavior */
+	if (znh->seg6local_action == ZEBRA_SEG6_LOCAL_ACTION_END &&
+	    CHECK_SRV6_FLV_OP(znh->seg6local_ctx.flv.flv_ops,
+			      ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID) &&
+	    znh->seg6local_structure.block_bits_length != 0 &&
+	    znh->seg6local_structure.node_bits_length != 0) {
+		api.prefix.prefixlen =
+			znh->seg6local_structure.block_bits_length +
+			znh->seg6local_structure.node_bits_length;
+	}
+
 	api.nexthop_num = 1;
 
 	return zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
