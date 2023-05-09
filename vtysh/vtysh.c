@@ -1736,6 +1736,7 @@ DEFUNSH(VTYSH_STATICD, srv6_explicit_sids, srv6_explicit_sids_cmd,
 DEFUNSH(VTYSH_STATICD, srv6_sid, srv6_sid_cmd,
 	"sid X:X::X:X$addr behavior\
 				<uN$srv6_un|\
+				 uA$srv6_ua|\
 				 end-dt4$srv6_end_dt4|\
 				 end-dt6$srv6_end_dt6|\
 				 end-dt46$srv6_end_dt46|\
@@ -1745,7 +1746,8 @@ DEFUNSH(VTYSH_STATICD, srv6_sid, srv6_sid_cmd,
 	"Install an SRv6 SID\n"
 	"SRv6 SID address\n"
 	"Specify the SRv6 behavior\n"
-    "uN behavior\n"
+	"uN behavior\n"
+	"uA behavior\n"
 	"End.DT4 behavior\n"
 	"End.DT6 behavior\n"
 	"End.DT46 behavior\n"
