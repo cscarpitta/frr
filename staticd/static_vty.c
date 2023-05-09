@@ -1048,6 +1048,7 @@ DEFUN_NOSH(srv6_explicit_sids, srv6_explicit_sids_cmd,
 DEFUN_NOSH(srv6_sid, srv6_sid_cmd,
       "sid X:X::X:X$addr behavior\
                 <uN$srv6_un|\
+                 uA$srv6_ua|\
                  end-dt4$srv6_end_dt4|\
                  end-dt6$srv6_end_dt6|\
                  end-dt46$srv6_end_dt46|\
@@ -1058,6 +1059,7 @@ DEFUN_NOSH(srv6_sid, srv6_sid_cmd,
       "SRv6 SID address\n"
       "Specify the SRv6 behavior\n"
       "uN behavior\n"
+      "uA behavior\n"
       "End.DT4 behavior\n"
       "End.DT6 behavior\n"
       "End.DT46 behavior\n"
@@ -1069,6 +1071,7 @@ DEFUN_NOSH(srv6_sid, srv6_sid_cmd,
 	enum static_srv6_sid_behavior_t behavior;
 	int idx = 0;
 	bool srv6_un = false;
+	bool srv6_ua = false;
 	bool srv6_end_dt4 = false;
 	bool srv6_end_dt6 = false;
 	bool srv6_end_dt46 = false;
@@ -1080,6 +1083,10 @@ DEFUN_NOSH(srv6_sid, srv6_sid_cmd,
 	/* are we configuring an uN SRv6 SID? */
 	if (argv_find(argv, argc, "uN", &idx))
 		srv6_un = true;
+
+	/* are we configuring an uN SRv6 SID? */
+	if (argv_find(argv, argc, "uA", &idx))
+		srv6_ua = true;
 
 	/* are we configuring an End.DT4 SRv6 SID? */
 	if (argv_find(argv, argc, "end-dt4", &idx))
@@ -1111,6 +1118,8 @@ DEFUN_NOSH(srv6_sid, srv6_sid_cmd,
 	/* parse SRv6 behavior */
 	if (srv6_un) {
 		behavior = STATIC_SRV6_SID_BEHAVIOR_UN;
+	} else if (srv6_ua) {
+		behavior = STATIC_SRV6_SID_BEHAVIOR_UA;
 	} else if (srv6_end_dt4) {
 		behavior = STATIC_SRV6_SID_BEHAVIOR_END_DT4;
 	} else if (srv6_end_dt6) {
@@ -1263,6 +1272,119 @@ DEFUN(no_srv6_sid_attribute_vrf_name, no_srv6_sid_attribute_vrf_name_cmd,
 	 * and clear VRF name */
 	mark_srv6_sid_as_valid(sid, false);
 	memset(&sid->attributes.vrf_name[0], 0, sizeof(sid->attributes.vrf_name));
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(srv6_sid_attribute_interface, srv6_sid_attribute_interface_cmd,
+      "[no] interface WORD$ifname",
+      NO_STR
+      "Interface Name\n"
+      "Interface Name\n")
+{
+	VTY_DECLVAR_CONTEXT(static_srv6_sid, sid);
+
+	if (no) {
+		/* mark the SRv6 SID as invalid, then update zebra RIB and clear
+		 * VRF name */
+		mark_srv6_sid_as_valid(sid, false);
+		memset(&sid->attributes.ifname[0], 0,
+		       sizeof(sid->attributes.ifname));
+		return CMD_SUCCESS;
+	}
+
+	/* if the SRv6 SID is already bound to the correct interface, do nothing
+	 */
+	if (!strcmp(ifname, sid->attributes.ifname))
+		return CMD_SUCCESS;
+
+	/* if the SRv6 SID is bound to a different interface, we need to remove
+	 * the SRv6 SID from the zebra RIB before installing the new one */
+	if (sid->attributes.ifname[0] != '\0') {
+		if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA))
+			static_zebra_srv6_sid_del(sid);
+		memset(&sid->attributes.ifname[0], 0,
+		       sizeof(sid->attributes.ifname));
+	}
+
+	/* set the interface name */
+	strlcpy(sid->attributes.ifname, ifname, sizeof(sid->attributes.ifname));
+
+	/* mark the SRv6 SID as valid and update zebra RIB to install the SID */
+	if (sid->attributes.ifname[0] != '\0' &&
+	    !IPV6_ADDR_SAME(&sid->attributes.adj_v6, &in6addr_any))
+		mark_srv6_sid_as_valid(sid, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_srv6_sid_attribute_interface, no_srv6_sid_attribute_interface_cmd,
+      "no interface WORD",
+      NO_STR
+      "Interface name\n"
+      "Interface name\n")
+{
+	VTY_DECLVAR_CONTEXT(static_srv6_sid, sid);
+
+	/* mark the SRv6 SID as invalid, update zebra RIB to uninstall the SID,
+	 * and clear VRF name */
+	mark_srv6_sid_as_valid(sid, false);
+	memset(&sid->attributes.ifname[0], 0, sizeof(sid->attributes.ifname));
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(srv6_sid_attribute_adj, srv6_sid_attribute_adj_cmd,
+      "[no] adj X:X::X:X$adj",
+      NO_STR
+      "Adjacency\n"
+      "Adjacency\n")
+{
+	VTY_DECLVAR_CONTEXT(static_srv6_sid, sid);
+
+	if (no) {
+		/* mark the SRv6 SID as invalid, then update zebra RIB and clear
+		 * VRF name */
+		mark_srv6_sid_as_valid(sid, false);
+		memset(&sid->attributes.adj_v6, 0, sizeof(struct in6_addr));
+		return CMD_SUCCESS;
+	}
+
+	/* if the SRv6 SID is already bound to the correct interface, do nothing
+	 */
+	if (IPV6_ADDR_SAME(&sid->attributes.adj_v6, &adj))
+		return CMD_SUCCESS;
+
+	/* if the SRv6 SID is bound to a different interface, we need to remove
+	 * the SRv6 SID from the zebra RIB before installing the new one */
+	if (!IPV6_ADDR_SAME(&sid->attributes.adj_v6, &in6addr_any)) {
+		if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA))
+			static_zebra_srv6_sid_del(sid);
+		memset(&sid->attributes.adj_v6, 0, sizeof(struct in6_addr));
+	}
+
+	/* set the interface name */
+	sid->attributes.adj_v6 = adj;
+
+	/* mark the SRv6 SID as valid and update zebra RIB to install the SID */
+	if (sid->attributes.ifname[0] != '\0' &&
+	    !IPV6_ADDR_SAME(&sid->attributes.adj_v6, &in6addr_any))
+		mark_srv6_sid_as_valid(sid, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_srv6_sid_attribute_adj, no_srv6_sid_attribute_adj_cmd, "no adj WORD",
+      NO_STR
+      "Adjacency\n"
+      "Adjacency\n")
+{
+	VTY_DECLVAR_CONTEXT(static_srv6_sid, sid);
+
+	/* mark the SRv6 SID as invalid, update zebra RIB to uninstall the SID,
+	 * and clear VRF name */
+	mark_srv6_sid_as_valid(sid, false);
+	memset(&sid->attributes.ifname[0], 0, sizeof(sid->attributes.ifname));
 
 	return CMD_SUCCESS;
 }
@@ -1657,6 +1779,8 @@ DEFUN(show_srv6_sid_detail, show_srv6_sid_detail_cmd,
 			static_srv6_sid_behavior2str(sid->behavior));
 		vty_out(vty, "Attributes: \n");
 		vty_out(vty, "- VRF-Name: %s\n", sid->attributes.vrf_name);
+		vty_out(vty, "- Interface: %s\n", sid->attributes.ifname);
+		vty_out(vty, "- Adjacency: %pI6\n", &sid->attributes.adj_v6);
 
 		vty_out(vty, "Valid: %s",
 			CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID)
@@ -1758,6 +1882,14 @@ void static_vty_init(void)
 			&srv6_sid_attribute_vrf_name_cmd);
 	install_element(STATIC_SRV6_SID_ATTRS_NODE,
 			&no_srv6_sid_attribute_vrf_name_cmd);
+	install_element(STATIC_SRV6_SID_ATTRS_NODE,
+			&srv6_sid_attribute_interface_cmd);
+	install_element(STATIC_SRV6_SID_ATTRS_NODE,
+			&no_srv6_sid_attribute_interface_cmd);
+	install_element(STATIC_SRV6_SID_ATTRS_NODE,
+			&srv6_sid_attribute_adj_cmd);
+	install_element(STATIC_SRV6_SID_ATTRS_NODE,
+			&no_srv6_sid_attribute_adj_cmd);
 
 	/* Command for operation */
 	install_element(VIEW_NODE, &show_srv6_sid_cmd);

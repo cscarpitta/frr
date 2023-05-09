@@ -71,12 +71,18 @@ enum static_srv6_sid_behavior_t {
 	STATIC_SRV6_SID_BEHAVIOR_UDT46 = 102,
 	/* shift and lookup */
 	STATIC_SRV6_SID_BEHAVIOR_UN = 103,
+	/* shift and cross-connect */
+	STATIC_SRV6_SID_BEHAVIOR_UA = 104,
 };
 
 /* Attributes for an SRv6 SID */
 struct static_srv6_sid_attributes {
 	/* VRF name */
 	char vrf_name[VRF_NAMSIZ];
+	/* Interface name */
+	char ifname[IF_NAMESIZE];
+	/* IPv6 adjacency */
+	struct in6_addr adj_v6;
 };
 
 /* Static SRv6 SID */

@@ -63,6 +63,8 @@ static_srv6_sid_behavior2str(enum static_srv6_sid_behavior_t behavior)
 		return "uDT46";
 	case STATIC_SRV6_SID_BEHAVIOR_UN:
 		return "uN";
+	case STATIC_SRV6_SID_BEHAVIOR_UA:
+		return "uA";
 	case STATIC_SRV6_SID_BEHAVIOR_UNSPEC:
 		return "unspec";
 	default:
@@ -91,6 +93,8 @@ static_srv6_sid_behavior2clistr(enum static_srv6_sid_behavior_t behavior)
 		return "end-dt46-usid";
 	case STATIC_SRV6_SID_BEHAVIOR_UN:
 		return "uN";
+	case STATIC_SRV6_SID_BEHAVIOR_UA:
+		return "uA";
 	case STATIC_SRV6_SID_BEHAVIOR_UNSPEC:
 		return "unspec";
 	default:
@@ -119,6 +123,13 @@ int static_sr_config_write(struct vty *vty)
 				if (sid->attributes.vrf_name[0] != '\0')
 					vty_out(vty, "     vrf-name %s\n",
 						sid->attributes.vrf_name);
+				if (sid->attributes.ifname[0] != '\0')
+					vty_out(vty, "     interface %s\n",
+						sid->attributes.ifname);
+				if (!IPV6_ADDR_SAME(&sid->attributes.adj_v6,
+						    &in6addr_any))
+					vty_out(vty, "     adj %pI6\n",
+						&sid->attributes.adj_v6);
 				vty_out(vty, "    exit\n");
 				vty_out(vty, "    !\n");
 			}
@@ -160,6 +171,16 @@ json_object *srv6_sid_json(const struct static_srv6_sid *sid)
 	if (sid->attributes.vrf_name[0] != '\0')
 		json_object_string_add(jo_attributes, "vrfName", sid->attributes.vrf_name);
 
+	/* set the interface name, if configured */
+	if (sid->attributes.ifname[0] != '\0')
+		json_object_string_add(jo_attributes, "interface",
+				       sid->attributes.ifname);
+
+	/* set the interface name, if configured */
+	if (!IPV6_ADDR_SAME(&sid->attributes.adj_v6, &in6addr_any))
+		json_object_string_addf(jo_attributes, "adjacency", "%pI6",
+					&sid->attributes.adj_v6);
+
 	/* set a flag indicating whether the SRv6 SID is valid or not; a SID is
 	 * valid if all the mandatory attributes have been configured */
 	json_object_boolean_add(
@@ -193,6 +214,16 @@ json_object *srv6_sid_detailed_json(const struct static_srv6_sid *sid)
 	/* set the VRF name, if configured */
 	if (sid->attributes.vrf_name[0] != '\0')
 		json_object_string_add(jo_attributes, "vrfName", sid->attributes.vrf_name);
+
+	/* set the interface name, if configured */
+	if (sid->attributes.ifname[0] != '\0')
+		json_object_string_add(jo_attributes, "interface",
+				       sid->attributes.ifname);
+
+	/* set the interface name, if configured */
+	if (!IPV6_ADDR_SAME(&sid->attributes.adj_v6, &in6addr_any))
+		json_object_string_addf(jo_attributes, "adjacency", "%pI6",
+					&sid->attributes.adj_v6);
 
 	/* set a flag indicating whether the SRv6 SID is valid or not; a SID is
 	 * valid if all the mandatory attributes have been configured */

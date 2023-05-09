@@ -623,9 +623,25 @@ extern void static_zebra_srv6_sid_add(struct static_srv6_sid *sid)
 	case STATIC_SRV6_SID_BEHAVIOR_UN:
 		seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_END;
 		break;
+	case STATIC_SRV6_SID_BEHAVIOR_UA:
+		seg6local_action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
+		break;
 	}
 
 	/* process SRv6 SID attributes */
+
+	/* generate nexthop from the interface name, if configured */
+	if (sid->attributes.ifname[0] != '\0') {
+		ifp = if_lookup_by_name(sid->attributes.ifname, VRF_DEFAULT);
+		if (!ifp)
+			return;
+
+		oif = ifp->ifindex;
+	}
+
+	/* generate nexthop from the adjacency, if configured */
+	if (!IPV6_ADDR_SAME(&sid->attributes.adj_v6, &in6addr_any))
+		seg6local_ctx.nh6 = sid->attributes.adj_v6;
 
 	/* generate table ID from the VRF name, if configured */
 	if (sid->attributes.vrf_name[0] != '\0') {
@@ -635,8 +651,11 @@ extern void static_zebra_srv6_sid_add(struct static_srv6_sid *sid)
 
 		seg6local_ctx.table = vrf->data.l.table_id;
 		oif = vrf->vrf_id;
-	} else {
-		/* By default, use the first non-loopback interface as outgoing device */
+	}
+
+	/* By default, use the first non-loopback interface as outgoing device
+	 */
+	if (!oif) {
 		for (int i = 0; i < 256; ++i) {
 			ifp = if_lookup_by_index(i, VRF_DEFAULT);
 			if (ifp && !strmatch(ifp->name, "lo"))
@@ -651,7 +670,8 @@ extern void static_zebra_srv6_sid_add(struct static_srv6_sid *sid)
 	}
 
 	/* If SRv6 SID is a uSID, set flavor data structure */
-	if (sid->behavior == STATIC_SRV6_SID_BEHAVIOR_UN) {
+	if (sid->behavior == STATIC_SRV6_SID_BEHAVIOR_UN ||
+	    sid->behavior == STATIC_SRV6_SID_BEHAVIOR_UA) {
 		SET_SRV6_FLV_OP(seg6local_ctx.flv.flv_ops,
 				ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 		seg6local_ctx.flv.lcblock_len =
