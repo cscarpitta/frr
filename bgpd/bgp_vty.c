@@ -8639,7 +8639,6 @@ static afi_t vpn_policy_getafi(struct vty *vty, struct bgp *bgp, bool v2vimport)
 			"%% context error: valid only in address-family <ipv4|ipv6> unicast block\n");
 		return AFI_MAX;
 	}
-
 	if (!v2vimport) {
 		if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
 			       BGP_CONFIG_VRF_TO_VRF_IMPORT)
@@ -9358,6 +9357,121 @@ DEFPY(bgp_imexport_vrf, bgp_imexport_vrf_cmd,
 		}
 
 		vrf_import_from_vrf(bgp, vrf_bgp, afi, safi);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(bgp_redistribute_vrf, bgp_redistribute_vrf_cmd,
+      "[no] redistribute vrf VIEWVRFNAME$import_name",
+      NO_STR
+      "Redistribute routes from another VRF\n"
+      "VRF to import from\n"
+      "The name of the VRF\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	struct listnode *node, *nnode;
+	struct listnode *exnode, *nexnode;
+	;
+	struct bgp *vrf_bgp;
+	int32_t ret = 0;
+	as_t as = bgp->as;
+	bool remove = false;
+	int32_t idx = 0;
+	char *vname;
+	enum bgp_instance_type bgp_type = BGP_INSTANCE_TYPE_VRF;
+	afi_t afi;
+	safi_t safi;
+
+	if (import_name == NULL) {
+		vty_out(vty, "%% Missing import name\n");
+		return CMD_WARNING;
+	}
+
+	if (strcmp(import_name, "route-map") == 0) {
+		vty_out(vty, "%% Must include route-map name\n");
+		return CMD_WARNING;
+	}
+
+	if (argv_find(argv, argc, "no", &idx))
+		remove = true;
+
+	afi = bgp_node_afi(vty);
+	safi = bgp_node_safi(vty);
+	if ((SAFI_UNICAST != safi) || ((AFI_IP != afi) && (AFI_IP6 != afi))) {
+		vty_out(vty, 
+			"%% redistribute vrf is valid only for unicast ipv4|ipv6\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (((BGP_INSTANCE_TYPE_DEFAULT == bgp->inst_type) &&
+	     (strcmp(import_name, VRF_DEFAULT_NAME) == 0)) ||
+	    (bgp->name && (strcmp(import_name, bgp->name) == 0))) {
+		vty_out(vty, "%% Cannot %s vrf %s into itself\n",
+			remove ? "unimport" : "import", import_name);
+		return CMD_WARNING;
+	}
+
+	vrf_bgp = bgp_lookup_by_name(import_name);
+	if (!vrf_bgp) {
+		if (strcmp(import_name, VRF_DEFAULT_NAME) == 0) {
+			vty_out(vty, "Default VRF can not be redistributed\n");
+			return CMD_WARNING;
+		} else
+			/* Auto-create assuming the same AS */
+			ret = bgp_get_vty(&vrf_bgp, &as, import_name, bgp_type);
+
+		if (ret) {
+			vty_out(vty,
+				"VRF %s is not configured as a bgp instance\n",
+				import_name);
+			return CMD_WARNING;
+		}
+	}
+
+	if (remove) {
+		for (ALL_LIST_ELEMENTS(
+			     bgp->vpn_policy[afi].redistribute_import_vrf, node,
+			     nnode, vname)) {
+			if (strcmp(vname, import_name) == 0) {
+				vrf_leak_from_vrf_withdraw_all(bgp, vrf_bgp,
+							       afi);
+				listnode_delete(
+					bgp->vpn_policy[afi]
+						.redistribute_import_vrf,
+					vname);
+				XFREE(MTYPE_TMP, vname);
+				for (ALL_LIST_ELEMENTS(
+					     vrf_bgp->vpn_policy[afi]
+						     .redistribute_export_vrf,
+					     exnode, nexnode, vname)) {
+					if (strcmp(vname, bgp->name) == 0) {
+						listnode_delete(
+							vrf_bgp->vpn_policy[afi]
+								.redistribute_export_vrf,
+							vname);
+						XFREE(MTYPE_TMP, vname);
+					}
+				}
+				return CMD_SUCCESS;
+			}
+		}
+	} else {
+		/* Already importing from "import_vrf"? */
+		for (ALL_LIST_ELEMENTS_RO(
+			     bgp->vpn_policy[afi].redistribute_import_vrf, node,
+			     vname)) {
+			if (strcmp(vname, import_name) == 0)
+				return CMD_WARNING;
+		}
+		vname = XSTRDUP(MTYPE_TMP, import_name);
+		listnode_add(bgp->vpn_policy[afi].redistribute_import_vrf,
+			     vname);
+		vname = XSTRDUP(MTYPE_TMP, bgp->name);
+		listnode_add(vrf_bgp->vpn_policy[afi].redistribute_export_vrf,
+			     vname);
+
+		vrf_leak_from_vrf_update_all(bgp, vrf_bgp, afi);
 	}
 
 	return CMD_SUCCESS;
@@ -16640,11 +16754,13 @@ static void bgp_vpn_policy_config_write_afi(struct vty *vty, struct bgp *bgp,
 				bgp->vpn_policy[afi]
 				.rmap_name[BGP_VPN_POLICY_DIR_FROMVPN]);
 	}
+#if 0
 	if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
 		       BGP_CONFIG_VRF_TO_VRF_IMPORT)
 	    || CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
 			  BGP_CONFIG_VRF_TO_VRF_EXPORT))
 		return;
+#endif
 
 	if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
 		BGP_VPN_POLICY_TOVPN_LABEL_AUTO)) {
@@ -17398,7 +17514,7 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 	struct peer *peer;
 	struct peer_group *group;
 	struct listnode *node, *nnode;
-
+	char *name;
 
 	vty_frame(vty, " !\n address-family ");
 	if (afi == AFI_IP) {
@@ -17478,13 +17594,16 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 		}
 		if (CHECK_FLAG(bgp->af_flags[afi][safi],
 			       BGP_CONFIG_VRF_TO_VRF_IMPORT)) {
-			char *name;
 
 			for (ALL_LIST_ELEMENTS_RO(
 				     bgp->vpn_policy[afi].import_vrf, node,
 				     name))
 				vty_out(vty, "  import vrf %s\n", name);
 		}
+		for (ALL_LIST_ELEMENTS_RO(
+			     bgp->vpn_policy[afi].redistribute_import_vrf, node,
+			     name))
+			vty_out(vty, "  redistribute vrf %s\n", name);
 	}
 
 	vty_endframe(vty, " exit-address-family\n");
@@ -19543,6 +19662,9 @@ void bgp_vty_init(void)
 
 	install_element(BGP_IPV4_NODE, &bgp_imexport_vrf_cmd);
 	install_element(BGP_IPV6_NODE, &bgp_imexport_vrf_cmd);
+
+	install_element(BGP_IPV4_NODE, &bgp_redistribute_vrf_cmd);
+	install_element(BGP_IPV6_NODE, &bgp_redistribute_vrf_cmd);
 
 	/* ttl_security commands */
 	install_element(BGP_NODE, &neighbor_ttl_security_cmd);
