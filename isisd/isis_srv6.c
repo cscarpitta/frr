@@ -251,7 +251,7 @@ static void show_node(struct vty *vty, struct isis_area *area, int level)
 			continue;
 
 		ttable_add_row(
-			tt, "%s|%s|%u|%u|%u|%u", sysid_print(lsp->hdr.lsp_id),
+			tt, "%pSY|%s|%u|%u|%u|%u", lsp->hdr.lsp_id,
 			cap->algo[0] == SR_ALGORITHM_SPF ? "SPF" : "S-SPF",
 			cap->srv6_msd.max_seg_left_msd,
 			cap->srv6_msd.max_end_pop_msd,
