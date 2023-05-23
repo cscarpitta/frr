@@ -277,7 +277,7 @@ isis_srv6_sid_alloc(struct isis_area *area, uint32_t index,
 	// transpose_sid(sid, index, offset, func_len);
 
 	sr_debug("ISIS-SRv6 (%s): allocating new SID %pI6", area->area_tag,
-		 sid);
+		 &sid->value);
 
 	return sid;
 }
