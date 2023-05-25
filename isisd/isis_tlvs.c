@@ -113,6 +113,9 @@ static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX];
 static void append_item(struct isis_item_list *dest, struct isis_item *item);
 static void init_item_list(struct isis_item_list *items);
 
+static struct isis_subsubtlvs *
+isis_copy_subsubtlvs(struct isis_subsubtlvs *subsubtlvs);
+
 /* For tests/isisd, TLV text requires ipv4-unicast instead of standard */
 static const char *isis_mtid2str_fake(uint16_t mtid)
 {
@@ -191,6 +194,8 @@ copy_item_ext_subtlvs(struct isis_ext_subtlvs *exts, uint16_t mtid)
 	struct isis_lan_adj_sid *lan;
 	struct listnode *node, *nnode;
 	struct isis_asla_subtlvs *new_asla, *asla;
+	struct isis_srv6_endx_sid_subtlv *srv6_adj;
+	struct isis_srv6_lan_endx_sid_subtlv *srv6_lan;
 
 	/* Copy the Extended IS main part */
 	memcpy(rv, exts, sizeof(struct isis_ext_subtlvs));
@@ -208,6 +213,10 @@ copy_item_ext_subtlvs(struct isis_ext_subtlvs *exts, uint16_t mtid)
 	/* Prepare (LAN)-Adjacency Segment Routing ID*/
 	init_item_list(&rv->adj_sid);
 	init_item_list(&rv->lan_sid);
+
+	/* Prepare SRv6 (LAN) End.X SID */
+	init_item_list(&rv->srv6_endx_sid);
+	init_item_list(&rv->srv6_lan_endx_sid);
 
 	UNSET_SUBTLV(rv, EXT_ADJ_SID);
 	UNSET_SUBTLV(rv, EXT_LAN_ADJ_SID);
@@ -253,6 +262,51 @@ copy_item_ext_subtlvs(struct isis_ext_subtlvs *exts, uint16_t mtid)
 		new->sid = lan->sid;
 		append_item(&rv->lan_sid, (struct isis_item *)new);
 		SET_SUBTLV(rv, EXT_LAN_ADJ_SID);
+	}
+
+	/* Copy SRv6 End.X SID list for IPv4 & IPv6 in function of MT ID */
+	for (srv6_adj = (struct isis_srv6_endx_sid_subtlv *)
+				exts->srv6_endx_sid.head;
+	     srv6_adj != NULL; srv6_adj = srv6_adj->next) {
+		if ((mtid != ISIS_MT_DISABLE) &&
+		    ((mtid != ISIS_MT_IPV6_UNICAST)))
+			continue;
+
+		struct isis_srv6_endx_sid_subtlv *new;
+
+		new = XCALLOC(MTYPE_ISIS_SUBTLV,
+			      sizeof(struct isis_srv6_endx_sid_subtlv));
+		new->flags = srv6_adj->flags;
+		new->algorithm = srv6_adj->algorithm;
+		new->weight = srv6_adj->weight;
+		new->behavior = srv6_adj->behavior;
+		new->value = srv6_adj->value;
+		new->subsubtlvs = isis_copy_subsubtlvs(srv6_adj->subsubtlvs);
+		append_item(&rv->srv6_endx_sid, (struct isis_item *)new);
+		SET_SUBTLV(rv, EXT_SRV6_ENDX_SID);
+	}
+
+	/* Same for SRv6 LAN End.X SID */
+	for (srv6_lan = (struct isis_srv6_lan_endx_sid_subtlv *)
+				exts->srv6_lan_endx_sid.head;
+	     srv6_lan != NULL; srv6_lan = srv6_lan->next) {
+		if ((mtid != ISIS_MT_DISABLE) &&
+		    ((mtid != ISIS_MT_IPV6_UNICAST)))
+			continue;
+
+		struct isis_srv6_lan_endx_sid_subtlv *new;
+
+		new = XCALLOC(MTYPE_ISIS_SUBTLV,
+			      sizeof(struct isis_srv6_lan_endx_sid_subtlv));
+		memcpy(new->neighbor_id, srv6_lan->neighbor_id, 6);
+		new->flags = srv6_lan->flags;
+		new->algorithm = srv6_lan->algorithm;
+		new->weight = srv6_lan->weight;
+		new->behavior = srv6_lan->behavior;
+		new->value = srv6_lan->value;
+		new->subsubtlvs = isis_copy_subsubtlvs(srv6_lan->subsubtlvs);
+		append_item(&rv->srv6_lan_endx_sid, (struct isis_item *)new);
+		SET_SUBTLV(rv, EXT_SRV6_LAN_ENDX_SID);
 	}
 
 	rv->aslas = list_new();
