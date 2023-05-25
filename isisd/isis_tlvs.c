@@ -117,6 +117,12 @@ static struct isis_subsubtlvs *
 isis_copy_subsubtlvs(struct isis_subsubtlvs *subsubtlvs);
 static int isis_pack_subsubtlvs(struct isis_subsubtlvs *subsubtlvs,
 				struct stream *s);
+static struct isis_subsubtlvs *
+isis_alloc_subsubtlvs(enum isis_tlv_context context);
+static int unpack_tlvs(enum isis_tlv_context context, size_t avail_len,
+		       struct stream *stream, struct sbuf *log, void *dest,
+		       int indent, bool *unpacked_known_tlvs);
+static void isis_free_subsubtlvs(struct isis_subsubtlvs *subsubtlvs);
 
 /* For tests/isisd, TLV text requires ipv4-unicast instead of standard */
 static const char *isis_mtid2str_fake(uint16_t mtid)
@@ -1629,6 +1635,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 	uint8_t sum = 0;
 	uint8_t subtlv_type;
 	uint8_t subtlv_len;
+	uint8_t subsubtlv_len;
 	size_t nb_groups;
 	uint32_t val;
 
@@ -1965,6 +1972,91 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 				append_item(&exts->lan_sid,
 					    (struct isis_item *)lan);
 				SET_SUBTLV(exts, EXT_LAN_ADJ_SID);
+			}
+			break;
+		/* SRv6 End.X SID as per RFC9352 section #8.1 */
+		case ISIS_SUBTLV_SRV6_ENDX_SID:
+			if (subtlv_len < ISIS_SUBTLV_SRV6_ENDX_SID_SIZE) {
+				TLV_SIZE_MISMATCH(log, indent,
+						  "SRv6 End.X SID");
+				stream_forward_getp(s, subtlv_len);
+			} else {
+				struct isis_srv6_endx_sid_subtlv *adj;
+
+				adj = XCALLOC(
+					MTYPE_ISIS_SUBTLV,
+					sizeof(struct
+					       isis_srv6_endx_sid_subtlv));
+				adj->flags = stream_getc(s);
+				adj->algorithm = stream_getc(s);
+				adj->weight = stream_getc(s);
+				adj->behavior = stream_getw(s);
+				stream_get(&adj->value, s, IPV6_MAX_BYTELEN);
+				subsubtlv_len = stream_getc(s);
+
+				adj->subsubtlvs = isis_alloc_subsubtlvs(
+					ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID);
+
+				bool unpacked_known_tlvs = false;
+				if (unpack_tlvs(
+					    ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID,
+					    subsubtlv_len, s, log,
+					    adj->subsubtlvs, indent + 4,
+					    &unpacked_known_tlvs)) {
+					XFREE(MTYPE_ISIS_SUBTLV, adj);
+					break;
+				}
+				if (!unpacked_known_tlvs) {
+					isis_free_subsubtlvs(adj->subsubtlvs);
+					adj->subsubtlvs = NULL;
+				}
+
+				append_item(&exts->srv6_endx_sid,
+					    (struct isis_item *)adj);
+				SET_SUBTLV(exts, EXT_SRV6_ENDX_SID);
+			}
+			break;
+		/* SRv6 LAN End.X SID as per RFC9352 section #8.2 */
+		case ISIS_SUBTLV_SRV6_LAN_ENDX_SID:
+			if (subtlv_len < ISIS_SUBTLV_SRV6_LAN_ENDX_SID_SIZE) {
+				TLV_SIZE_MISMATCH(log, indent,
+						  "SRv6 LAN End.X SID");
+				stream_forward_getp(s, subtlv_len);
+			} else {
+				struct isis_srv6_lan_endx_sid_subtlv *lan;
+
+				lan = XCALLOC(
+					MTYPE_ISIS_SUBTLV,
+					sizeof(struct isis_srv6_lan_endx_sid_subtlv));
+				stream_get(&(lan->neighbor_id), s,
+					   ISIS_SYS_ID_LEN);
+				lan->flags = stream_getc(s);
+				lan->algorithm = stream_getc(s);
+				lan->weight = stream_getc(s);
+				lan->behavior = stream_getw(s);
+				stream_get(&lan->value, s, IPV6_MAX_BYTELEN);
+				subsubtlv_len = stream_getc(s);
+
+				lan->subsubtlvs = isis_alloc_subsubtlvs(
+					ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID);
+
+				bool unpacked_known_tlvs = false;
+				if (unpack_tlvs(
+					    ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID,
+					    subsubtlv_len, s, log,
+					    lan->subsubtlvs, indent + 4,
+					    &unpacked_known_tlvs)) {
+					XFREE(MTYPE_ISIS_SUBTLV, lan);
+					break;
+				}
+				if (!unpacked_known_tlvs) {
+					isis_free_subsubtlvs(lan->subsubtlvs);
+					lan->subsubtlvs = NULL;
+				}
+
+				append_item(&exts->srv6_lan_endx_sid,
+					    (struct isis_item *)lan);
+				SET_SUBTLV(exts, EXT_SRV6_LAN_ENDX_SID);
 			}
 			break;
 		case ISIS_SUBTLV_ASLA:
@@ -7054,49 +7146,70 @@ ITEM_SUBTLV_OPS(srv6_end_sid, "Sub-TLV 5 SRv6 End SID");
 SUBSUBTLV_OPS(srv6_sid_structure, "Sub-Sub-TLV 1 SRv6 SID Structure");
 
 static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
-	[ISIS_CONTEXT_LSP] = {
-		[ISIS_TLV_AREA_ADDRESSES] = &tlv_area_address_ops,
-		[ISIS_TLV_OLDSTYLE_REACH] = &tlv_oldstyle_reach_ops,
-		[ISIS_TLV_LAN_NEIGHBORS] = &tlv_lan_neighbor_ops,
-		[ISIS_TLV_LSP_ENTRY] = &tlv_lsp_entry_ops,
-		[ISIS_TLV_AUTH] = &tlv_auth_ops,
-		[ISIS_TLV_PURGE_ORIGINATOR] = &tlv_purge_originator_ops,
-		[ISIS_TLV_EXTENDED_REACH] = &tlv_extended_reach_ops,
-		[ISIS_TLV_OLDSTYLE_IP_REACH] = &tlv_oldstyle_ip_reach_ops,
-		[ISIS_TLV_PROTOCOLS_SUPPORTED] = &tlv_protocols_supported_ops,
-		[ISIS_TLV_OLDSTYLE_IP_REACH_EXT] = &tlv_oldstyle_ip_reach_ops,
-		[ISIS_TLV_IPV4_ADDRESS] = &tlv_ipv4_address_ops,
-		[ISIS_TLV_TE_ROUTER_ID] = &tlv_te_router_id_ops,
-		[ISIS_TLV_TE_ROUTER_ID_IPV6] = &tlv_te_router_id_ipv6_ops,
-		[ISIS_TLV_EXTENDED_IP_REACH] = &tlv_extended_ip_reach_ops,
-		[ISIS_TLV_DYNAMIC_HOSTNAME] = &tlv_dynamic_hostname_ops,
-		[ISIS_TLV_SPINE_LEAF_EXT] = &tlv_spine_leaf_ops,
-		[ISIS_TLV_MT_REACH] = &tlv_extended_reach_ops,
-		[ISIS_TLV_MT_ROUTER_INFO] = &tlv_mt_router_info_ops,
-		[ISIS_TLV_IPV6_ADDRESS] = &tlv_ipv6_address_ops,
-		[ISIS_TLV_GLOBAL_IPV6_ADDRESS] = &tlv_global_ipv6_address_ops,
-		[ISIS_TLV_MT_IP_REACH] = &tlv_extended_ip_reach_ops,
-		[ISIS_TLV_IPV6_REACH] = &tlv_ipv6_reach_ops,
-		[ISIS_TLV_MT_IPV6_REACH] = &tlv_ipv6_reach_ops,
-		[ISIS_TLV_THREE_WAY_ADJ] = &tlv_threeway_adj_ops,
-		[ISIS_TLV_ROUTER_CAPABILITY] = &tlv_router_cap_ops,
-		[ISIS_TLV_SRV6_LOCATOR] = &tlv_srv6_locator_ops,
-	},
+	[ISIS_CONTEXT_LSP] =
+		{
+			[ISIS_TLV_AREA_ADDRESSES] = &tlv_area_address_ops,
+			[ISIS_TLV_OLDSTYLE_REACH] = &tlv_oldstyle_reach_ops,
+			[ISIS_TLV_LAN_NEIGHBORS] = &tlv_lan_neighbor_ops,
+			[ISIS_TLV_LSP_ENTRY] = &tlv_lsp_entry_ops,
+			[ISIS_TLV_AUTH] = &tlv_auth_ops,
+			[ISIS_TLV_PURGE_ORIGINATOR] = &tlv_purge_originator_ops,
+			[ISIS_TLV_EXTENDED_REACH] = &tlv_extended_reach_ops,
+			[ISIS_TLV_OLDSTYLE_IP_REACH] =
+				&tlv_oldstyle_ip_reach_ops,
+			[ISIS_TLV_PROTOCOLS_SUPPORTED] =
+				&tlv_protocols_supported_ops,
+			[ISIS_TLV_OLDSTYLE_IP_REACH_EXT] =
+				&tlv_oldstyle_ip_reach_ops,
+			[ISIS_TLV_IPV4_ADDRESS] = &tlv_ipv4_address_ops,
+			[ISIS_TLV_TE_ROUTER_ID] = &tlv_te_router_id_ops,
+			[ISIS_TLV_TE_ROUTER_ID_IPV6] =
+				&tlv_te_router_id_ipv6_ops,
+			[ISIS_TLV_EXTENDED_IP_REACH] =
+				&tlv_extended_ip_reach_ops,
+			[ISIS_TLV_DYNAMIC_HOSTNAME] = &tlv_dynamic_hostname_ops,
+			[ISIS_TLV_SPINE_LEAF_EXT] = &tlv_spine_leaf_ops,
+			[ISIS_TLV_MT_REACH] = &tlv_extended_reach_ops,
+			[ISIS_TLV_MT_ROUTER_INFO] = &tlv_mt_router_info_ops,
+			[ISIS_TLV_IPV6_ADDRESS] = &tlv_ipv6_address_ops,
+			[ISIS_TLV_GLOBAL_IPV6_ADDRESS] =
+				&tlv_global_ipv6_address_ops,
+			[ISIS_TLV_MT_IP_REACH] = &tlv_extended_ip_reach_ops,
+			[ISIS_TLV_IPV6_REACH] = &tlv_ipv6_reach_ops,
+			[ISIS_TLV_MT_IPV6_REACH] = &tlv_ipv6_reach_ops,
+			[ISIS_TLV_THREE_WAY_ADJ] = &tlv_threeway_adj_ops,
+			[ISIS_TLV_ROUTER_CAPABILITY] = &tlv_router_cap_ops,
+			[ISIS_TLV_SRV6_LOCATOR] = &tlv_srv6_locator_ops,
+		},
 	[ISIS_CONTEXT_SUBTLV_NE_REACH] = {},
-	[ISIS_CONTEXT_SUBTLV_IP_REACH] = {
-		[ISIS_SUBTLV_PREFIX_SID] = &tlv_prefix_sid_ops,
-	},
-	[ISIS_CONTEXT_SUBTLV_IPV6_REACH] = {
-		[ISIS_SUBTLV_PREFIX_SID] = &tlv_prefix_sid_ops,
-		[ISIS_SUBTLV_IPV6_SOURCE_PREFIX] = &subtlv_ipv6_source_prefix_ops,
-	},
-	[ISIS_CONTEXT_SUBTLV_SRV6_LOCATOR] = {
-		[ISIS_SUBTLV_SRV6_END_SID] = &tlv_srv6_end_sid_ops,
-	},
-	[ISIS_CONTEXT_SUBSUBTLV_SRV6_END_SID] = {
-		[ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE] = &subsubtlv_srv6_sid_structure_ops,
-	}
-};
+	[ISIS_CONTEXT_SUBTLV_IP_REACH] =
+		{
+			[ISIS_SUBTLV_PREFIX_SID] = &tlv_prefix_sid_ops,
+		},
+	[ISIS_CONTEXT_SUBTLV_IPV6_REACH] =
+		{
+			[ISIS_SUBTLV_PREFIX_SID] = &tlv_prefix_sid_ops,
+			[ISIS_SUBTLV_IPV6_SOURCE_PREFIX] =
+				&subtlv_ipv6_source_prefix_ops,
+		},
+	[ISIS_CONTEXT_SUBTLV_SRV6_LOCATOR] =
+		{
+			[ISIS_SUBTLV_SRV6_END_SID] = &tlv_srv6_end_sid_ops,
+		},
+	[ISIS_CONTEXT_SUBSUBTLV_SRV6_END_SID] =
+		{
+			[ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE] =
+				&subsubtlv_srv6_sid_structure_ops,
+		},
+	[ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID] =
+		{
+			[ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE] =
+				&subsubtlv_srv6_sid_structure_ops,
+		},
+	[ISIS_CONTEXT_SUBSUBTLV_SRV6_LAN_ENDX_SID] = {
+		[ISIS_SUBSUBTLV_SRV6_SID_STRUCTURE] =
+			&subsubtlv_srv6_sid_structure_ops,
+	}};
 
 /* Accessor functions */
 
