@@ -69,6 +69,36 @@ struct isis_srv6_locator {
 	struct list *srv6_sid;
 };
 
+/* SRv6 Adjacency-SID type */
+enum srv6_adj_type {
+	ISIS_SRV6_ADJ_NORMAL = 0,
+	ISIS_SRV6_LAN_BACKUP,
+};
+
+/* SRv6 Adjacency. */
+struct srv6_adjacency {
+	/* Adjacency type */
+	enum srv6_adj_type type;
+
+	/* End.X SID value */
+	struct isis_srv6_sid *sid;
+
+	/* Adjacency-SID nexthop information */
+	struct in6_addr nexthop;
+
+	/* End.X SID TI-LFA backup nexthops */
+	struct list *backup_nexthops;
+
+	/* SRv6 (LAN) End.X SID Sub-TLV */
+	union {
+		struct isis_srv6_endx_sid_subtlv *endx_sid;
+		struct isis_srv6_lan_endx_sid_subtlv *lendx_sid;
+	} u;
+
+	/* Back pointer to IS-IS adjacency. */
+	struct isis_adjacency *adj;
+};
+
 /* Per-area IS-IS SRv6 Data Base (SRv6 DB) */
 struct isis_srv6_db {
 	/* Global Operational status of SRv6 */
@@ -79,6 +109,9 @@ struct isis_srv6_db {
 
 	/* List of SRv6 SIDs allocated by the IS-IS instance */
 	struct list *srv6_sids;
+
+	/* List of SRv6 End.X SIDs allocated by the IS-IS instance */
+	struct list *srv6_endx_sids;
 
 	/* Area SRv6 configuration. */
 	struct {
@@ -123,5 +156,12 @@ void isis_srv6_end_sid2subtlv(const struct isis_srv6_sid *sid,
 			      struct isis_srv6_end_sid_subtlv *sid_subtlv);
 void isis_srv6_locator2tlv(const struct isis_srv6_locator *loc,
 			   struct isis_srv6_locator_tlv *loc_tlv);
+
+void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
+			   struct list *nexthops);
+void srv6_endx_sid_add(struct isis_adjacency *adj);
+struct srv6_adjacency *isis_srv6_endx_sid_find(struct isis_adjacency *adj,
+					  enum srv6_adj_type type);
+void isis_area_delete_backup_srv6_endx_sids(struct isis_area *area, int level);
 
 #endif /* _FRR_ISIS_SRV6_H */
