@@ -115,10 +115,11 @@ static void init_item_list(struct isis_item_list *items);
 
 static struct isis_subsubtlvs *
 isis_copy_subsubtlvs(struct isis_subsubtlvs *subsubtlvs);
+static void isis_format_subsubtlvs(struct isis_subsubtlvs *subsubtlvs,
+			      struct sbuf *buf, struct json_object *json,
+			      int indent);
 static int isis_pack_subsubtlvs(struct isis_subsubtlvs *subsubtlvs,
 				struct stream *s);
-static struct isis_subsubtlvs *
-isis_alloc_subsubtlvs(enum isis_tlv_context context);
 static int unpack_tlvs(enum isis_tlv_context context, size_t avail_len,
 		       struct stream *stream, struct sbuf *log, void *dest,
 		       int indent, bool *unpacked_known_tlvs);
@@ -229,6 +230,9 @@ copy_item_ext_subtlvs(struct isis_ext_subtlvs *exts, uint16_t mtid)
 	UNSET_SUBTLV(rv, EXT_ADJ_SID);
 	UNSET_SUBTLV(rv, EXT_LAN_ADJ_SID);
 
+	UNSET_SUBTLV(rv, EXT_SRV6_ENDX_SID);
+	UNSET_SUBTLV(rv, EXT_SRV6_LAN_ENDX_SID);
+
 	/* Copy Adj SID list for IPv4 & IPv6 in function of MT ID */
 	for (adj = (struct isis_adj_sid *)exts->adj_sid.head; adj != NULL;
 	     adj = adj->next) {
@@ -293,12 +297,12 @@ copy_item_ext_subtlvs(struct isis_ext_subtlvs *exts, uint16_t mtid)
 		append_item(&rv->srv6_endx_sid, (struct isis_item *)new);
 		SET_SUBTLV(rv, EXT_SRV6_ENDX_SID);
 	}
-
 	/* Same for SRv6 LAN End.X SID */
 	for (srv6_lan = (struct isis_srv6_lan_endx_sid_subtlv *)
 				exts->srv6_lan_endx_sid.head;
 	     srv6_lan != NULL; srv6_lan = srv6_lan->next) {
-		if ((mtid != ISIS_MT_DISABLE) &&
+		if ((mtid != 65535) &&
+		(mtid != ISIS_MT_DISABLE) &&
 		    ((mtid != ISIS_MT_IPV6_UNICAST)))
 			continue;
 
@@ -943,6 +947,9 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 						? "1"
 						: "0");
 				json_object_array_add(arr_adj_json, flags_json);
+				if (adj->subsubtlvs)
+					isis_format_subsubtlvs(adj->subsubtlvs, NULL, json,
+								indent + 4);
 			}
 		} else
 			for (adj = (struct isis_srv6_endx_sid_subtlv *)
@@ -964,6 +971,9 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 					adj->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG
 						? '1'
 						: '0');
+				if (adj->subsubtlvs)
+					isis_format_subsubtlvs(adj->subsubtlvs, buf, NULL,
+								indent + 4);
 			}
 	}
 	/* SRv6 LAN End.X SID as per RFC9352 section #8.2 */
@@ -977,8 +987,6 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 			for (lan = (struct isis_srv6_lan_endx_sid_subtlv *)
 					   exts->srv6_lan_endx_sid.head;
 			     lan; lan = lan->next) {
-				if (mtid != ISIS_MT_IPV6_UNICAST)
-					continue;
 				snprintfrr(cnt_buf, sizeof(cnt_buf), "%pI6",
 					   &lan->value);
 				flags_json = json_object_new_object();
@@ -995,11 +1003,6 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 					flags_json, "behavior",
 					seg6local_action2str(lan->behavior));
 				json_object_string_add(
-					flags_json, "flag-f",
-					lan->flags & EXT_SUBTLV_LINK_ADJ_SID_FFLG
-						? "1"
-						: "0");
-				json_object_string_add(
 					flags_json, "flag-b",
 					lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG
 						? "1"
@@ -1014,32 +1017,38 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 					lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG
 						? "1"
 						: "0");
+				json_object_string_addf(flags_json, "neighbor-id",
+							"%pSY", lan->neighbor_id);
 				json_object_array_add(arr_adj_json, flags_json);
+				if (lan->subsubtlvs)
+					isis_format_subsubtlvs(lan->subsubtlvs, NULL, json,
+								indent + 4);
 			}
 		} else
 			for (lan = (struct isis_srv6_lan_endx_sid_subtlv *)
 					   exts->srv6_lan_endx_sid.head;
 			     lan; lan = lan->next) {
-				if (mtid != ISIS_MT_IPV6_UNICAST)
-					continue;
 				sbuf_push(
 					buf, indent,
-					"Lan-Adjacency-SID: %pI6, Algorithm: %s, Weight: %hhu, Endpoint Behavior: %s, Flags: B:%c, S:%c, P:%c\n"
-					"  Neighbor-ID: %pSY\n",
+					"SRv6 Lan End.X SID: %pI6, Algorithm: %s, Weight: %hhu, Endpoint Behavior: %s, Flags: B:%c, S:%c, P:%c "
+					"Neighbor-ID: %pSY\n",
 					&lan->value,
 					sr_algorithm_string(lan->algorithm),
 					lan->weight,
 					seg6local_action2str(lan->behavior),
-					lan->flags & EXT_SUBTLV_LINK_ADJ_SID_BFLG
+					lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_BFLG
 						? '1'
 						: '0',
-					lan->flags & EXT_SUBTLV_LINK_ADJ_SID_SFLG
+					lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_SFLG
 						? '1'
 						: '0',
-					lan->flags & EXT_SUBTLV_LINK_ADJ_SID_PFLG
+					lan->flags & EXT_SUBTLV_LINK_SRV6_ENDX_SID_PFLG
 						? '1'
 						: '0',
 					lan->neighbor_id);
+				if (lan->subsubtlvs)
+					isis_format_subsubtlvs(lan->subsubtlvs, buf, NULL,
+								indent + 4);
 			}
 	}
 	for (ALL_LIST_ELEMENTS_RO(exts->aslas, node, asla))
@@ -1372,7 +1381,7 @@ static int pack_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		}
 	}
 	/* SRv6 LAN End.X SID as per RFC9352 section #8.2 */
-	if (IS_SUBTLV(exts, EXT_SRV6_ENDX_SID)) {
+	if (IS_SUBTLV(exts, EXT_SRV6_LAN_ENDX_SID)) {
 		struct isis_srv6_lan_endx_sid_subtlv *lan;
 		size_t subtlv_len;
 		size_t subtlv_len_pos;
@@ -2457,7 +2466,7 @@ static int pack_items_(uint16_t mtid, enum isis_tlv_context context,
 
 /* Functions related to Sub-Sub-TLVs in general */
 
-static struct isis_subsubtlvs *
+struct isis_subsubtlvs *
 isis_alloc_subsubtlvs(enum isis_tlv_context context)
 {
 	struct isis_subsubtlvs *result;
@@ -2660,7 +2669,7 @@ static void format_item_srv6_end_sid(uint16_t mtid, struct isis_item *i,
 		if (sid->subsubtlvs) {
 			struct json_object *subtlvs_json;
 			subtlvs_json = json_object_new_object();
-			json_object_object_add(json, "subsubtlvs",
+			json_object_object_add(sid_json, "subsubtlvs",
 					       subtlvs_json);
 			isis_format_subsubtlvs(sid->subsubtlvs, NULL,
 					       subtlvs_json, 0);
@@ -6264,7 +6273,7 @@ static void format_item_srv6_locator(uint16_t mtid, struct isis_item *i,
 		struct json_object *loc_json;
 		loc_json = json_object_new_object();
 		json_object_object_add(json, "srv6-locator", loc_json);
-		json_object_string_add(loc_json, "mt-id", mtid);
+		json_object_int_add(loc_json, "mt-id", mtid);
 		json_object_string_add(
 			loc_json, "prefix",
 			prefix2str(&loc->prefix, prefixbuf, sizeof(prefixbuf)));
@@ -6280,7 +6289,7 @@ static void format_item_srv6_locator(uint16_t mtid, struct isis_item *i,
 		if (loc->subtlvs) {
 			struct json_object *subtlvs_json;
 			subtlvs_json = json_object_new_object();
-			json_object_object_add(json, "subtlvs", subtlvs_json);
+			json_object_object_add(loc_json, "subtlvs", subtlvs_json);
 			format_subtlvs(loc->subtlvs, NULL, subtlvs_json, 0);
 		}
 	} else {

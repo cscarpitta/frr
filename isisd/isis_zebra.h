@@ -59,6 +59,10 @@ extern void isis_zebra_end_sid_install(struct isis_area *area,
 				       struct isis_srv6_sid *sid);
 extern void isis_zebra_end_sid_uninstall(struct isis_area *area,
 					 struct isis_srv6_sid *sid);
+
+void isis_zebra_srv6_endx_sid_install(struct srv6_adjacency *sra);
+void isis_zebra_srv6_endx_sid_uninstall(struct srv6_adjacency *sra);
+
 extern int isis_zebra_srv6_manager_get_locator_chunk(const char *name);
 extern int isis_zebra_srv6_manager_release_locator_chunk(const char *name);
 

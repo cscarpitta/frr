@@ -79,7 +79,7 @@ void isis_srv6_end_sid2subtlv(const struct isis_srv6_sid *sid,
 	sid_subtlv->flags = sid->flags;
 
 	/* Set SRv6 EndSID behavior */
-	sid_subtlv->behavior = sid->behavior;
+	sid_subtlv->behavior = (CHECK_FLAG(sid->locator->flags, SRV6_LOCATOR_USID)) ? SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID : SRV6_ENDPOINT_BEHAVIOR_END;
 
 	/* Set SRv6 End SID value */
 	sid_subtlv->value = sid->value;
@@ -201,10 +201,13 @@ static void transpose_sid(struct in6_addr *sid, uint32_t index, uint8_t offset,
 static bool sid_exist(struct isis_area *area, const struct in6_addr *sid)
 {
 	struct listnode *node;
-	struct in6_addr *s;
+	struct isis_srv6_sid *s;
 
 	for (ALL_LIST_ELEMENTS_RO(area->srv6db.srv6_sids, node, s))
-		if (sid_same(s, sid))
+		if (sid_same(&s->value, sid))
+			return true;
+	for (ALL_LIST_ELEMENTS_RO(area->srv6db.srv6_endx_sids, node, s))
+		if (sid_same(&s->value, sid))
 			return true;
 	return false;
 }
@@ -339,6 +342,9 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
 	struct isis_srv6_sid *sid;
 	struct srv6_locator_chunk* chunk;
 
+	if (!area || !area->srv6db.srv6_locator_chunks || list_isempty(area->srv6db.srv6_locator_chunks))
+		return;
+
 	sr_debug("ISIS-SRv6 (%s): Add %s End.X SID", area->area_tag,
 		 backup ? "Backup" : "Primary");
 
@@ -395,8 +401,10 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
 		ladj_sid->flags = flags;
 		ladj_sid->algorithm = SR_ALGORITHM_SPF;
 		ladj_sid->weight = 0;
-		ladj_sid->behavior = ZEBRA_SEG6_LOCAL_ACTION_END_X;
+		ladj_sid->behavior = CHECK_FLAG(chunk->flags, SRV6_LOCATOR_USID) ? SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID : SRV6_ENDPOINT_BEHAVIOR_END_X;
 		ladj_sid->value = sid->value;
+		ladj_sid->subsubtlvs = isis_alloc_subsubtlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID);
+		isis_subsubtlvs_set_srv6_sid_structure(ladj_sid->subsubtlvs, sid);
 		isis_tlvs_add_srv6_lan_endx_sid(circuit->ext, ladj_sid);
 		sra->u.lendx_sid = ladj_sid;
 		break;
@@ -406,8 +414,10 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
 		adj_sid->flags = flags;
 		adj_sid->algorithm = SR_ALGORITHM_SPF;
 		adj_sid->weight = 0;
-		adj_sid->behavior = ZEBRA_SEG6_LOCAL_ACTION_END_X;
+		adj_sid->behavior = CHECK_FLAG(chunk->flags, SRV6_LOCATOR_USID) ? SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID : SRV6_ENDPOINT_BEHAVIOR_END_X;
 		adj_sid->value = sid->value;
+		adj_sid->subsubtlvs = isis_alloc_subsubtlvs(ISIS_CONTEXT_SUBSUBTLV_SRV6_ENDX_SID);
+		isis_subsubtlvs_set_srv6_sid_structure(adj_sid->subsubtlvs, sid);
 		isis_tlvs_add_srv6_endx_sid(circuit->ext, adj_sid);
 		sra->u.endx_sid = adj_sid;
 		break;
@@ -422,7 +432,7 @@ void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
 	listnode_add(area->srv6db.srv6_endx_sids, sra);
 	listnode_add(adj->srv6_endx_sids, sra);
 
-	isis_zebra_end_sid_install(area, sid);
+	isis_zebra_srv6_endx_sid_install(sra);
 }
 
 /**
@@ -485,7 +495,7 @@ static void srv6_endx_sid_del(struct srv6_adjacency *sra)
 
 	sr_debug("ISIS-SRv6 (%s): Delete SRv6 End.X SID", area->area_tag);
 
-	isis_zebra_end_sid_uninstall(area, sra->sid);
+	isis_zebra_srv6_endx_sid_uninstall(sra);
 
 	/* Release dynamic SRv6 SID and remove subTLVs */
 	switch (circuit->circ_type) {
@@ -698,6 +708,7 @@ void isis_srv6_area_init(struct isis_area *area)
 
 	/* Initialize SRv6 Data Base */
 	memset(srv6db, 0, sizeof(*srv6db));
+	srv6db->srv6_endx_sids = list_new();
 
 	/* Pull defaults from the YANG module */
 	srv6db->config.enabled = yang_get_default_bool("%s/enabled", ISIS_SRV6);
@@ -727,8 +738,14 @@ void isis_srv6_area_init(struct isis_area *area)
 void isis_srv6_area_term(struct isis_area *area)
 {
 	struct isis_srv6_db *srv6db = &area->srv6db;
+	struct srv6_adjacency *sra;
+	struct listnode *node, *nnode;
 
 	sr_debug("ISIS-SRv6 (%s): Terminate SRv6", area->area_tag);
+
+	/* Uninstall all local SRv6 End.X SIDs */
+	for (ALL_LIST_ELEMENTS(area->srv6db.srv6_endx_sids, node, nnode, sra))
+		srv6_endx_sid_del(sra);
 
 	/* Free SRv6 Locator chunks list */
 	list_delete(&srv6db->srv6_locator_chunks);

@@ -859,7 +859,7 @@ void isis_zebra_end_sid_install(struct isis_area *area,
 		ctx.flv.lcnode_func_len = sid->locator->node_bits_length;
 	}
 
-	zclient_send_localsid(zclient, &sid->value, ifp->ifindex, sid->behavior,
+	zclient_send_localsid(zclient, &sid->value, ifp->ifindex, ZEBRA_SEG6_LOCAL_ACTION_END,
 			      &ctx);
 }
 
@@ -882,6 +882,51 @@ void isis_zebra_end_sid_uninstall(struct isis_area *area,
 
 	zclient_send_localsid(zclient, &sid->value, 2,
 			      ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, &ctx);
+}
+
+void isis_zebra_srv6_endx_sid_install(struct srv6_adjacency *sra)
+{
+	struct seg6local_context ctx = {};
+	struct interface *ifp;
+	struct isis_circuit *circuit = sra->adj->circuit;
+	struct isis_area *area = circuit->area;
+
+	if (!sra)
+		return;
+
+	sr_debug("ISIS-SRv6 (%s): setting End.X SID %pI6", area->area_tag,
+		 &sra->sid->value);
+
+	ifp = sra->adj->circuit->interface;
+	ctx.nh6 = sra->nexthop;
+
+	/* If the SID belongs to a uSID locator, we need to install the End SID with the NEXT C-SID flavor in the data plane */
+	if (CHECK_FLAG(sra->sid->locator->flags, SRV6_LOCATOR_USID)) {
+		ctx.flv.flv_ops = 1 << ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID;
+		ctx.flv.lcblock_len = sra->sid->locator->block_bits_length;
+		ctx.flv.lcnode_func_len = sra->sid->locator->node_bits_length;
+	}
+
+	zclient_send_localsid(zclient, &sra->sid->value, ifp->ifindex, ZEBRA_SEG6_LOCAL_ACTION_END_X,
+			      &ctx);
+}
+
+void isis_zebra_srv6_endx_sid_uninstall(struct srv6_adjacency *sra)
+{
+	struct interface *ifp;
+	struct isis_circuit *circuit = sra->adj->circuit;
+	struct isis_area *area = circuit->area;
+
+	if (!sra)
+		return;
+
+	ifp = sra->adj->circuit->interface;
+
+	sr_debug("ISIS-SRv6 (%s): delete End.X SID %pI6", area->area_tag,
+		 &sra->sid->value);
+
+	zclient_send_localsid(zclient, &sra->sid->value, ifp->ifindex,
+			      ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, NULL);
 }
 
 /**
