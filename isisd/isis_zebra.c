@@ -832,25 +832,15 @@ void isis_zebra_end_sid_install(struct isis_area *area,
 	sr_debug("ISIS-SRv6 (%s): setting End SID %pI6", area->area_tag,
 		 &sid->value);
 
-	ifp = if_lookup_by_name("lo", VRF_DEFAULT);
+	ifp = if_lookup_by_name("sr0", VRF_DEFAULT);
 	if (!ifp) {
 		zlog_warn(
-			"Couldn't install End SRv6 SID %pI6: loopback interface not found",
+			"Couldn't install End SRv6 SID %pI6: sr0 interface not found",
 			&sid->value);
 		return;
 	}
 
 	/* TODO: implement seg6local context */
-
-	/* TEMPORARY WORKAROUND */
-	for (int i = 0; i < 256; ++i) {
-		ifp = if_lookup_by_index(i, VRF_DEFAULT);
-		if (ifp && !strmatch(ifp->name, "lo"))
-			break;
-	}
-	if (!ifp)
-		return;
-	/* END TEMPORARY WORKAROUND */
 
 	/* If the SID belongs to a uSID locator, we need to install the End SID with the NEXT C-SID flavor in the data plane */
 	if (CHECK_FLAG(sid->locator->flags, SRV6_LOCATOR_USID)) {
@@ -873,6 +863,7 @@ void isis_zebra_end_sid_uninstall(struct isis_area *area,
 				  struct isis_srv6_sid *sid)
 {
 	struct seg6local_context ctx = {};
+	struct interface *ifp;
 
 	if (!area || !sid)
 		return;
@@ -880,7 +871,14 @@ void isis_zebra_end_sid_uninstall(struct isis_area *area,
 	sr_debug("ISIS-SRv6 (%s): delete End SID %pI6", area->area_tag,
 		 &sid->value);
 
-	zclient_send_localsid(zclient, &sid->value, 2,
+	ifp = if_lookup_by_name("sr0", VRF_DEFAULT);
+	if (!ifp) {
+		zlog_warn(
+			"sr0 interface not found: nothing to uninstall");
+		return;
+	}
+
+	zclient_send_localsid(zclient, &sid->value, ifp->ifindex,
 			      ZEBRA_SEG6_LOCAL_ACTION_UNSPEC, &ctx);
 }
 
@@ -1096,6 +1094,8 @@ static int isis_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	// struct bgp_srv6_function *sid;
 	// struct prefix_ipv6 tmp_prefi;
 	struct isis *isis = NULL;
+	struct isis_srv6_sid *sid;
+	struct srv6_adjacency *sra;
 
 	isis = isis_lookup_by_vrfid(vrf_id);
 	if (!isis)
@@ -1115,6 +1115,27 @@ static int isis_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
 		if (!strmatch(area->srv6db.config.srv6_locator_name, loc.name))
 			continue;
+
+		/* Delete SRv6 SIDs */
+		for (ALL_LIST_ELEMENTS(area->srv6db.srv6_sids, node, nnode, sid)) {
+
+			if (IS_DEBUG_SR)
+				zlog_debug(
+					"Deleting SRv6 SID (locator %s, sid %pI6) from IS-IS area %s",
+					area->srv6db.config.srv6_locator_name,
+					&sid->value, area->area_tag);
+
+			/* Uninstall the SRv6 SID from the forwarding plane through
+			* Zebra */
+			isis_zebra_end_sid_uninstall(area, sid);
+
+			listnode_delete(area->srv6db.srv6_sids, sid);
+			isis_srv6_sid_free(&sid);
+		}
+
+		/* Uninstall all local Adjacency-SIDs. */
+		for (ALL_LIST_ELEMENTS(area->srv6db.srv6_endx_sids, node, nnode, sra))
+			srv6_endx_sid_del(sra);
 
 		/* Free the SRv6 locator chunks */
 		for (ALL_LIST_ELEMENTS(area->srv6db.srv6_locator_chunks, node,
@@ -1143,6 +1164,10 @@ static int isis_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		// if (listcount(area->area_addrs) > 0)
 		// 	lsp_regenerate_schedule(area, area->is_type, 0);  //
 		// TODO: verify advertise locator
+
+		/* Regenerate LSPs to advertise that the locator does not exist anymore
+		*/
+		lsp_regenerate_schedule(area, area->is_type, 0);
 	}
 
 	return 0;

@@ -41,7 +41,7 @@ DEFINE_MTYPE_STATIC(ISISD, ISIS_SRV6_INFO, "ISIS SRv6 information");
 
 // static void srv6_endx_sid_update(struct srv6_adjacency *sra,
 // 			      struct srv6_locator_chunk *chunk);
-static void srv6_endx_sid_del(struct srv6_adjacency *sra);
+//void srv6_endx_sid_del(struct srv6_adjacency *sra);
 
 /**
  * Fill in SRv6 SID Structure Sub-Sub-TLV with information from an SRv6 SID
@@ -488,7 +488,7 @@ void srv6_endx_sid_add(struct isis_adjacency *adj)
  *
  * @param sra	SRv6 Adjacency
  */
-static void srv6_endx_sid_del(struct srv6_adjacency *sra)
+void srv6_endx_sid_del(struct srv6_adjacency *sra)
 {
 	struct isis_circuit *circuit = sra->adj->circuit;
 	struct isis_area *area = circuit->area;

@@ -160,6 +160,7 @@ void isis_srv6_locator2tlv(const struct isis_srv6_locator *loc,
 void srv6_endx_sid_add_single(struct isis_adjacency *adj, bool backup,
 			   struct list *nexthops);
 void srv6_endx_sid_add(struct isis_adjacency *adj);
+void srv6_endx_sid_del(struct srv6_adjacency *sra);
 struct srv6_adjacency *isis_srv6_endx_sid_find(struct isis_adjacency *adj,
 					  enum srv6_adj_type type);
 void isis_area_delete_backup_srv6_endx_sids(struct isis_area *area, int level);
