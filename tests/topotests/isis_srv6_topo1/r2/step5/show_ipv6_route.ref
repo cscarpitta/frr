@@ -50,10 +50,32 @@
         {
           "fib":true,
           "directlyConnected":true,
-          "interfaceName":"r2-r1",
+          "interfaceName":"sr0",
           "active":true,
           "seg6local":{
             "action":"End"
+          }
+        }
+      ]
+    }
+  ],
+  "fc00:0:2:2::\/128":[
+    {
+      "prefix":"fc00:0:2:2::\/128",
+      "protocol":"isis",
+      "selected":true,
+      "destSelected":true,
+      "distance":115,
+      "metric":0,
+      "installed":true,
+      "nexthops":[
+        {
+          "fib":true,
+          "directlyConnected":true,
+          "interfaceName":"r2-r1",
+          "active":true,
+          "seg6local":{
+            "action":"End.X"
           }
         }
       ]

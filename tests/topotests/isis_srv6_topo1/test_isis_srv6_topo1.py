@@ -33,7 +33,10 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import required_linux_kernel_version
+from lib.common_config import (
+    required_linux_kernel_version,
+    create_interface_in_kernel,
+)
 
 pytestmark = [pytest.mark.isisd]
 
@@ -47,6 +50,24 @@ def build_topo(tgen):
 
     # Define connections
     tgen.add_link(tgen.gears["r1"], tgen.gears["r2"], "r1-r2", "r2-r1")
+
+    # Add dummy interface for SRv6
+    create_interface_in_kernel(
+        tgen,
+        "r1",
+        "sr0",
+        "2001:db8::1",
+        netmask="128",
+        create=True,
+    )
+    create_interface_in_kernel(
+        tgen,
+        "r2",
+        "sr0",
+        "2001:db8::1",
+        netmask="128",
+        create=True,
+    )
 
 
 def setup_module(mod):
