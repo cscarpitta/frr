@@ -434,9 +434,17 @@ enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
 	struct prefix_ipv6 p = {};
 	struct zapi_route api = {};
 	struct zapi_nexthop *znh;
+	uint16_t prefixlen = IPV6_MAX_BITLEN;
+
+	if (CHECK_SRV6_FLV_OP(context->flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID)) {
+		if (action == ZEBRA_SEG6_LOCAL_ACTION_END)
+			prefixlen = context->flv.lcblock_len + context->flv.lcnode_func_len;
+		else if (action == ZEBRA_SEG6_LOCAL_ACTION_END_X)
+			prefixlen = context->flv.lcblock_len + 2 * context->flv.lcnode_func_len;
+	}
 
 	p.family = AF_INET6;
-	p.prefixlen = IPV6_MAX_BITLEN;
+	p.prefixlen = prefixlen;
 	p.prefix = *sid;
 
 	api.vrf_id = VRF_DEFAULT;
