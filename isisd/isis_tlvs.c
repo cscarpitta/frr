@@ -4193,7 +4193,7 @@ static size_t isis_router_cap_tlv_size(const struct isis_router_cap *router_cap)
 #ifndef FABRICD
 	size_t fad_sz;
 #endif /* ifndef FABRICD */
-	int nb_algo;
+	int nb_algo, nb_msd;
 
 	if ((router_cap->srgb.range_size != 0) &&
 	    (router_cap->srgb.lower_bound != 0)) {
@@ -4226,6 +4226,29 @@ static size_t isis_router_cap_tlv_size(const struct isis_router_cap *router_cap)
 			sz += fad_sz;
 	}
 #endif /* ifndef FABRICD */
+
+	if (router_cap->srv6_cap.is_srv6_capable) {
+		sz += 2 + ISIS_SUBTLV_SRV6_CAPABILITIES_SIZE;
+
+		nb_algo = isis_tlvs_sr_algo_count(router_cap);
+		if (nb_algo != 0)
+			sz += 2 + nb_algo;
+
+		if ((router_cap->srlb.range_size != 0) &&
+		    (router_cap->srlb.lower_bound != 0)) {
+			sz += 2 + ISIS_SUBTLV_SID_LABEL_RANGE_SIZE;
+			sz += 2 + ISIS_SUBTLV_SID_LABEL_SIZE;
+		}
+
+		if (router_cap->msd != 0)
+			sz += 2 + ISIS_SUBTLV_NODE_MSD_SIZE;
+
+		nb_msd = router_cap->srv6_msd.max_seg_left_msd +
+			 router_cap->srv6_msd.max_end_pop_msd +
+			 router_cap->srv6_msd.max_h_encaps_msd +
+			 router_cap->srv6_msd.max_end_d_msd;
+		sz += 2 + 2 * nb_msd;
+	}
 
 	return sz;
 }
