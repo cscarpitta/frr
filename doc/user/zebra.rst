@@ -1281,7 +1281,7 @@ FPM Commands
 
 
 ``dplane_fpm_nl`` or ``dplane_fpm_pb`` implementation
---------------------------------
+-----------------------------------------------------
 
 .. clicmd:: fpm address <A.B.C.D|X:X::X:X> [port (1-65535)]
 
