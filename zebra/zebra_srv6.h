@@ -230,6 +230,9 @@ extern void delete_zebra_srv6_sid_format(void *format);
 void zebra_srv6_sid_format_register(struct zebra_srv6_sid_format *format);
 void zebra_srv6_sid_format_unregister(struct zebra_srv6_sid_format *format);
 struct zebra_srv6_sid_format *zebra_srv6_sid_format_lookup(const char *name);
+void zebra_srv6_locator_format_set(struct srv6_locator *locator,
+				   struct zebra_srv6_sid_format *format);
+void zebra_srv6_sid_format_changed_cb(struct zebra_srv6_sid_format *format);
 
 uint32_t *zebra_srv6_sid_func_alloc(uint32_t func);
 void zebra_srv6_sid_func_free(uint32_t *func);
