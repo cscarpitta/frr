@@ -3508,6 +3508,11 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
 			continue;
 
+		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP, bgp,
+				   bgp_vrf);
+		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, AFI_IP6, bgp,
+				   bgp_vrf);
+
 		// refresh vpnv4 tovpn_sid
 		tovpn_sid = bgp_vrf->vpn_policy[AFI_IP].tovpn_sid;
 		if (tovpn_sid) {
@@ -3543,8 +3548,6 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 				XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
 		}
 	}
-
-	vpn_leak_postchange_all();
 
 	/* refresh tovpn_sid_locator */
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
@@ -3596,6 +3599,8 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 			}
 		}
 	}
+
+	vpn_leak_postchange_all();
 
 	return 0;
 }
