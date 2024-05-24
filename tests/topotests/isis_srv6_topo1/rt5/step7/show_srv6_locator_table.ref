@@ -11,7 +11,7 @@
       "chunks":[
         {
           "prefix":"fc00:0:5::/48",
-          "proto":"isis"
+          "proto":"system"
         }
       ]
     }
