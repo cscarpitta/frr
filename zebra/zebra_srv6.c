@@ -415,19 +415,19 @@ static struct zebra_srv6_sid_format *create_srv6_sid_format_uncompressed(void)
 	struct zebra_srv6_sid_format *format = NULL;
 
 	format = zebra_srv6_sid_format_alloc(
-		ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_NAME);
+		ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NAME);
 
 	format->type = ZEBRA_SRV6_SID_FORMAT_TYPE_UNCOMPRESSED;
 
 	/* Define block/node/function length */
-	format->block_len = ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_BLOCK_LEN;
-	format->node_len = ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_NODE_LEN;
-	format->function_len = ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_FUNCTION_LEN;
-	format->argument_len = ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_ARGUMENT_LEN;
+	format->block_len = ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_F4024_BLOCK_LEN;
+	format->node_len = ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NODE_LEN;
+	format->function_len = ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_F4024_FUNCTION_LEN;
+	format->argument_len = ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_F4024_ARGUMENT_LEN;
 
 	/* Define the ranges from which the SID function can be allocated */
 	format->config.uncompressed.explicit_start =
-		ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_EXPLICIT_RANGE_START;
+		ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_F4024_EXPLICIT_RANGE_START;
 
 	return format;
 }
@@ -448,7 +448,6 @@ static struct zebra_srv6_sid_format *create_srv6_sid_format_legacy(void)
 }
 
 /* --- Zebra SRv6 SID function management functions ---------------------------- */
-
 uint32_t *zebra_srv6_sid_func_alloc(uint32_t func)
 {
 	uint32_t *sid_func_ptr;
@@ -532,7 +531,7 @@ zebra_srv6_sid_block_alloc(struct zebra_srv6_sid_format *format,
 		block->u.uncompressed.func_released->del =
 			delete_zebra_srv6_sid_func;
 		block->u.uncompressed.first_available_func =
-			ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_FUNC_UNRESERVED_MIN;
+			ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_F4024_FUNC_UNRESERVED_MIN;
 	} else if (block->sid_format->type ==
 		   ZEBRA_SRV6_SID_FORMAT_TYPE_LEGACY) {
 		block->u.uncompressed.func_allocated = list_new();
@@ -2116,7 +2115,7 @@ static int release_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
 		}
 	} else if (format->type == ZEBRA_SRV6_SID_FORMAT_TYPE_UNCOMPRESSED) {
 		uint32_t dynamic_start =
-			ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_FUNC_UNRESERVED_MIN;
+			ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_F4024_FUNC_UNRESERVED_MIN;
 		/* The Dynamic range ends where the Explicit range begins */
 		uint32_t dynamic_end =
 			format->config.uncompressed.explicit_start - 1;

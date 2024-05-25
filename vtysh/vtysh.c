@@ -1351,18 +1351,18 @@ static struct cmd_node srv6_sid_formats_node = {
 	.prompt = "%s(config-srv6-formats)# ",
 };
 
-static struct cmd_node srv6_sid_format_node = {
-	.name = "srv6-format",
-	.node = SRV6_SID_FORMAT_NODE,
+static struct cmd_node srv6_sid_format_usid_f3216_node = {
+	.name = "srv6-format-usid-f3216",
+	.node = SRV6_SID_FORMAT_USID_F3216_NODE,
 	.parent_node = SRV6_SID_FORMATS_NODE,
 	.prompt = "%s(config-srv6-format)# "
 };
 
-static struct cmd_node srv6_sid_format_usid_node = {
-	.name = "srv6-format-usid",
-	.node = SRV6_SID_FORMAT_USID_NODE,
-	.parent_node = SRV6_SID_FORMAT_NODE,
-	.prompt = "%s(config-srv6-format-usid)# "
+static struct cmd_node srv6_sid_format_uncompressed_f4024_node = {
+	.name = "srv6-format-uncompressed-f4024",
+	.node = SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NODE,
+	.parent_node = SRV6_SID_FORMATS_NODE,
+	.prompt = "%s(config-srv6-format)# "
 };
 
 #ifdef HAVE_PBRD
@@ -1743,20 +1743,21 @@ DEFUNSH(VTYSH_ZEBRA, srv6_sid_formats, srv6_sid_formats_cmd, "formats",
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_ZEBRA, srv6_sid_format, srv6_sid_format_cmd, "format WORD",
-	"Segment Routing SRv6 SID format\n"
-	"Specify SRv6 SID format\n")
+DEFUNSH(VTYSH_ZEBRA, srv6_sid_format_f3216_usid, srv6_sid_format_f3216_usid_cmd,
+	"format usid-f3216",
+	"Configure SRv6 SID format\n"
+	"Configure the usid f3216 format\n")
 {
-	vty->node = SRV6_SID_FORMAT_NODE;
+	vty->node = SRV6_SID_FORMAT_USID_F3216_NODE;
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_ZEBRA, srv6_sid_format_usid, srv6_sid_format_usid_cmd,
-	"compressed usid",
-	"Enable SRv6 uSID compression\n"
-	"Enable SRv6 uSID compression and configure SRv6 uSID compression parameters\n")
+DEFUNSH(VTYSH_ZEBRA, srv6_sid_format_f4024_uncompressed, srv6_sid_format_f4024_uncompressed_cmd,
+	"format uncompressed-f4024",
+	"Configure SRv6 SID format\n"
+	"Configure the uncompressed f4024 format\n")
 {
-	vty->node = SRV6_SID_FORMAT_USID_NODE;
+	vty->node = SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -2568,19 +2569,11 @@ DEFUNSH(VTYSH_ZEBRA, exit_srv6_sid_formats, exit_srv6_sid_formats_cmd, "exit",
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_ZEBRA, exit_srv6_sid_format, exit_srv6_sid_format_cmd, "exit",
-	"Exit from SRv6 SID format configuration mode\n")
+DEFUNSH(VTYSH_ZEBRA, exit_srv6_sid_format, exit_srv6_sid_format_cmd,
+	"exit", "Exit from SRv6 SID format configuration mode\n")
 {
-	if (vty->node == SRV6_SID_FORMAT_NODE)
+	if (vty->node == SRV6_SID_FORMAT_USID_F3216_NODE || vty->node == SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NODE)
 		vty->node = SRV6_SID_FORMATS_NODE;
-	return CMD_SUCCESS;
-}
-
-DEFUNSH(VTYSH_ZEBRA, exit_srv6_sid_format_usid, exit_srv6_sid_format_usid_cmd,
-	"exit", "Exit from SRv6-encapsulation configuration mode\n")
-{
-	if (vty->node == SRV6_SID_FORMAT_USID_NODE)
-		vty->node = SRV6_SID_FORMAT_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -5294,19 +5287,20 @@ void vtysh_init_vty(void)
 	install_element(SRV6_ENCAP_NODE, &vtysh_end_all_cmd);
 
 	install_node(&srv6_sid_formats_node);
-	install_element(SRV6_SID_FORMATS_NODE, &srv6_sid_format_cmd);
+	install_element(SRV6_SID_FORMATS_NODE, &srv6_sid_format_f3216_usid_cmd);
+	install_element(SRV6_SID_FORMATS_NODE, &srv6_sid_format_f4024_uncompressed_cmd);
 	install_element(SRV6_SID_FORMATS_NODE, &exit_srv6_sid_formats_cmd);
 	install_element(SRV6_SID_FORMATS_NODE, &vtysh_end_all_cmd);
 
-	install_node(&srv6_sid_format_node);
-	install_element(SRV6_SID_FORMAT_NODE, &srv6_sid_format_usid_cmd);
-	install_element(SRV6_SID_FORMAT_NODE, &exit_srv6_sid_format_cmd);
-	install_element(SRV6_SID_FORMAT_NODE, &vtysh_end_all_cmd);
+	install_node(&srv6_sid_format_usid_f3216_node);
+	install_element(SRV6_SID_FORMAT_USID_F3216_NODE,
+			&exit_srv6_sid_format_cmd);
+	install_element(SRV6_SID_FORMAT_USID_F3216_NODE, &vtysh_end_all_cmd);
 
-	install_node(&srv6_sid_format_usid_node);
-	install_element(SRV6_SID_FORMAT_USID_NODE,
-			&exit_srv6_sid_format_usid_cmd);
-	install_element(SRV6_SID_FORMAT_USID_NODE, &vtysh_end_all_cmd);
+	install_node(&srv6_sid_format_uncompressed_f4024_node);
+	install_element(SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NODE,
+			&exit_srv6_sid_format_cmd);
+	install_element(SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NODE, &vtysh_end_all_cmd);
 
 	install_element(ENABLE_NODE, &vtysh_show_running_config_cmd);
 	install_element(ENABLE_NODE, &vtysh_copy_running_config_cmd);
