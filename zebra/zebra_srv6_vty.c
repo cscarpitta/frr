@@ -312,6 +312,7 @@ DEFUN_NOSH (srv6_locator,
             "Specify locator-name\n")
 {
 	struct srv6_locator *locator = NULL;
+	struct zebra_srv6_sid_format *format = NULL;
 
 	locator = zebra_srv6_locator_lookup(argv[1]->arg);
 	if (locator) {
@@ -326,6 +327,13 @@ DEFUN_NOSH (srv6_locator,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	locator->status_up = true;
+
+	format = zebra_srv6_sid_format_lookup(ZEBRA_SRV6_SID_FORMAT_LEGACY_NAME);
+	if (!format) {
+		vty_out(vty, "%% Cannot find SRv6 SID format '%s'\n", ZEBRA_SRV6_SID_FORMAT_LEGACY_NAME);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	locator->sid_format = format;
 
 	VTY_PUSH_CONTEXT(SRV6_LOC_NODE, locator);
 	vty->node = SRV6_LOC_NODE;
@@ -374,26 +382,6 @@ DEFUN (no_srv6_locator,
 	return CMD_SUCCESS;
 }
 
-static struct zebra_srv6_sid_format *zebra_srv6_sid_format_lookup_by_params(
-	const uint8_t block_len, const uint8_t node_len,
-	const uint8_t function_len, const uint8_t argument_len,
-	const enum zebra_srv6_sid_format_type type)
-{
-	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
-	struct zebra_srv6_sid_format *format;
-	struct listnode *node;
-
-	for (ALL_LIST_ELEMENTS_RO(srv6->sid_formats, node, format)) {
-		if (format->block_len == block_len &&
-		    format->node_len == node_len &&
-		    format->function_len == function_len &&
-		    format->argument_len == argument_len && format->type == type)
-			return format;
-	}
-
-	return NULL;
-}
-
 DEFPY (locator_prefix,
        locator_prefix_cmd,
        "prefix X:X::X:X/M$prefix [block-len (16-64)$block_bit_len]  \
@@ -410,9 +398,21 @@ DEFPY (locator_prefix,
 	VTY_DECLVAR_CONTEXT(srv6_locator, locator);
 	struct srv6_locator_chunk *chunk = NULL;
 	struct listnode *node = NULL;
-	struct zebra_srv6_sid_format *format = NULL;
 
 	locator->prefix = *prefix;
+
+	expected_prefixlen = prefix->prefixlen;
+	format = locator->sid_format;
+	if (strmatch(format->name, ZEBRA_SRV6_SID_FORMAT_USID_F3216_NAME))
+		expected_prefixlen = ZEBRA_SRV6_SID_FORMAT_USID_F3216_BLOCK_LEN + ZEBRA_SRV6_SID_FORMAT_USID_F3216_NODE_LEN;
+	else if (strmatch(format->name, ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NAME))
+		expected_prefixlen = ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_F4024_BLOCK_LEN + ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NODE_LEN;
+
+	if (prefix->prefixlen != expected_prefixlen) {
+		vty_out(vty, "%% Locator prefix length '%u' inconsistent with configured format '%s'. Please either use a prefix length that is consistent with the format or change the format.\n", prefix->prefixlen, format->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	func_bit_len = func_bit_len ?: ZEBRA_SRV6_FUNCTION_LENGTH;
 
 	/* Resolve optional arguments */
@@ -489,26 +489,8 @@ DEFPY (locator_prefix,
 		}
 	}
 
-	/* Lookup SID format */
-	format = zebra_srv6_sid_format_lookup_by_params(
-		locator->block_bits_length, locator->node_bits_length,
-		locator->function_bits_length, locator->argument_bits_length,
-		CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID)
-			? ZEBRA_SRV6_SID_FORMAT_TYPE_COMPRESSED_USID
-			: ZEBRA_SRV6_SID_FORMAT_TYPE_UNCOMPRESSED);
-	if (!format)
-		zlog_warn("Unsupported SID format (block-len=%u node-len=%u func-len=%u usid=%s) specified for locator %s",
-			  locator->block_bits_length, locator->node_bits_length,
-			  locator->function_bits_length,
-			  (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
-				  ? "yes"
-				  : "no",
-			  locator->name);
+	zebra_srv6_locator_format_set(locator, locator->sid_format);
 
-	/* Update the locator */
-	zebra_srv6_locator_format_set(locator, format);
-
-	zebra_srv6_locator_add(locator);
 	return CMD_SUCCESS;
 }
 
@@ -520,7 +502,7 @@ DEFPY (locator_behavior,
        "Specify SRv6 behavior uSID\n")
 {
 	VTY_DECLVAR_CONTEXT(srv6_locator, locator);
-	struct zebra_srv6_sid_format *format = NULL;
+	struct zebra_srv6_sid_format *format = locator->sid_format;
 
 	if (no && !CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
 		/* SRv6 locator uSID flag already unset, nothing to do */
@@ -530,29 +512,19 @@ DEFPY (locator_behavior,
 		/* SRv6 locator uSID flag already set, nothing to do */
 		return CMD_SUCCESS;
 
+	if (format->type == ZEBRA_SRV6_SID_FORMAT_TYPE_LEGACY)
+		/* Remove old locator from zclients */
+		zebra_notify_srv6_locator_delete(locator);
+
 	/* Set/Unset the SRV6_LOCATOR_USID */
 	if (no)
 		UNSET_FLAG(locator->flags, SRV6_LOCATOR_USID);
 	else
 		SET_FLAG(locator->flags, SRV6_LOCATOR_USID);
 
-	/* Lookup the SID format */
-	format = zebra_srv6_sid_format_lookup_by_params(
-		locator->block_bits_length, locator->node_bits_length,
-		locator->function_bits_length, locator->argument_bits_length,
-		CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID)
-			? ZEBRA_SRV6_SID_FORMAT_TYPE_COMPRESSED_USID
-			: ZEBRA_SRV6_SID_FORMAT_TYPE_UNCOMPRESSED);
-	if (!format)
-		zlog_warn("Unsupported SID format (block-len=%u node-len=%u func-len=%u usid=%s) specified for locator %s",
-			  locator->block_bits_length, locator->node_bits_length,
-			  locator->function_bits_length,
-			  (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
-				  ? "yes"
-				  : "no",
-			  locator->name);
-
-	zebra_srv6_locator_format_set(locator, format);
+	if (format->type == ZEBRA_SRV6_SID_FORMAT_TYPE_LEGACY)
+		/* Notify the new locator to zclients */
+		zebra_srv6_locator_add(locator);
 
 	return CMD_SUCCESS;
 }
@@ -589,12 +561,18 @@ DEFPY (no_locator_sid_format,
        "Specify SRv6 SID format\n")
 {
 	VTY_DECLVAR_CONTEXT(srv6_locator, locator);
+	struct zebra_srv6_sid_format *sid_format = locator->sid_format;
 
-	if (!locator->sid_format)
+	if (sid_format->type == ZEBRA_SRV6_SID_FORMAT_TYPE_LEGACY)
 		/* SID format already unset, nothing to do */
 		return CMD_SUCCESS;
 
-	zebra_srv6_locator_format_set(locator, NULL);
+	sid_format = zebra_srv6_sid_format_lookup(ZEBRA_SRV6_SID_FORMAT_LEGACY_NAME);
+	if (!sid_format) {
+		vty_out(vty, "%% Cannot find SRv6 SID format '%s'\n", format);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	zebra_srv6_locator_format_set(locator, sid_format);
 
 	return CMD_SUCCESS;
 }

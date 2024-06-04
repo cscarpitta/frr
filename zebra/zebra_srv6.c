@@ -250,6 +250,8 @@ void zebra_srv6_locator_format_set(struct srv6_locator *locator,
 	if (!locator)
 		return;
 
+	locator->sid_format = format;
+
 	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug("%s: Locator %s format has changed, old=%s new=%s",
 			   __func__, locator->name,
@@ -289,22 +291,11 @@ void zebra_srv6_locator_format_set(struct srv6_locator *locator,
 	}
 	locator->sid_block = NULL;
 
-	if (!format)
-		return;
-
-	/* Update the SID format of the locator */
-	locator->sid_format = format;
-	locator->block_bits_length = format->block_len;
-	locator->node_bits_length = format->node_len;
-	locator->function_bits_length = format->function_len;
-	locator->argument_bits_length = format->argument_len;
-	if (format->type == ZEBRA_SRV6_SID_FORMAT_TYPE_COMPRESSED_USID)
-		SET_FLAG(locator->flags, SRV6_LOCATOR_USID);
-	else
-		UNSET_FLAG(locator->flags, SRV6_LOCATOR_USID);
-
 	block_pfx_new = locator->prefix;
-	block_pfx_new.prefixlen = format->block_len;
+	if (format->type == ZEBRA_SRV6_SID_FORMAT_TYPE_LEGACY)
+		block_pfx_new.prefixlen = locator->block_bits_length;
+	else
+		block_pfx_new.prefixlen = format->block_len;
 	apply_mask(&block_pfx_new);
 
 	/* Allocate the new parent block */
@@ -321,8 +312,8 @@ void zebra_srv6_locator_format_set(struct srv6_locator *locator,
 		zlog_debug("%s: Locator %s format has changed, send SRV6_LOCATOR_ADD notification to zclients",
 			   __func__, locator->name);
 
-	/* Notify zclients about the updated locator */
-	zebra_notify_srv6_locator_add(locator);
+	/* Register format and notify zclients about the updated locator */
+	zebra_srv6_locator_add(locator);
 }
 
 /*
@@ -441,6 +432,21 @@ static struct zebra_srv6_sid_format *create_srv6_sid_format_uncompressed(void)
 	return format;
 }
 
+/*
+ * Helper function to create the SRv6 legacy format.
+ */
+static struct zebra_srv6_sid_format *create_srv6_sid_format_legacy(void)
+{
+	struct zebra_srv6_sid_format *format = NULL;
+
+	format = zebra_srv6_sid_format_alloc(
+		ZEBRA_SRV6_SID_FORMAT_LEGACY_NAME);
+
+	format->type = ZEBRA_SRV6_SID_FORMAT_TYPE_LEGACY;
+
+	return format;
+}
+
 /* --- Zebra SRv6 SID function management functions ---------------------------- */
 
 uint32_t *zebra_srv6_sid_func_alloc(uint32_t func)
@@ -527,7 +533,17 @@ zebra_srv6_sid_block_alloc(struct zebra_srv6_sid_format *format,
 			delete_zebra_srv6_sid_func;
 		block->u.uncompressed.first_available_func =
 			ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_FUNC_UNRESERVED_MIN;
-	} else {
+	} else if (block->sid_format->type ==
+		   ZEBRA_SRV6_SID_FORMAT_TYPE_LEGACY) {
+		block->u.uncompressed.func_allocated = list_new();
+		block->u.uncompressed.func_allocated->del =
+			delete_zebra_srv6_sid_func;
+		block->u.uncompressed.func_released = list_new();
+		block->u.uncompressed.func_released->del =
+			delete_zebra_srv6_sid_func;
+		block->u.uncompressed.first_available_func =
+			ZEBRA_SRV6_SID_FORMAT_LEGACY_FUNC_UNRESERVED_MIN;
+	}  else {
 		/* We should never arrive here */
 		assert(0);
 	}
@@ -556,6 +572,10 @@ void zebra_srv6_sid_block_free(struct zebra_srv6_sid_block *block)
 		XFREE(MTYPE_ZEBRA_SRV6_USID_WLIB, block->u.usid.wide_lib);
 	} else if (block->sid_format->type ==
 		   ZEBRA_SRV6_SID_FORMAT_TYPE_UNCOMPRESSED) {
+		list_delete(&block->u.uncompressed.func_allocated);
+		list_delete(&block->u.uncompressed.func_released);
+	} else if (block->sid_format->type ==
+		   ZEBRA_SRV6_SID_FORMAT_TYPE_LEGACY) {
 		list_delete(&block->u.uncompressed.func_allocated);
 		list_delete(&block->u.uncompressed.func_released);
 	} else {
@@ -755,6 +775,7 @@ struct zebra_srv6 *zebra_srv6_get_default(void)
 	static bool first_execution = true;
 	struct zebra_srv6_sid_format *format_usidf3216;
 	struct zebra_srv6_sid_format *format_uncompressed;
+	struct zebra_srv6_sid_format *format_legacy;
 
 	if (first_execution) {
 		first_execution = false;
@@ -771,6 +792,10 @@ struct zebra_srv6 *zebra_srv6_get_default(void)
 		/* Create SID format `uncompressed` */
 		format_uncompressed = create_srv6_sid_format_uncompressed();
 		zebra_srv6_sid_format_register(format_uncompressed);
+
+		/* Create SID format `leagacy` */
+		format_legacy = create_srv6_sid_format_legacy();
+		zebra_srv6_sid_format_register(format_legacy);
 
 		/* Init list to store SRv6 SIDs */
 		srv6.sids = list_new();
@@ -1000,8 +1025,13 @@ static bool zebra_srv6_sid_compose(struct in6_addr *sid_value,
 	if (!sid_value || !locator)
 		return false;
 
-	offset = format->block_len + format->node_len;
-	func_len = format->function_len;
+	if (format->type == ZEBRA_SRV6_SID_FORMAT_TYPE_LEGACY) {
+		offset = locator->block_bits_length + locator->node_bits_length;
+		func_len = locator->function_bits_length;
+	} else {
+		offset = format->block_len + format->node_len;
+		func_len = format->function_len;
+	}
 
 	*sid_value = locator->prefix.prefix;
 	for (uint8_t idx = 0; idx < func_len; idx++) {
@@ -1070,8 +1100,13 @@ static bool zebra_srv6_sid_decompose(struct in6_addr *sid_value,
 			if (!format)
 				continue;
 
-			offset = format->block_len + format->node_len;
-			func_len = format->function_len;
+			if (format->type == ZEBRA_SRV6_SID_FORMAT_TYPE_LEGACY) {
+				offset = l->block_bits_length + l->node_bits_length;
+				func_len = l->function_bits_length;
+			} else {
+				offset = format->block_len + format->node_len;
+				func_len = format->function_len;
+			}
 
 			for (uint8_t idx = 0; idx < func_len; idx++) {
 				uint8_t tidx = offset + idx;
@@ -1084,19 +1119,21 @@ static bool zebra_srv6_sid_decompose(struct in6_addr *sid_value,
 			 * If function comes from the Wide LIB range, we also
 			 * need to get the Wide function.
 			 */
-			if (*sid_func >= format->config.usid.wlib_start &&
-			    *sid_func <= format->config.usid.wlib_end) {
-				format = l->sid_format;
+			if (format->type == ZEBRA_SRV6_SID_FORMAT_TYPE_COMPRESSED_USID) {
+				if (*sid_func >= format->config.usid.wlib_start &&
+					*sid_func <= format->config.usid.wlib_end) {
+					format = l->sid_format;
 
-				offset = format->block_len + format->node_len +
-					 format->function_len;
+					offset = format->block_len + format->node_len +
+						format->function_len;
 
-				for (uint8_t idx = 0; idx < 16; idx++) {
-					uint8_t tidx = offset + idx;
-					*sid_wide_func |=
-						(sid_value->s6_addr[tidx / 8] &
-						 (0x1 << (7 - tidx % 8)))
-						<< (((16 - 1 - idx) / 8) * 8);
+					for (uint8_t idx = 0; idx < 16; idx++) {
+						uint8_t tidx = offset + idx;
+						*sid_wide_func |=
+							(sid_value->s6_addr[tidx / 8] &
+							(0x1 << (7 - tidx % 8)))
+							<< (((16 - 1 - idx) / 8) * 8);
+					}
 				}
 			}
 
@@ -1125,6 +1162,9 @@ static bool zebra_srv6_sid_decompose(struct in6_addr *sid_value,
 		if (prefix_match((struct prefix *)&b->prefix,
 				 (struct prefix *)&tmp_prefix)) {
 			format = b->sid_format;
+
+			if (format->type == ZEBRA_SRV6_SID_FORMAT_TYPE_LEGACY)
+				continue;
 
 			offset = format->block_len + format->node_len;
 			func_len = format->function_len;
@@ -1295,6 +1335,41 @@ static bool alloc_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 		sid_func_ptr = zebra_srv6_sid_func_alloc(sid_func);
 		listnode_add(block->u.uncompressed.func_allocated, sid_func_ptr);
 		block->u.uncompressed.num_func_allocated++;
+	} else if (format->type == ZEBRA_SRV6_SID_FORMAT_TYPE_LEGACY) {
+		// uint32_t explicit_start =
+		// 	format->config.uncompressed.explicit_start;
+		// uint32_t explicit_end =
+		// 	(uint32_t)((1 << format->function_len) - 1);
+
+		// /* Ensure that the SID function comes from the Explicit range */
+		// if (!(sid_func >= explicit_start && sid_func <= explicit_end)) {
+		// 	zlog_err("%s: invalid SM request arguments: SID function %u out of explicit range (%u - %u)",
+		// 		 __func__, sid_func, explicit_start,
+		// 		 explicit_end);
+		// 	return false;
+		// }
+
+		/* Ensure that the SID function has not already been taken */
+
+		for (ALL_LIST_ELEMENTS_RO(block->u.uncompressed.func_allocated,
+					  node, sid_func_ptr))
+			if (*sid_func_ptr == sid_func)
+				break;
+
+		/* SID function already taken */
+		if (sid_func_ptr) {
+			zlog_err("%s: invalid SM request arguments: SID function %u already taken",
+				 __func__, sid_func);
+			return false;
+		}
+
+		/*
+		 * Mark the SID function as "taken" by adding it to the "func_allocated" list and
+		 * increase the counter of function allocated
+		 */
+		sid_func_ptr = zebra_srv6_sid_func_alloc(sid_func);
+		listnode_add(block->u.uncompressed.func_allocated, sid_func_ptr);
+		block->u.uncompressed.num_func_allocated++;
 	} else {
 		/* We should never arrive here */
 		zlog_err("%s: unknown SID format type: %u", __func__,
@@ -1422,6 +1497,49 @@ static bool alloc_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
 		if (block->u.uncompressed.first_available_func > dynamic_end)
 			zlog_warn("%s: SRv6: Warning, SRv6 SID Dynamic alloc space is depleted and next SID request will fail",
 				  __func__);
+	} else if (format->type == ZEBRA_SRV6_SID_FORMAT_TYPE_LEGACY) {
+		/* Format is uncompressed => allocate SID function from Dynamic range */
+
+		// uint32_t dynamic_end =
+		// 	format->config.uncompressed.explicit_start - 1;
+
+		// /* Check if we ran out of available SID functions */
+		// if (block->u.uncompressed.first_available_func > dynamic_end) {
+		// 	zlog_warn("%s: SRv6: Warning, SRv6 SID Dynamic alloc space is depleted",
+		// 		  __func__);
+		// 	return NULL;
+		// }
+
+		/*
+		 * First, let's check if there are any SID functions that were previously
+		 * allocated and then released.
+		 */
+		if (listcount(block->u.uncompressed.func_released) != 0) {
+			/*
+			 * There are SID functions previously allocated and then released,
+			 * let's pick the first one and reuse it now.
+			 */
+			sid_func_ptr = listnode_head(
+				block->u.uncompressed.func_released);
+			*sid_func = *sid_func_ptr;
+			listnode_delete(block->u.uncompressed.func_released,
+					sid_func_ptr);
+			zebra_srv6_sid_func_free(sid_func_ptr);
+		} else {
+			/*
+			 * There are no SID functions previously allocated and then released,
+			 * let's allocate a new function from the pool of available functions.
+			 */
+			*sid_func = block->u.uncompressed.first_available_func;
+			block->u.uncompressed.first_available_func++;
+		}
+
+		/* Increase the counter of SID functions allocated */
+		block->u.uncompressed.num_func_allocated++;
+
+		// if (block->u.uncompressed.first_available_func > dynamic_end)
+		// 	zlog_warn("%s: SRv6: Warning, SRv6 SID Dynamic alloc space is depleted and next SID request will fail",
+		// 		  __func__);
 	} else {
 		/* We should never arrive here */
 		zlog_err("%s: unknown SID format type: %u", __func__,
@@ -1622,6 +1740,10 @@ static int get_srv6_sid_dynamic(struct zebra_srv6_sid **sid,
 	}
 
 	if (format->type == ZEBRA_SRV6_SID_FORMAT_TYPE_COMPRESSED_USID &&
+	    ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END) {
+		/* uN SID is allocated from the GIB range */
+		sid_value = locator->prefix.prefix;
+	} else if (format->type == ZEBRA_SRV6_SID_FORMAT_TYPE_LEGACY &&
 	    ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END) {
 		/* uN SID is allocated from the GIB range */
 		sid_value = locator->prefix.prefix;
@@ -1868,6 +1990,37 @@ static bool release_srv6_sid_func_explicit(struct zebra_srv6_sid_block *block,
 		listnode_delete(block->u.uncompressed.func_allocated,
 				sid_func_ptr);
 		zebra_srv6_sid_func_free(sid_func_ptr);
+	} else if (format->type == ZEBRA_SRV6_SID_FORMAT_TYPE_LEGACY) {
+		// uint32_t explicit_start =
+		// 	format->config.uncompressed.explicit_start;
+		// uint32_t explicit_end =
+		// 	(uint32_t)((1 << format->function_len) - 1);
+
+		// /* Ensure that the SID function comes from the Explicit range */
+		// if (!(sid_func >= explicit_start && sid_func <= explicit_end)) {
+		// 	zlog_warn("%s: function %u is outside explicit alloc range [%u/%u]",
+		// 		  __func__, sid_func, explicit_start,
+		// 		  explicit_end);
+		// 	return -1;
+		// }
+
+		/* Lookup SID function in the functions allocated list of Explicit range */
+		for (ALL_LIST_ELEMENTS_RO(block->u.uncompressed.func_allocated,
+					  node, sid_func_ptr))
+			if (*sid_func_ptr == sid_func)
+				break;
+
+		/* Ensure that the SID function is allocated */
+		if (!sid_func_ptr) {
+			zlog_warn("%s: failed to release SID function %u, function is not allocated",
+				  __func__, sid_func);
+			return -1;
+		}
+
+		/* Release the SID function from the Explicit range */
+		listnode_delete(block->u.uncompressed.func_allocated,
+				sid_func_ptr);
+		zebra_srv6_sid_func_free(sid_func_ptr);
 	} else {
 		/* We should never arrive here */
 		assert(0);
@@ -2018,6 +2171,63 @@ static int release_srv6_sid_func_dynamic(struct zebra_srv6_sid_block *block,
 			listnode_add_head(block->u.uncompressed.func_released,
 					  sid_func_ptr);
 		}
+	} else if (format->type == ZEBRA_SRV6_SID_FORMAT_TYPE_LEGACY) {
+		// uint32_t dynamic_start =
+		// 	ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_FUNC_UNRESERVED_MIN;
+		// /* The Dynamic range ends where the Explicit range begins */
+		// uint32_t dynamic_end =
+		// 	format->config.uncompressed.explicit_start - 1;
+
+		// /* Ensure that the SID function to be released comes from the Dynamic range */
+		// if (!(sid_func >= dynamic_start && sid_func <= dynamic_end)) {
+		// 	zlog_warn("%s: function %u is outside dynamic range [%u/%u]",
+		// 		  __func__, sid_func, dynamic_start,
+		// 		  dynamic_end);
+		// 	return -1;
+		// }
+
+		if (sid_func == block->u.uncompressed.first_available_func - 1) {
+			/*
+			 * The released SID function precedes the `first_available_func`.
+			 * Reset first_available_func to the first available position.
+			 */
+
+			block->u.uncompressed.first_available_func -= 1;
+
+			bool found;
+
+			do {
+				found = false;
+				for (ALL_LIST_ELEMENTS(block->u.uncompressed
+							       .func_released,
+						       node, nnode,
+						       sid_func_ptr))
+					if (*sid_func_ptr ==
+					    block->u.uncompressed
+							    .first_available_func -
+						    1) {
+						listnode_delete(block->u.uncompressed
+									.func_released,
+								sid_func_ptr);
+						zebra_srv6_sid_func_free(
+							sid_func_ptr);
+						block->u.uncompressed
+							.first_available_func -=
+							1;
+						found = true;
+						break;
+					}
+			} while (found);
+		} else {
+			/*
+			 * The released SID function does not precede the `first_available_func`.
+			 * Add the released function to the func_released array to indicate
+			 * that it is available again for allocation.
+			 */
+			sid_func_ptr = zebra_srv6_sid_func_alloc(sid_func);
+			listnode_add_head(block->u.uncompressed.func_released,
+					  sid_func_ptr);
+		}
 	}
 
 	if (ZEBRA_DEBUG_PACKET)
@@ -2077,6 +2287,8 @@ int release_srv6_sid(struct zserv *client, struct zebra_srv6_sid_ctx *zctx)
 
 		if (!(zctx->sid->block->sid_format->type ==
 			      ZEBRA_SRV6_SID_FORMAT_TYPE_COMPRESSED_USID &&
+		      zctx->ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END) && !(zctx->sid->block->sid_format->type ==
+			      ZEBRA_SRV6_SID_FORMAT_TYPE_LEGACY &&
 		      zctx->ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END)) {
 			if (zctx->sid->alloc_mode ==
 			    SRV6_SID_ALLOC_MODE_EXPLICIT)

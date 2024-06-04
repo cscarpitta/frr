@@ -133,6 +133,8 @@ struct srv6_locator {
 	/* Pointer to the parent SID block of the locator. */
 	void *sid_block;
 
+	bool legacy_mode;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(srv6_locator);

@@ -40,6 +40,10 @@
 #define ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_EXPLICIT_RANGE_START 0xFF00
 #define ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_FUNC_UNRESERVED_MIN	0x40
 
+/* Default config for SRv6 SID `legacy` format */
+#define ZEBRA_SRV6_SID_FORMAT_LEGACY_NAME			"legacy"
+#define ZEBRA_SRV6_SID_FORMAT_LEGACY_FUNC_UNRESERVED_MIN	0x1
+
 /* uSID Wide LIB */
 struct wide_lib {
 	uint32_t func;
@@ -71,6 +75,11 @@ struct zebra_srv6_sid_block {
 	 * allocated from this block
 	 */
 	struct zebra_srv6_sid_format *sid_format;
+
+	uint8_t block_len;
+	uint8_t node_len;
+	uint8_t function_len;
+	uint8_t argument_len;
 
 	/*
 	 * Run-time information/state of this SID block.
@@ -111,6 +120,8 @@ enum zebra_srv6_sid_format_type {
 	ZEBRA_SRV6_SID_FORMAT_TYPE_UNCOMPRESSED = 1,
 	/* SRv6 SID compressed uSID format */
 	ZEBRA_SRV6_SID_FORMAT_TYPE_COMPRESSED_USID = 2,
+	/* SRv6 SID legacy format */
+	ZEBRA_SRV6_SID_FORMAT_TYPE_LEGACY = 3,
 };
 
 /* SRv6 SID format */
