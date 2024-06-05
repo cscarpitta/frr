@@ -398,6 +398,8 @@ DEFPY (locator_prefix,
 	VTY_DECLVAR_CONTEXT(srv6_locator, locator);
 	struct srv6_locator_chunk *chunk = NULL;
 	struct listnode *node = NULL;
+	struct zebra_srv6_sid_format *format = NULL;
+	uint8_t expected_prefixlen;
 
 	locator->prefix = *prefix;
 
@@ -538,6 +540,23 @@ DEFPY(locator_sid_format,
 {
 	VTY_DECLVAR_CONTEXT(srv6_locator, locator);
 	struct zebra_srv6_sid_format *sid_format = NULL;
+	uint8_t expected_prefixlen;
+
+	expected_prefixlen = locator->prefix.prefixlen;
+	if (strmatch(format, ZEBRA_SRV6_SID_FORMAT_USID_F3216_NAME))
+		expected_prefixlen = ZEBRA_SRV6_SID_FORMAT_USID_F3216_BLOCK_LEN + ZEBRA_SRV6_SID_FORMAT_USID_F3216_NODE_LEN;
+	else if (strmatch(format, ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NAME))
+		expected_prefixlen = ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_F4024_BLOCK_LEN + ZEBRA_SRV6_SID_FORMAT_UNCOMPRESSED_F4024_NODE_LEN;
+
+	if (IPV6_ADDR_SAME(&locator->prefix, &in6addr_any)) {
+		vty_out(vty, "%% Unexpected configuration sequence: the prefix of the locator is required before configuring the format. Please configure the prefix first and then configure the format.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (locator->prefix.prefixlen != expected_prefixlen) {
+		vty_out(vty, "%% Locator prefix length '%u' inconsistent with configured format '%s'. Please either use a prefix length that is consistent with the format or change the format.\n", locator->prefix.prefixlen, format);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	sid_format = zebra_srv6_sid_format_lookup(format);
 	if (!sid_format) {
