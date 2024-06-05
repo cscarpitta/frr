@@ -20,6 +20,8 @@
 #define SRH_BASE_HEADER_LENGTH 8
 #define SRH_SEGMENT_LENGTH     16
 
+#define SRV6_SID_FORMAT_NAME_SIZE 512
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -128,12 +130,10 @@ struct srv6_locator {
 #define SRV6_LOCATOR_USID (1 << 0) /* The SRv6 Locator is a uSID Locator */
 
 	/* Pointer to the SID format. */
-	void *sid_format;
+	struct zebra_srv6_sid_format *sid_format;
 
 	/* Pointer to the parent SID block of the locator. */
 	void *sid_block;
-
-	bool legacy_mode;
 
 	QOBJ_FIELDS;
 };
@@ -201,6 +201,63 @@ struct srv6_sid_ctx {
 	struct in6_addr nh6;
 	vrf_id_t vrf_id;
 };
+
+/* SID format type */
+enum zebra_srv6_sid_format_type {
+	ZEBRA_SRV6_SID_FORMAT_TYPE_UNSPEC = 0,
+	/* SRv6 SID uncompressed format */
+	ZEBRA_SRV6_SID_FORMAT_TYPE_UNCOMPRESSED = 1,
+	/* SRv6 SID compressed uSID format */
+	ZEBRA_SRV6_SID_FORMAT_TYPE_COMPRESSED_USID = 2,
+	/* SRv6 SID legacy format */
+	ZEBRA_SRV6_SID_FORMAT_TYPE_LEGACY = 3,
+};
+
+/* SRv6 SID format */
+struct zebra_srv6_sid_format {
+	/* Name of the format */
+	char name[SRV6_SID_FORMAT_NAME_SIZE];
+
+	/* Format type: uncompressed vs compressed */
+	enum zebra_srv6_sid_format_type type;
+
+	/*
+	 * Lengths of block/node/function/argument parts of the SIDs allocated
+	 * using this format
+	 */
+	uint8_t block_len;
+	uint8_t node_len;
+	uint8_t function_len;
+	uint8_t argument_len;
+
+	union {
+		/* Configuration settings for compressed uSID format type */
+		struct {
+			/* Start of the Local ID Block (LIB) range */
+			uint32_t lib_start;
+
+			/* Start/End of the Explicit LIB range */
+			uint32_t elib_start;
+			uint32_t elib_end;
+
+			/* Start/End of the Wide LIB range */
+			uint32_t wlib_start;
+			uint32_t wlib_end;
+
+			/* Start/End of the Explicit Wide LIB range */
+			uint32_t ewlib_start;
+		} usid;
+
+		/* Configuration settings for uncompressed format type */
+		struct {
+			/* Start of the Explicit range */
+			uint32_t explicit_start;
+		} uncompressed;
+	} config;
+
+	QOBJ_FIELDS;
+};
+DECLARE_QOBJ_TYPE(zebra_srv6_sid_format);
 
 static inline const char *seg6_mode2str(enum seg6_mode_t mode)
 {
@@ -334,6 +391,11 @@ extern struct srv6_sid_ctx *srv6_sid_ctx_alloc(enum seg6local_action_t behavior,
 					       struct in6_addr *nh6,
 					       vrf_id_t vrf_id);
 extern void srv6_sid_ctx_free(struct srv6_sid_ctx *ctx);
+
+extern struct zebra_srv6_sid_format *
+zebra_srv6_sid_format_alloc(const char *name);
+extern void zebra_srv6_sid_format_free(struct zebra_srv6_sid_format *format);
+extern void delete_zebra_srv6_sid_format(void *format);
 
 #ifdef __cplusplus
 }

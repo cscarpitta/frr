@@ -31,10 +31,8 @@
 #include <netinet/in.h>
 
 
-DEFINE_QOBJ_TYPE(zebra_srv6_sid_format);
 DEFINE_MGROUP(SRV6_MGR, "SRv6 Manager");
 DEFINE_MTYPE_STATIC(SRV6_MGR, SRV6M_CHUNK, "SRv6 Manager Chunk");
-DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_SID_FORMAT, "SRv6 SID format");
 DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_SID_BLOCK, "SRv6 SID block");
 DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_SID_FUNC, "SRv6 SID function");
 DEFINE_MTYPE_STATIC(SRV6_MGR, ZEBRA_SRV6_USID_WLIB,
@@ -167,37 +165,6 @@ void delete_zebra_srv6_sid_ctx(void *val)
 }
 
 /* --- Zebra SRv6 SID format management functions --------------------------- */
-
-struct zebra_srv6_sid_format *zebra_srv6_sid_format_alloc(const char *name)
-{
-	struct zebra_srv6_sid_format *format = NULL;
-
-	format = XCALLOC(MTYPE_ZEBRA_SRV6_SID_FORMAT,
-			 sizeof(struct zebra_srv6_sid_format));
-	strlcpy(format->name, name, sizeof(format->name));
-
-	QOBJ_REG(format, zebra_srv6_sid_format);
-	return format;
-}
-
-void zebra_srv6_sid_format_free(struct zebra_srv6_sid_format *format)
-{
-	if (!format)
-		return;
-
-	QOBJ_UNREG(format);
-	XFREE(MTYPE_ZEBRA_SRV6_SID_FORMAT, format);
-}
-
-/**
- * Free an SRv6 SID format.
- *
- * @param val SRv6 SID format to be freed
- */
-void delete_zebra_srv6_sid_format(void *val)
-{
-	zebra_srv6_sid_format_free((struct zebra_srv6_sid_format *)val);
-}
 
 void zebra_srv6_sid_format_register(struct zebra_srv6_sid_format *format)
 {
@@ -356,17 +323,6 @@ void zebra_srv6_sid_format_changed_cb(struct zebra_srv6_sid_format *format)
 				listnode_delete(srv6->sids, ctx);
 				zebra_srv6_sid_ctx_free(ctx);
 			}
-
-			/* Update the locator based on the new SID format */
-			locator->block_bits_length = format->block_len;
-			locator->node_bits_length = format->node_len;
-			locator->function_bits_length = format->function_len;
-			locator->argument_bits_length = format->argument_len;
-			if (format->type ==
-			    ZEBRA_SRV6_SID_FORMAT_TYPE_COMPRESSED_USID)
-				SET_FLAG(locator->flags, SRV6_LOCATOR_USID);
-			else
-				UNSET_FLAG(locator->flags, SRV6_LOCATOR_USID);
 
 			/* Notify zclients about the updated locator */
 			zebra_notify_srv6_locator_add(locator);
