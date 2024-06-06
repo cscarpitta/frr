@@ -79,7 +79,7 @@ static struct cmd_node srv6_sid_format_usid_f3216_node = {
 	.name = "srv6-format-usid-f3216",
 	.node = SRV6_SID_FORMAT_USID_F3216_NODE,
 	.parent_node = SRV6_SID_FORMATS_NODE,
-	.prompt = "%s(config-srv6-format-usid)# "
+	.prompt = "%s(config-srv6-format)# "
 };
 
 static struct cmd_node srv6_sid_format_uncompressed_f4024_node = {
