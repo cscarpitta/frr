@@ -490,7 +490,10 @@ static void do_show_srv6_sid(struct vty *vty, json_object **json,
 
 	/* Dump the generated table. */
 	if (tt->nrows > 1) {
-		if (!json) {
+		if (json) {
+			*json = ttable_json_with_json_text(tt, "ssss",
+							   "sid|behavior|context|daemons");
+		} else {
 			char *table;
 
 			table = ttable_dump(tt, "\n");
