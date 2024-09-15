@@ -498,10 +498,76 @@ static void do_show_srv6_sid(struct vty *vty, json_object **json,
 
 			table = ttable_dump(tt, "\n");
 			vty_out(vty, "%s\n", table);
-			XFREE(MTYPE_TMP, table);
+			XFREE(MTYPE_TMP_TTABLE, table);
 		}
 	}
 	ttable_del(tt);
+}
+
+DEFPY (show_srv6_sid,
+       show_srv6_sid_cmd,
+       "show segment-routing srv6 [locator NAME$locator_name] sid [X:X::X:X$sid_value [detail$detail]] [json]",
+       SHOW_STR
+       "Segment Routing\n"
+       "Segment Routing SRv6\n"
+       "Locator Information\n"
+       "Locator Name\n"
+       "SID\n"
+       "SID value\n"
+       "Detailed information\n"
+       JSON_STR)
+{
+	bool uj = use_json(argc, argv);
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct srv6_locator *locator = NULL;
+	struct zebra_srv6_sid_ctx *sid_ctx = NULL, *c;
+	struct listnode *node;
+	json_object *json = NULL;
+
+
+	if (locator_name) {
+		locator = zebra_srv6_locator_lookup(locator_name);
+		if (!locator) {
+			vty_out(vty, "%% Can't find the SRv6 locator\n");
+			return CMD_WARNING;
+		}
+	}
+
+	if (!IPV6_ADDR_SAME(&sid_value, &in6addr_any)) {
+		for (ALL_LIST_ELEMENTS_RO(srv6->sids, node, c)) {
+			if (c->sid &&
+			    IPV6_ADDR_SAME(&c->sid->value, &sid_value)) {
+				sid_ctx = c;
+				break;
+			}
+		}
+
+		if (!sid_ctx) {
+			vty_out(vty, "%% Can't find the SRv6 SID\n");
+			return CMD_WARNING;
+		}
+	}
+
+	if (locator && sid_ctx)
+		if (!sid_ctx->sid || sid_ctx->sid->locator != locator) {
+			vty_out(vty,
+				"%% Can't find the SRv6 SID in the provided locator\n");
+			return CMD_WARNING;
+		}
+
+	if (uj)
+		json = json_object_new_object();
+
+	if (detail)
+		do_show_srv6_sid_detail(vty, uj ? &json : NULL, locator,
+					sid_ctx);
+	else
+		do_show_srv6_sid(vty, uj ? &json : NULL, locator, sid_ctx);
+
+	if (uj)
+		vty_json(vty, json);
+
+	return CMD_SUCCESS;
 }
 
 DEFUN_NOSH (segment_routing,
@@ -1369,4 +1435,5 @@ void zebra_srv6_vty_init(void)
 	install_element(VIEW_NODE, &show_srv6_locator_cmd);
 	install_element(VIEW_NODE, &show_srv6_locator_detail_cmd);
 	install_element(VIEW_NODE, &show_srv6_manager_cmd);
+	install_element(VIEW_NODE, &show_srv6_sid_cmd);
 }
