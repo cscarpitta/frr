@@ -16,6 +16,7 @@
 #include "vrf.h"
 #include "srv6.h"
 #include "lib/json.h"
+#include "termtable.h"
 
 #include "zebra/zserv.h"
 #include "zebra/zebra_router.h"
@@ -259,6 +260,140 @@ DEFUN (show_srv6_locator_detail,
 	return CMD_SUCCESS;
 }
 
+static const char *show_srv6_sid_seg6_action(enum seg6local_action_t behavior)
+{
+	switch (behavior) {
+	case ZEBRA_SEG6_LOCAL_ACTION_END:
+		return "uN";
+	case ZEBRA_SEG6_LOCAL_ACTION_END_X:
+		return "uA";
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX6:
+		return "uDX6";
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
+		return "uDX4";
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
+		return "uDT6";
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
+		return "uDT4";
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
+		return "uDT46";
+	case ZEBRA_SEG6_LOCAL_ACTION_UNSPEC:
+		return "unspec";
+	case ZEBRA_SEG6_LOCAL_ACTION_END_T:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_S:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_AS:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_AM:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_BPF:
+		break;
+	}
+
+	return "unknown";
+}
+
+static const char *show_srv6_sid_seg6_context(char *str, size_t size,
+					      const struct srv6_sid_ctx *ctx,
+					      enum seg6local_action_t behavior)
+{
+	struct vrf *vrf;
+	struct interface *ifp;
+
+	switch (behavior) {
+	case ZEBRA_SEG6_LOCAL_ACTION_END:
+		break;
+	case ZEBRA_SEG6_LOCAL_ACTION_END_X:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX6:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX4:
+		RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+			ifp = if_lookup_by_index(ctx->ifindex, vrf->vrf_id);
+			if (ifp)
+				snprintf(str, size, "Interface '%s'", ifp->name);
+		}
+		break;
+	case ZEBRA_SEG6_LOCAL_ACTION_END_T:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT6:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT4:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DT46:
+		vrf = vrf_lookup_by_id(ctx->vrf_id);
+		snprintf(str, size, "VRF '%s'", vrf ? vrf->name : "<unknown>");
+		break;
+	case ZEBRA_SEG6_LOCAL_ACTION_END_DX2:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_B6:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_B6_ENCAP:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_BM:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_S:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_AS:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_AM:
+	case ZEBRA_SEG6_LOCAL_ACTION_END_BPF:
+	case ZEBRA_SEG6_LOCAL_ACTION_UNSPEC:
+		break;
+	}
+
+	return str;
+}
+
+static void do_show_srv6_sid_line(struct ttable *tt, struct zebra_srv6_sid *sid)
+{
+	struct listnode *node;
+	struct zserv *client;
+	char clients[256];
+	char ctx[256] = {};
+	char behavior[256] = {};
+	char alloc_mode_str[10] = {};
+	char locator_name[SRV6_LOCNAME_SIZE];
+	int ret;
+
+	/* Zclients */
+	if (listcount(sid->client_list)) {
+		bool first = true;
+		int i = 0;
+		for (ALL_LIST_ELEMENTS_RO(sid->client_list, node, client)) {
+			if (first) {
+				ret = snprintf(clients + i, sizeof(clients) - i,
+					       "%s(%d)",
+					       zebra_route_string(client->proto),
+					       client->instance);
+				first = false;
+			} else {
+				ret = snprintf(clients + i, sizeof(clients) - i,
+					       ", %s(%d)",
+					       zebra_route_string(client->proto),
+					       client->instance);
+			}
+
+			if (ret > 0)
+				i += ret;
+		}
+	}
+
+	/* Behavior */
+	if (sid->locator) {
+		if ((sid->locator->sid_format &&
+		     sid->locator->sid_format->type ==
+			     SRV6_SID_FORMAT_TYPE_USID) ||
+		    (!sid->locator->sid_format &&
+		     CHECK_FLAG(sid->locator->flags, SRV6_LOCATOR_USID))) {
+			snprintf(behavior, sizeof(behavior), "%s",
+				 show_srv6_sid_seg6_action(
+					 sid->ctx->ctx.behavior));
+		} else {
+			snprintf(behavior, sizeof(behavior), "%s",
+				 seg6local_action2str(sid->ctx->ctx.behavior));
+		}
+	}
+
+	/* SID context */
+	show_srv6_sid_seg6_context(ctx, sizeof(ctx), &sid->ctx->ctx,
+				   sid->ctx->ctx.behavior);
+
+	if (strlen(ctx) == 0)
+		snprintf(ctx, sizeof(ctx), "-");
+
+	ttable_add_row(tt, "%pI6|%s|%s|%s", &sid->value, behavior, ctx, clients);
+}
 DEFUN_NOSH (segment_routing,
             segment_routing_cmd,
             "segment-routing",
