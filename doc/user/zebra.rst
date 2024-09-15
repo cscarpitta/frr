@@ -934,6 +934,14 @@ and this section also helps that case.
    fc00:0:1:e000::    uA          Interface 'eth-sw1'    isis(0)
    fc00:0:1:e001::    uA          Interface 'eth-sw1'    isis(0)
 
+   router# show segment-routing srv6 sid fc00:0:1:e000:: detail
+   SID                Behavior    Context                Daemon/Instance
+   -----------------  ----------  ---------------------  -----------------
+   fc00:0:1:e000::    uA          Interface 'eth-sw1'    isis(0)
+
+   Locator: loc1
+   Allocation type: dynamic
+
 .. clicmd:: segment-routing
 
    Move from configure mode to segment-routing node.
