@@ -394,6 +394,57 @@ static void do_show_srv6_sid_line(struct ttable *tt, struct zebra_srv6_sid *sid)
 
 	ttable_add_row(tt, "%pI6|%s|%s|%s", &sid->value, behavior, ctx, clients);
 }
+
+static void do_show_srv6_sid_detail(struct vty *vty, json_object **json,
+				    struct srv6_locator *locator,
+				    struct zebra_srv6_sid_ctx *sid_ctx)
+{
+	struct ttable *tt;
+
+	/* Prepare table. */
+	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+	ttable_add_row(tt, "SID|Behavior|Context|Daemon/Instance");
+	tt->style.cell.rpad = 2;
+	tt->style.corner = ' ';
+	ttable_restyle(tt);
+	ttable_rowseps(tt, 0, BOTTOM, true, '-');
+
+	if (!sid_ctx || !sid_ctx->sid)
+		return;
+
+	if (locator && sid_ctx->sid->locator != locator)
+		return;
+
+	do_show_srv6_sid_line(tt, sid_ctx->sid);
+
+	ttable_colseps(tt, 0, RIGHT, true, ' ');
+	ttable_colseps(tt, 1, LEFT, true, ' ');
+	ttable_colseps(tt, 1, RIGHT, true, ' ');
+	ttable_colseps(tt, 2, LEFT, true, ' ');
+	ttable_colseps(tt, 2, RIGHT, true, ' ');
+	ttable_colseps(tt, 3, LEFT, true, ' ');
+
+	/* Dump the generated table. */
+	if (tt->nrows > 1) {
+		if (!json) {
+			char *table;
+
+			table = ttable_dump(tt, "\n");
+			vty_out(vty, "%s\n", table);
+			XFREE(MTYPE_TMP_TTABLE, table);
+		}
+	}
+	ttable_del(tt);
+
+	if (!json) {
+		vty_out(vty, "  Locator: %s\n",
+			sid_ctx->sid->locator ? sid_ctx->sid->locator->name
+					      : "-");
+		vty_out(vty, "  Allocation type: %s\n",
+			srv6_sid_alloc_mode2str(sid_ctx->sid->alloc_mode));
+	}
+}
+
 DEFUN_NOSH (segment_routing,
             segment_routing_cmd,
             "segment-routing",
