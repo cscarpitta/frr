@@ -942,6 +942,40 @@ and this section also helps that case.
    Locator: loc1
    Allocation type: dynamic
 
+   router# show segment-routing srv6 sid json
+   [
+   {
+      "sid":"fc00:0:1::",
+      "behavior":"uN",
+      "context":"-",
+      "daemons":"isis(0)"
+   },
+   {
+      "sid":"fc00:0:1:fe00::",
+      "behavior":"uDT6",
+      "context":"VRF 'vrf10'",
+      "daemons":"bgp(0)"
+   },
+   {
+      "sid":"fc00:0:1:fe01::",
+      "behavior":"uDT6",
+      "context":"VRF 'vrf20'",
+      "daemons":"bgp(0)"
+   },
+   {
+      "sid":"fc00:0:1:e000::",
+      "behavior":"uA",
+      "context":"Interface 'eth-sw1'",
+      "daemons":"isis(0)"
+   },
+   {
+      "sid":"fc00:0:1:e001::",
+      "behavior":"uA",
+      "context":"Interface 'eth-sw1'",
+      "daemons":"isis(0)"
+   }
+   ]
+
 .. clicmd:: segment-routing
 
    Move from configure mode to segment-routing node.
