@@ -448,6 +448,59 @@ static void do_show_srv6_sid_detail(struct vty *vty, json_object **json,
 	}
 }
 
+static void do_show_srv6_sid(struct vty *vty, json_object **json,
+			     struct srv6_locator *locator,
+			     struct zebra_srv6_sid_ctx *sid_ctx)
+{
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct zebra_srv6_sid_ctx *ctx;
+	struct listnode *node;
+	struct ttable *tt;
+
+	/* Prepare table. */
+	tt = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+	ttable_add_row(tt, "SID|Behavior|Context|Daemon/Instance");
+	tt->style.cell.rpad = 2;
+	tt->style.corner = ' ';
+	ttable_restyle(tt);
+	ttable_rowseps(tt, 0, BOTTOM, true, '-');
+
+	for (ALL_LIST_ELEMENTS_RO(srv6->sids, node, ctx)) {
+		/* Skip contexts not associated with any SID */
+		if (!ctx->sid)
+			continue;
+
+		/* Skip SIDs from locators we are not interested in */
+		if (locator && ctx->sid->locator != locator)
+			continue;
+
+		/* Skip SIDs we are not interested in */
+		if (sid_ctx && sid_ctx != ctx)
+			continue;
+
+		do_show_srv6_sid_line(tt, ctx->sid);
+	}
+
+	ttable_colseps(tt, 0, RIGHT, true, ' ');
+	ttable_colseps(tt, 1, LEFT, true, ' ');
+	ttable_colseps(tt, 1, RIGHT, true, ' ');
+	ttable_colseps(tt, 2, LEFT, true, ' ');
+	ttable_colseps(tt, 2, RIGHT, true, ' ');
+	ttable_colseps(tt, 3, LEFT, true, ' ');
+
+	/* Dump the generated table. */
+	if (tt->nrows > 1) {
+		if (!json) {
+			char *table;
+
+			table = ttable_dump(tt, "\n");
+			vty_out(vty, "%s\n", table);
+			XFREE(MTYPE_TMP, table);
+		}
+	}
+	ttable_del(tt);
+}
+
 DEFUN_NOSH (segment_routing,
             segment_routing_cmd,
             "segment-routing",
