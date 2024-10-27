@@ -92,6 +92,41 @@ module frr-staticd {
     }
   }
 
+  typedef srv6-behavior {
+    type enumeration {
+      enum end {
+        value 1;
+      }
+      enum end-x {
+        value 2;
+      }
+      enum end-dt6 {
+        value 3;
+      }
+      enum end-dt4 {
+        value 4;
+      }
+      enum end-dt46 {
+        value 5;
+      }
+      enum un {
+        value 6;
+      }
+      enum ua {
+        value 7;
+      }
+      enum udt6 {
+        value 8;
+      }
+      enum udt4 {
+        value 9;
+      }
+      enum udt46 {
+        value 10;
+      }
+    }
+  }
+
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol" {
     container staticd {
       when "../frr-rt:type = 'frr-staticd:staticd'" {
@@ -142,6 +177,36 @@ module frr-staticd {
           }
 
           uses staticd-prefix-attributes;
+        }
+      }
+
+      container segment-routing {
+        container srv6 {
+          container locators {
+            list locator {
+              key "name";
+              leaf name {
+                type string;
+              }
+              container local-sids {
+                list sid {
+                  key "sid";
+                  leaf sid {
+                    type inet:ipv6-address;
+                  }
+                  leaf behavior {
+                    type srv6-behavior;
+                  }
+                  leaf vrf-name {
+                    type string;
+                  }
+                  leaf ifname {
+                    type string;
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }

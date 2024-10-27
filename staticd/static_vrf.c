@@ -125,6 +125,11 @@ static int static_vrf_enable(struct vrf *vrf)
 {
 	static_zebra_vrf_register(vrf);
 	static_fixup_vrf_ids(vrf);
+
+	/* when a VRF is enabled in the kernel, go through all the static SRv6
+	 * SIDs that use this VRF and install them in the zebra RIB */
+	static_fixup_vrf_srv6_sids(vrf->info);
+
 	return 0;
 }
 
@@ -132,6 +137,11 @@ static int static_vrf_disable(struct vrf *vrf)
 {
 	static_cleanup_vrf_ids(vrf);
 	static_zebra_vrf_unregister(vrf);
+
+	/* when a VRF is disabled in the kernel, remove all the static SRv6 SIDs
+	 * using this VRF from the zebra RIB */
+	static_cleanup_vrf_srv6_sids(vrf->info);
+
 	return 0;
 }
 

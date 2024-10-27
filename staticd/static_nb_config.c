@@ -20,6 +20,8 @@
 #include "static_nb.h"
 #include "static_zebra.h"
 
+#include "static_srv6.h"
+
 
 static int static_path_list_create(struct nb_cb_create_args *args)
 {
@@ -1367,3 +1369,626 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 
 	return NB_OK;
 }
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator
+ */
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_create(
+	struct nb_cb_create_args *args)
+{
+
+	zlog_info("entering routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_create");
+
+	struct static_srv6_locator *locator;
+	const char *loc_name;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	loc_name = yang_dnode_get_string(args->dnode, "name");
+
+	locator = static_srv6_locator_alloc(loc_name);
+
+	listnode_add(srv6_locators, locator);
+
+	if (static_zebra_srv6_manager_get_locator(loc_name) < 0)
+		return NB_ERR;
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct static_srv6_locator *locator;
+	const char *loc_name;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	loc_name = yang_dnode_get_string(args->dnode, "locator");
+	locator = static_srv6_locator_lookup(loc_name);
+	if (!locator) {
+		/* TODO: show error */
+		return NB_ERR;
+	}
+
+	/* TODO: Dealloc all SIDs */
+	
+	listnode_delete(srv6_locators, locator);
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/local-sids/sid
+ */
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_create(
+	struct nb_cb_create_args *args)
+{
+	struct static_srv6_sid *sid;
+	struct in6_addr sid_value;
+
+	zlog_info("routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_create");
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	zlog_info("routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_create 2");
+
+
+	yang_dnode_get_ipv6(&sid_value, args->dnode, "sid");
+	sid = static_srv6_sid_alloc(&sid_value);
+	nb_running_set_entry(args->dnode, sid);
+	// TODO: set locator
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct static_srv6_sid *sid;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	zlog_info("routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_destroy");
+
+	sid = nb_running_unset_entry(args->dnode);
+
+	const char *loc_name = yang_dnode_get_string(args->dnode, "../../name");
+	zlog_info("loc_name %s", loc_name);
+	struct static_srv6_locator *locator = static_srv6_locator_lookup(loc_name);
+
+	listnode_delete(locator->srv6_sids, sid);
+	static_srv6_sid_del(sid);
+	// static_srv6_sid_free(sid);
+
+	return NB_OK;
+}
+
+
+static void combine_sid(struct static_srv6_locator *locator, struct in6_addr *sid_addr,
+		 struct in6_addr *result_addr)
+{
+	uint8_t idx = 0;
+	uint8_t funcid = 0;
+	uint8_t locatorbit = 0;
+	/* uint8_t sidbit = 0;*/
+	uint8_t totalbit = 0;
+	uint8_t funbit = 0;
+	locatorbit =
+		(locator->block_bits_length + locator->node_bits_length) / 8;
+	/* sidbit = 16 - locatorbit; */
+	totalbit = (locator->block_bits_length + locator->node_bits_length +
+		    locator->function_bits_length +
+		    locator->argument_bits_length) /
+		   8;
+	funbit = (locator->function_bits_length +
+		  locator->argument_bits_length) /
+		 8;
+	for (idx = 0; idx < locatorbit; idx++) {
+		result_addr->s6_addr[idx] = locator->prefix.prefix.s6_addr[idx];
+	}
+	for (; idx < totalbit; idx++) {
+		result_addr->s6_addr[idx] =
+			sid_addr->s6_addr[16 - funbit + funcid];
+		funcid++;
+	}
+}
+
+void routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct static_srv6_sid *sid, *s;
+
+	zlog_info("routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_apply_finish");
+
+	sid = nb_running_get_entry(args->dnode, NULL, true);
+	if (!sid)
+		zlog_info("sid is null");
+
+	zlog_info("sid is not null");
+
+	const char *loc_name = yang_dnode_get_string(args->dnode, "../../name");
+	zlog_info("loc_name %s", loc_name);
+	struct static_srv6_locator *locator = static_srv6_locator_lookup(loc_name);
+	sid->locator = locator;
+
+	struct in6_addr newsid = {};
+	combine_sid(locator, &sid->addr, &newsid);
+
+	zlog_info("combining sid %pFX %pI6 = %pI6", &locator->prefix, &sid->addr, &newsid);
+	zlog_info("block %u node %u func %u arg %u", locator->block_bits_length, locator->node_bits_length, locator->function_bits_length, locator->argument_bits_length);
+
+	sid->addr = newsid;
+	
+	struct listnode *node;
+	// struct static_srv6_sid *sid;
+	for (ALL_LIST_ELEMENTS_RO(locator->srv6_sids, node, s)) {
+		if (IPV6_ADDR_SAME(&s->addr, &sid->addr)) {
+			zlog_err("Prefix %pI6 is already exist,please delete it first. \n",
+				&sid->addr);
+			return NB_ERR;
+		}
+	}
+
+	if (sid->behavior == STATIC_SRV6_SID_BEHAVIOR_UDT6 || sid->behavior == STATIC_SRV6_SID_BEHAVIOR_UDT4 || sid->behavior == STATIC_SRV6_SID_BEHAVIOR_UDT46) {
+		for (ALL_LIST_ELEMENTS_RO(locator->srv6_sids, node, s)) {
+			if (sid->behavior == s->behavior && strncmp(sid->attributes.vrf_name, s->attributes.vrf_name, sizeof(sid->attributes.vrf_name)) == 0) {
+				zlog_err("Prefix %pI6 is already exist,please delete it first. \n",
+					&sid->addr);
+				return NB_ERR;
+			}
+		}
+	}
+	
+	listnode_add(locator->srv6_sids, sid);
+	static_zebra_request_srv6_sid(sid);
+}
+
+// /*
+//  * XPath:
+//  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/local-sids/sid/value
+//  */
+// int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_value_modify(
+// 	struct nb_cb_modify_args *args)
+// {
+// 	switch (args->event) {
+// 	case NB_EV_VALIDATE:
+// 	case NB_EV_PREPARE:
+// 	case NB_EV_ABORT:
+// 	case NB_EV_APPLY:
+// 		break;
+// 	}
+
+// 	return NB_OK;
+// }
+
+// int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_value_destroy(
+// 	struct nb_cb_destroy_args *args)
+// {
+// 	switch (args->event) {
+// 	case NB_EV_VALIDATE:
+// 	case NB_EV_PREPARE:
+// 	case NB_EV_ABORT:
+// 	case NB_EV_APPLY:
+// 		break;
+// 	}
+
+// 	return NB_OK;
+// }
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/local-sids/sid/behavior
+ */
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_behavior_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct static_srv6_sid *sid;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	zlog_info("routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_behavior_modify");
+
+	sid = nb_running_get_entry(args->dnode, NULL, true);
+	sid->behavior = yang_dnode_get_enum(args->dnode, "../behavior");
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_behavior_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
+// int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_behavior_destroy(
+// 	struct nb_cb_destroy_args *args)
+// {
+// 	switch (args->event) {
+// 	case NB_EV_VALIDATE:
+// 	case NB_EV_PREPARE:
+// 	case NB_EV_ABORT:
+// 	case NB_EV_APPLY:
+// 		break;
+// 	}
+
+// 	return NB_OK;
+// }
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/local-sids/sid/end
+ */
+// int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_end_modify(
+// 	struct nb_cb_modify_args *args)
+// {
+// 	return NB_OK;
+// }
+
+// int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_end_destroy(
+// 	struct nb_cb_destroy_args *args)
+// {
+// 	switch (args->event) {
+// 	case NB_EV_VALIDATE:
+// 	case NB_EV_PREPARE:
+// 	case NB_EV_ABORT:
+// 	case NB_EV_APPLY:
+// 		break;
+// 	}
+
+// 	return NB_OK;
+// }
+
+// /*
+//  * XPath:
+//  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/local-sids/sid/end-x
+//  */
+// int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_end_x_modify(
+// 	struct nb_cb_modify_args *args)
+// {
+// 	struct static_srv6_sid *sid;
+
+// 	if (args->event != NB_EV_APPLY)
+// 		return NB_OK;
+
+// 	sid = nb_running_get_entry(args->dnode, NULL, true);
+// 	sid->behavior = yang_dnode_get_enum(args->dnode, "../behavior");
+
+// 	return NB_OK;
+// }
+
+// int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_end_x_destroy(
+// 	struct nb_cb_destroy_args *args)
+// {
+// 	switch (args->event) {
+// 	case NB_EV_VALIDATE:
+// 	case NB_EV_PREPARE:
+// 	case NB_EV_ABORT:
+// 	case NB_EV_APPLY:
+// 		break;
+// 	}
+
+// 	return NB_OK;
+// }
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/local-sids/sid/vrf-name
+ */
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_vrf_name_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct static_srv6_sid *sid;
+	const char *vrf;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	zlog_info("routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_vrf_name_modify");
+
+	sid = nb_running_get_entry(args->dnode, NULL, true);
+	vrf = yang_dnode_get_string(args->dnode, "../vrf-name");
+	strncpy(sid->attributes.vrf_name, vrf, sizeof(sid->attributes.vrf_name));
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_vrf_name_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/local-sids/sid/vrf-name
+ */
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_ifname_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct static_srv6_sid *sid;
+	const char *ifname;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	zlog_info("routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_ifname_modify");
+
+	sid = nb_running_get_entry(args->dnode, NULL, true);
+	ifname = yang_dnode_get_string(args->dnode, "../ifname");
+	strncpy(sid->attributes.ifname, ifname, sizeof(sid->attributes.ifname));
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_ifname_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
+// int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_end_dt6_destroy(
+// 	struct nb_cb_destroy_args *args)
+// {
+// 	switch (args->event) {
+// 	case NB_EV_VALIDATE:
+// 	case NB_EV_PREPARE:
+// 	case NB_EV_ABORT:
+// 	case NB_EV_APPLY:
+// 		break;
+// 	}
+
+// 	return NB_OK;
+// }
+
+// /*
+//  * XPath:
+//  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/local-sids/sid/end-dt4
+//  */
+// int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_end_dt4_modify(
+// 	struct nb_cb_modify_args *args)
+// {
+// 	switch (args->event) {
+// 	case NB_EV_VALIDATE:
+// 	case NB_EV_PREPARE:
+// 	case NB_EV_ABORT:
+// 	case NB_EV_APPLY:
+// 		break;
+// 	}
+
+// 	return NB_OK;
+// }
+
+// int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_end_dt4_destroy(
+// 	struct nb_cb_destroy_args *args)
+// {
+// 	switch (args->event) {
+// 	case NB_EV_VALIDATE:
+// 	case NB_EV_PREPARE:
+// 	case NB_EV_ABORT:
+// 	case NB_EV_APPLY:
+// 		break;
+// 	}
+
+// 	return NB_OK;
+// }
+
+// /*
+//  * XPath:
+//  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/local-sids/sid/end-dt46
+//  */
+// int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_end_dt46_modify(
+// 	struct nb_cb_modify_args *args)
+// {
+// 	switch (args->event) {
+// 	case NB_EV_VALIDATE:
+// 	case NB_EV_PREPARE:
+// 	case NB_EV_ABORT:
+// 	case NB_EV_APPLY:
+// 		break;
+// 	}
+
+// 	return NB_OK;
+// }
+
+// int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_end_dt46_destroy(
+// 	struct nb_cb_destroy_args *args)
+// {
+// 	switch (args->event) {
+// 	case NB_EV_VALIDATE:
+// 	case NB_EV_PREPARE:
+// 	case NB_EV_ABORT:
+// 	case NB_EV_APPLY:
+// 		break;
+// 	}
+
+// 	return NB_OK;
+// }
+
+// /*
+//  * XPath:
+//  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/local-sids/sid/un
+//  */
+// int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_un_modify(
+// 	struct nb_cb_modify_args *args)
+// {
+// 	switch (args->event) {
+// 	case NB_EV_VALIDATE:
+// 	case NB_EV_PREPARE:
+// 	case NB_EV_ABORT:
+// 	case NB_EV_APPLY:
+// 		break;
+// 	}
+
+// 	return NB_OK;
+// }
+
+// int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_un_destroy(
+// 	struct nb_cb_destroy_args *args)
+// {
+// 	switch (args->event) {
+// 	case NB_EV_VALIDATE:
+// 	case NB_EV_PREPARE:
+// 	case NB_EV_ABORT:
+// 	case NB_EV_APPLY:
+// 		break;
+// 	}
+
+// 	return NB_OK;
+// }
+
+// /*
+//  * XPath:
+//  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/local-sids/sid/ua
+//  */
+// int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_ua_modify(
+// 	struct nb_cb_modify_args *args)
+// {
+// 	switch (args->event) {
+// 	case NB_EV_VALIDATE:
+// 	case NB_EV_PREPARE:
+// 	case NB_EV_ABORT:
+// 	case NB_EV_APPLY:
+// 		break;
+// 	}
+
+// 	return NB_OK;
+// }
+
+// int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_ua_destroy(
+// 	struct nb_cb_destroy_args *args)
+// {
+// 	switch (args->event) {
+// 	case NB_EV_VALIDATE:
+// 	case NB_EV_PREPARE:
+// 	case NB_EV_ABORT:
+// 	case NB_EV_APPLY:
+// 		break;
+// 	}
+
+// 	return NB_OK;
+// }
+
+// /*
+//  * XPath:
+//  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/local-sids/sid/udt6
+//  */
+// int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_udt6_modify(
+// 	struct nb_cb_modify_args *args)
+// {
+// 	switch (args->event) {
+// 	case NB_EV_VALIDATE:
+// 	case NB_EV_PREPARE:
+// 	case NB_EV_ABORT:
+// 	case NB_EV_APPLY:
+// 		break;
+// 	}
+
+// 	return NB_OK;
+// }
+
+// int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_udt6_destroy(
+// 	struct nb_cb_destroy_args *args)
+// {
+// 	switch (args->event) {
+// 	case NB_EV_VALIDATE:
+// 	case NB_EV_PREPARE:
+// 	case NB_EV_ABORT:
+// 	case NB_EV_APPLY:
+// 		break;
+// 	}
+
+// 	return NB_OK;
+// }
+
+// /*
+//  * XPath:
+//  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/local-sids/sid/udt4
+//  */
+// int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_udt4_modify(
+// 	struct nb_cb_modify_args *args)
+// {
+// 	switch (args->event) {
+// 	case NB_EV_VALIDATE:
+// 	case NB_EV_PREPARE:
+// 	case NB_EV_ABORT:
+// 	case NB_EV_APPLY:
+// 		break;
+// 	}
+
+// 	return NB_OK;
+// }
+
+// int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_udt4_destroy(
+// 	struct nb_cb_destroy_args *args)
+// {
+// 	switch (args->event) {
+// 	case NB_EV_VALIDATE:
+// 	case NB_EV_PREPARE:
+// 	case NB_EV_ABORT:
+// 	case NB_EV_APPLY:
+// 		break;
+// 	}
+
+// 	return NB_OK;
+// }
+
+// /*
+//  * XPath:
+//  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/local-sids/sid/udt46
+//  */
+// int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_udt46_modify(
+// 	struct nb_cb_modify_args *args)
+// {
+// 	switch (args->event) {
+// 	case NB_EV_VALIDATE:
+// 	case NB_EV_PREPARE:
+// 	case NB_EV_ABORT:
+// 	case NB_EV_APPLY:
+// 		break;
+// 	}
+
+// 	return NB_OK;
+// }
+
+// int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_udt46_destroy(
+// 	struct nb_cb_destroy_args *args)
+// {
+// 	switch (args->event) {
+// 	case NB_EV_VALIDATE:
+// 	case NB_EV_PREPARE:
+// 	case NB_EV_ABORT:
+// 	case NB_EV_APPLY:
+// 		break;
+// 	}
+
+// 	return NB_OK;
+// }
+
+
+// #ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
+// 	struct static_srv6_sid *sid;
+// 	struct listnode *node, *nnode;
+
+// 	/* iterate over the list of SRv6 SIDs: remove all the SIDs from the
+// 	 * zebra RIB, release previously allocated memory, and delete the SIDs
+// 	 * from the SRv6 SIDs list */
+// 	for (ALL_LIST_ELEMENTS(srv6_sids, node, nnode, sid)) {
+// 		listnode_delete(srv6_sids, sid);
+// 		static_srv6_sid_del(sid);
+// 	}
+
+// #endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
+// 	return CMD_SUCCESS;
+
+
+
+	// nb_cli_enqueue_change(vty, "./behavior",
+	// 				NB_OP_MODIFY, behavior);

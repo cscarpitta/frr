@@ -18,6 +18,7 @@
 #include "zebra/zebra_srv6.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/ge_netlink.h"
+#include "zebra/interface.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -2289,6 +2290,60 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid,
 				   client->instance, client->session_id);
 		if (!listnode_lookup((*sid)->client_list, client))
 			listnode_add((*sid)->client_list, client);
+
+		if (ctx->behavior == ZEBRA_SEG6_LOCAL_ACTION_END_X) {
+			struct nhg_connected *rb_node_dep = NULL;
+			struct nexthop *nexthop;
+			bool found = false;
+			zlog_info(" get interface %u", ctx->ifindex);
+
+			// struct interface *ifp = if_lookup_by_index(ctx->ifindex, VRF_DEFAULT);
+			// if (!ifp) {
+			// 	zlog_warn("failed to get interface");
+			// 	return;
+			// }
+			struct vrf *vrf;
+			struct interface *ifp;
+			RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+				ifp = if_lookup_by_index(ctx->ifindex, vrf->vrf_id);
+				if (ifp) {
+					break;
+				}
+			}
+			if (!ifp) {
+				zlog_err("failed to get interface");
+				return;
+			}
+			struct zebra_if *zebra_if = ifp->info;
+			frr_each (nhg_connected_tree, &zebra_if->nhg_dependents, rb_node_dep) {
+				for (ALL_NEXTHOPS(rb_node_dep->nhe->nhg, nexthop)) {
+					zlog_info("nexthop %pI6", &nexthop->gate.ipv6);
+					if (!IN6_IS_ADDR_LINKLOCAL(&nexthop->gate.ipv6))
+						continue;
+					ctx->nh6 = nexthop->gate.ipv6;
+					found = true;
+					break;
+				}
+				if (found)
+					break;
+			}
+			struct nbr_connected *nc;
+			for (ALL_LIST_ELEMENTS_RO(ifp->nbr_connected, node, nc)) {
+				zlog_info("connected, %pFX", nc->address);
+			}
+			frr_each (nhg_connected_tree, &zebra_if->nhg_dependents, rb_node_dep) {
+				for (ALL_NEXTHOPS(rb_node_dep->nhe->nhg, nexthop)) {
+					zlog_info("nexthop %pI6", &nexthop->gate.ipv6);
+					ctx->nh6 = nexthop->gate.ipv6;
+					found = true;
+					// break;
+				}
+				// if (found)
+				// 	break;
+			}
+			if (!found)
+				zlog_info("nexthop not found");
+		}
 
 		for (ALL_LIST_ELEMENTS_RO((*sid)->client_list, node, c))
 			zsend_srv6_sid_notify(c, ctx, &(*sid)->value,

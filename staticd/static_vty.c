@@ -27,6 +27,8 @@
 #include "static_debug.h"
 #include "staticd/static_vty_clippy.c"
 #include "static_nb.h"
+#include "static_srv6.h"
+#include "static_zebra.h"
 
 #define STATICD_STR "Static route daemon\n"
 
@@ -1201,6 +1203,328 @@ DEFPY_YANG(ipv6_route_vrf, ipv6_route_vrf_cmd,
 	return static_route_nb_run(vty, &args);
 }
 
+DEFPY_YANG_NOSH (static_segment_routing, static_segment_routing_cmd,
+      "segment-routing",
+      "Segment Routing\n")
+{
+	char xpath[XPATH_MAXLEN + 107];
+
+	snprintf(xpath, sizeof(xpath), "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing");
+
+	// vty_out(vty, "msg: %s\n", xpath);
+
+	VTY_PUSH_XPATH(SEGMENT_ROUTING_NODE, xpath);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY_YANG_NOSH (static_srv6, static_srv6_cmd,
+      "srv6",
+      "Segment Routing SRv6\n")
+{
+	char xpath[XPATH_MAXLEN + 107];
+
+	snprintf(xpath, sizeof(xpath), "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6");
+
+	// vty_out(vty, "msg: %s\n", xpath);
+
+	VTY_PUSH_XPATH(SRV6_NODE, xpath);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY_YANG_NOSH (static_srv6_locators,
+            static_srv6_locators_cmd,
+            "locators",
+            "Segment Routing SRv6 locators\n")
+{
+	char xpath[XPATH_MAXLEN + 107];
+
+	snprintf(xpath, sizeof(xpath), "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators");
+
+	// vty_out(vty, "msg: %s\n", xpath);
+
+	VTY_PUSH_XPATH(SRV6_LOCS_NODE, xpath);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY_YANG_NOSH (static_srv6_locator,
+            static_srv6_locator_cmd,
+            "locator WORD",
+            "Segment Routing SRv6 locator\n"
+            "Specify locator-name\n")
+{
+	int ret;
+	char xpath[XPATH_MAXLEN + 107];
+
+	// nb_cli_enqueue_change(vty, "./frr-staticd:staticd/segment-routing/", NB_OP_CREATE, NULL);
+	// nb_cli_enqueue_change(vty, "./frr-staticd:staticd/segment-routing/srv6", NB_OP_CREATE, NULL);
+	// nb_cli_enqueue_change(vty, "./frr-staticd:staticd/segment-routing/locators", NB_OP_CREATE, NULL);
+
+	snprintf(xpath, sizeof(xpath), "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-staticd:staticd/segment-routing/srv6/locators/locator[name='%s']",
+		 "frr-staticd:staticd", "staticd", VRF_DEFAULT_NAME, argv[1]->arg);
+
+	// vty_out(vty, "msg: %s\n", xpath);
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	ret = nb_cli_apply_changes(vty, NULL);
+	if (ret == CMD_SUCCESS)
+		VTY_PUSH_XPATH(SRV6_LOC_NODE, xpath);
+
+	return ret;
+}
+
+DEFPY_YANG (no_static_srv6, no_static_srv6_cmd,
+      "no srv6",
+      NO_STR
+      "Segment Routing SRv6\n")
+{
+	char xpath[XPATH_MAXLEN + 37];
+
+	snprintf(xpath, sizeof(xpath), "%s/srv6",
+		 VTY_CURR_XPATH);
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG (no_srv6_locator,
+       no_srv6_locator_cmd,
+       "no locator WORD",
+       NO_STR
+       "Segment Routing SRv6 locator\n"
+       "Specify locator-name\n")
+{
+	char xpath[XPATH_MAXLEN + 37];
+
+	snprintf(xpath, sizeof(xpath), "%s/locator[locator='%s']",
+		 VTY_CURR_XPATH, argv[1]->arg);
+
+	// vty_out(vty, "msg: %s\n", xpath);
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+static const char *seg6local_action2yang(uint32_t action)
+{
+	switch (action) {
+	case STATIC_SRV6_SID_BEHAVIOR_UN:
+		return "un";
+	case STATIC_SRV6_SID_BEHAVIOR_UA:
+		return "ua";
+	case STATIC_SRV6_SID_BEHAVIOR_UDT6:
+		return "udt6";
+	case STATIC_SRV6_SID_BEHAVIOR_UDT4:
+		return "udt4";
+	case STATIC_SRV6_SID_BEHAVIOR_UDT46:
+		return "udt46";
+	}
+
+	return "unspec";
+}
+
+DEFPY_YANG(srv6_opcode, srv6_opcode_cmd,
+      "opcode X:X::X:X <uN | uA nh IFNAME | uDT6 vrf VIEWVRFNAME | uDT4 vrf VIEWVRFNAME | uDT46 vrf VIEWVRFNAME>",
+      "Configure SRv6 SID opcode\n"
+      "Specify SRv6 SID opcode\n"
+      "Apply the code to a uN SID\n"
+      "Apply the code to a uA SID\n"
+      "Specify interface name\n"
+      "Apply the code to an uDT6 SID\n"
+      "Specify VRF name\n"
+      "Apply the code to an uDT4 SID\n"
+      "Specify VRF name\n"
+      "Apply the code to an uDT46 SID\n"
+      "Specify VRF name\n")
+{
+	// VTY_DECLVAR_CONTEXT(srv6_locator, locator);
+	enum static_srv6_sid_behavior_t behavior = STATIC_SRV6_SID_BEHAVIOR_UNSPEC;
+	int idx = 0;
+	const char *vrf_name = NULL;
+	const char *ifn = NULL;
+	char *prefix = NULL;
+	int ret = 0;
+	struct prefix_ipv6 ipv6prefix = {0};
+	char xpath[XPATH_MAXLEN + 37];
+	char xpath_behavior[XPATH_MAXLEN + 100];
+	char xpath_vrf_name[XPATH_MAXLEN + 100];
+	char xpath_ifname[XPATH_MAXLEN + 100];
+
+	if (argv_find(argv, argc, "uN", &idx))
+		behavior = STATIC_SRV6_SID_BEHAVIOR_UN;
+	else if (argv_find(argv, argc, "uA", &idx)) {
+		behavior = STATIC_SRV6_SID_BEHAVIOR_UA;
+		ifn = argv[idx + 2]->arg;
+	} else if (argv_find(argv, argc, "uDT6", &idx)) {
+		behavior = STATIC_SRV6_SID_BEHAVIOR_UDT6;
+		vrf_name = argv[idx + 2]->arg;
+	} else if (argv_find(argv, argc, "uDT4", &idx)) {
+		behavior = STATIC_SRV6_SID_BEHAVIOR_UDT4;
+		vrf_name = argv[idx + 2]->arg;
+	} else if (argv_find(argv, argc, "uDT46", &idx)) {
+		behavior = STATIC_SRV6_SID_BEHAVIOR_UDT46;
+		vrf_name = argv[idx + 2]->arg;
+	}
+
+	prefix = argv[1]->arg;
+	// ret = str2prefix_ipv6(prefix, &ipv6prefix);
+	// apply_mask_ipv6(&ipv6prefix);
+	ret = inet_pton(AF_INET6, prefix, &ipv6prefix);
+	if (!ret) {
+		vty_out(vty, "Malformed IPv6 prefix\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+
+	// snprintf(xpath, sizeof(xpath), "/frr-routing:routing/control-plane-protocols/control-plane-protocol[type='%s'][name='%s'][vrf='%s']/frr-staticd:staticd/segment-routing/srv6/locators/locator[name='%s']",
+	// 	 "frr-staticd:staticd", "staticd", VRF_DEFAULT_NAME, argv[1]->arg);
+
+	zlog_info("received prefix %s", prefix);
+	char buf_ipv6[256] = {};
+	inet_ntop(AF_INET6, &ipv6prefix, buf_ipv6,
+			  sizeof(buf_ipv6));
+	zlog_info("received buf_ipv6 %s", buf_ipv6);
+
+	snprintf(xpath, sizeof(xpath), "./local-sids/sid[sid='%s']", prefix);
+	snprintf(xpath_behavior, sizeof(xpath_behavior), "%s/behavior", xpath);
+	snprintf(xpath_vrf_name, sizeof(xpath_vrf_name), "%s/vrf-name", xpath);
+	snprintf(xpath_ifname, sizeof(xpath_vrf_name), "%s/ifname", xpath);
+
+	zlog_info("xpath %s", xpath);
+
+	nb_cli_enqueue_change(vty, xpath,
+					NB_OP_CREATE, buf_ipv6);
+
+	nb_cli_enqueue_change(vty, xpath_behavior,
+					NB_OP_MODIFY, seg6local_action2yang(behavior));
+
+	if (vrf_name)
+		nb_cli_enqueue_change(vty, xpath_vrf_name,
+						NB_OP_MODIFY, vrf_name);
+
+	if (ifn)
+		nb_cli_enqueue_change(vty, xpath_ifname,
+						NB_OP_MODIFY, ifn);
+
+	return nb_cli_apply_changes(vty, NULL);
+
+	// for (ALL_LIST_ELEMENTS_RO(locator->sids, node, sid)) {
+	// 	if (IPV6_ADDR_SAME(&sid->ipv6Addr.prefix, &ipv6prefix.prefix)) {
+	// 		vty_out(vty,
+	// 			"Prefix %s is already exist,please delete it first. \n",
+	// 			argv[1]->arg);
+	// 		return CMD_WARNING;
+	// 	}
+	// }
+
+	// sid = sid_lookup_by_vrf_action(locator, vrfName, sidaction);
+	// if (sid) {
+	// 	vty_out(vty,
+	// 		"VRF %s is already exist,please delete it first. \n",
+	// 		vrfName);
+	// 	return CMD_WARNING;
+	// }
+
+	// /* if the SRv6 SID already exists and it is bound to the same behavior,
+	//  * do nothing */
+	// sid = static_srv6_sid_lookup(&ipv6prefix);
+	// if (sid && sid->behavior == behavior) {
+	// 	VTY_PUSH_CONTEXT(STATIC_SRV6_SID_NODE, sid);
+	// 	return CMD_SUCCESS;
+	// }
+
+	// /* if the SRv6 already exists but it is bound to a different behavior,
+	//  * return an error */
+	// if (sid && sid->behavior != behavior) {
+	// 	vty_out(vty,
+	// 		"%% SRv6 SID %pI6 already bound to the behavior %s\n",
+	// 		&sid->addr,
+	// 		static_srv6_sid_behavior2str(sid->behavior));
+	// 	return CMD_WARNING_CONFIG_FAILED;
+	// }
+
+	// /* the sid does not exist yet, let's create a new one */
+	// /* alloc memory for the new SRv6 SID */
+	// sid = srv6_sid_alloc(&addr, behavior);
+	// if (!sid) {
+	// 	vty_out(vty, "%% Alloc failed\n");
+	// 	return CMD_WARNING_CONFIG_FAILED;
+	// }
+
+	// sid = srv6_locator_sid_alloc();
+	// sid->behavior = behavior;
+
+	// if (vrf_name != NULL)
+	// 	strlcpy(sid->attributes.vrf_name, vrf_name, VRF_NAMSIZ);
+
+	// sid->addr = ipv6prefix;
+	// strncpy(sid->sidstr, prefix, PREFIX_STRLEN);
+
+	// sid->ifname[0] = '\0';
+	// // memcpy(&sid->nexthop, &nexthop, sizeof(struct in6_addr));
+	// if (!zebra_srv6_local_sid_format_valid(locator, sid)) {
+	// 	vty_out(vty, "%% Malformed locator sid opcode format\n");
+	// 	srv6_locator_sid_free(sid);
+	// 	return CMD_WARNING_CONFIG_FAILED;
+	// }
+
+	// listnode_add(srv6_sids, sid);
+	// // zebra_srv6_local_sid_add(locator, sid);
+
+	// // for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, client_node, client)) {
+	// // 	zsend_srv6_manager_get_locator_sid_response(client, VRF_DEFAULT,
+	// // 						    locator, sid);
+	// // }
+
+	// /* add the new SRv6 SID to the staticd SRv6 SIDs list and install it in
+	//  * the zebra RIB */
+	// /* SID is not guaranteed to be installed immediately in the zebra RIB */
+	// /* if one or more mandatory attributes have not yet been configured, the
+	//  * installation of the SID in the zebra rib is postponed until all the
+	//  * attributes are configured */
+	// static_srv6_sid_add(sid);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY_YANG(no_srv6_opcode, no_srv6_opcode_cmd,
+      "no opcode X:X::X:X [<uN | uA nh IFNAME | uDT6 vrf VIEWVRFNAME | uDT4 vrf VIEWVRFNAME | uDT46 vrf VIEWVRFNAME>]",
+      NO_STR
+	  "Configure SRv6 SID opcode\n"
+      "Specify SRv6 SID opcode\n"
+      "Apply the code to a uN SID\n"
+      "Apply the code to a uA SID\n"
+      "Specify interface name\n"
+      "Apply the code to an uDT6 SID\n"
+      "Specify VRF name\n"
+      "Apply the code to an uDT4 SID\n"
+      "Specify VRF name\n"
+      "Apply the code to an uDT46 SID\n"
+      "Specify VRF name\n")
+{
+	char xpath[XPATH_MAXLEN + 37];
+	const struct lyd_node *dnode;
+
+	snprintf(xpath, sizeof(xpath), "./local-sids/sid[sid='%s']",
+		 argv[2]->arg);
+
+	dnode = yang_dnode_get(vty->candidate_config->dnode, "/frr-routing:routing/control-plane-protocols/control-plane-protocol");
+	if (!dnode) {
+		vty_out(vty,
+			"%% Refusing to remove a non-existent opcode\n");
+		return CMD_SUCCESS;
+	}
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 #ifdef INCLUDE_MGMTD_CMDDEFS_ONLY
 
 static void static_cli_show(struct vty *vty, const struct lyd_node *dnode,
@@ -1646,8 +1970,48 @@ DEFUN_NOSH (show_debugging_static,
 
 #endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
 
+
+static struct cmd_node sr_node = {
+	.name = "sr",
+	.node = SEGMENT_ROUTING_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-sr)# ",
+	// .config_write = static_sr_config_write, // TODO: implement me
+};
+
+static struct cmd_node srv6_node = {
+	.name = "srv6",
+	.node = SRV6_NODE,
+	.parent_node = SEGMENT_ROUTING_NODE,
+	.prompt = "%s(config-srv6)# ",
+};
+
+static struct cmd_node srv6_locs_node = {
+	.name = "srv6-locators",
+	.node = SRV6_LOCS_NODE,
+	.parent_node = SRV6_NODE,
+	.prompt = "%s(config-srv6-locators)# ",
+};
+
+static struct cmd_node srv6_loc_node = {
+	.name = "srv6-locator",
+	.node = SRV6_LOC_NODE,
+	.parent_node = SRV6_LOCS_NODE,
+	.prompt = "%s(config-srv6-locator)# "
+};
+
 void static_vty_init(void)
 {
+	/* Install nodes and its default commands */
+	install_node(&sr_node);
+	install_node(&srv6_node);
+	install_node(&srv6_locs_node);
+	install_node(&srv6_loc_node);
+	install_default(SEGMENT_ROUTING_NODE);
+	install_default(SRV6_NODE);
+	install_default(SRV6_LOCS_NODE);
+	install_default(SRV6_LOC_NODE);
+
 #ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
 	install_element(ENABLE_NODE, &debug_staticd_cmd);
 	install_element(CONFIG_NODE, &debug_staticd_cmd);
@@ -1669,6 +2033,14 @@ void static_vty_init(void)
 	install_element(VRF_NODE, &ipv6_route_address_interface_vrf_cmd);
 	install_element(CONFIG_NODE, &ipv6_route_cmd);
 	install_element(VRF_NODE, &ipv6_route_vrf_cmd);
+	
+	install_element(CONFIG_NODE, &static_segment_routing_cmd);
+	install_element(SEGMENT_ROUTING_NODE, &static_srv6_cmd);
+	install_element(SEGMENT_ROUTING_NODE, &no_static_srv6_cmd);
+	install_element(SRV6_NODE, &static_srv6_locators_cmd);
+	install_element(SRV6_LOCS_NODE, &static_srv6_locator_cmd);
+	install_element(SRV6_LOC_NODE, &srv6_opcode_cmd);
+	install_element(SRV6_LOC_NODE, &no_srv6_opcode_cmd);
 #endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
 
 #ifndef INCLUDE_MGMTD_CMDDEFS_ONLY

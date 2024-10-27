@@ -225,6 +225,42 @@ const struct frr_yang_module_info frr_staticd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator",
+			.cbs = {
+				.create = routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_create,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/local-sids/sid",
+			.cbs = {
+				.apply_finish = routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_apply_finish,
+				.create = routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_create,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/local-sids/sid/behavior",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_behavior_modify,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_vrf_name_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/local-sids/sid/vrf-name",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_vrf_name_modify,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_vrf_name_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/segment-routing/srv6/locators/locator/local-sids/sid/ifname",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_ifname_modify,
+				.destroy = routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_ifname_destroy,
+			}
+		},
+		{
 			.xpath = NULL,
 		},
 	}
