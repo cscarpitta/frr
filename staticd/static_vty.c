@@ -1329,17 +1329,20 @@ static const char *seg6local_action2yang(uint32_t action)
 }
 
 DEFPY_YANG(srv6_opcode, srv6_opcode_cmd,
-      "opcode X:X::X:X <uN | uA nh IFNAME | uDT6 vrf VIEWVRFNAME | uDT4 vrf VIEWVRFNAME | uDT46 vrf VIEWVRFNAME>",
-      "Configure SRv6 SID opcode\n"
+      "opcode X:X::X:X [<uA interface IFNAME | uDT6 vrf VIEWVRFNAME | uDT4 vrf VIEWVRFNAME | uDT46 vrf VIEWVRFNAME>]",
+	  "Configure SRv6 SID opcode\n"
       "Specify SRv6 SID opcode\n"
-      "Apply the code to a uN SID\n"
       "Apply the code to a uA SID\n"
+      "Configure interface name\n"
       "Specify interface name\n"
       "Apply the code to an uDT6 SID\n"
+      "Configure VRF name\n"
       "Specify VRF name\n"
       "Apply the code to an uDT4 SID\n"
+      "Configure VRF name\n"
       "Specify VRF name\n"
       "Apply the code to an uDT46 SID\n"
+      "Configure VRF name\n"
       "Specify VRF name\n")
 {
 	// VTY_DECLVAR_CONTEXT(srv6_locator, locator);
@@ -1393,7 +1396,7 @@ DEFPY_YANG(srv6_opcode, srv6_opcode_cmd,
 	snprintf(xpath, sizeof(xpath), "./local-sids/sid[sid='%s']", prefix);
 	snprintf(xpath_behavior, sizeof(xpath_behavior), "%s/behavior", xpath);
 	snprintf(xpath_vrf_name, sizeof(xpath_vrf_name), "%s/vrf-name", xpath);
-	snprintf(xpath_ifname, sizeof(xpath_vrf_name), "%s/ifname", xpath);
+	snprintf(xpath_ifname, sizeof(xpath_ifname), "%s/ifname", xpath);
 
 	zlog_info("xpath %s", xpath);
 
@@ -1493,18 +1496,21 @@ DEFPY_YANG(srv6_opcode, srv6_opcode_cmd,
 }
 
 DEFPY_YANG(no_srv6_opcode, no_srv6_opcode_cmd,
-      "no opcode X:X::X:X [<uN | uA nh IFNAME | uDT6 vrf VIEWVRFNAME | uDT4 vrf VIEWVRFNAME | uDT46 vrf VIEWVRFNAME>]",
+      "no opcode X:X::X:X [<uA interface IFNAME | uDT6 vrf VIEWVRFNAME | uDT4 vrf VIEWVRFNAME | uDT46 vrf VIEWVRFNAME>]",
       NO_STR
 	  "Configure SRv6 SID opcode\n"
       "Specify SRv6 SID opcode\n"
-      "Apply the code to a uN SID\n"
       "Apply the code to a uA SID\n"
+      "Configure interface name\n"
       "Specify interface name\n"
       "Apply the code to an uDT6 SID\n"
+      "Configure VRF name\n"
       "Specify VRF name\n"
       "Apply the code to an uDT4 SID\n"
+      "Configure VRF name\n"
       "Specify VRF name\n"
       "Apply the code to an uDT46 SID\n"
+      "Configure VRF name\n"
       "Specify VRF name\n")
 {
 	char xpath[XPATH_MAXLEN + 37];

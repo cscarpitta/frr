@@ -105,6 +105,17 @@ static int interface_address_add(ZAPI_CALLBACK_ARGS)
 		zlog_info("connected, %pFX", nc->address);
 	}
 
+	struct static_srv6_locator *locator;
+	struct static_srv6_sid *sid;
+	struct listnode *node2;
+
+	for (ALL_LIST_ELEMENTS_RO(srv6_locators, node, locator)) {
+		for (ALL_LIST_ELEMENTS_RO(locator->srv6_sids, node2, sid)) {
+			if (strncmp(sid->attributes.ifname, c->ifp->name, sizeof(c->ifp->name)) == 0)
+				static_zebra_request_srv6_sid(sid);
+		}
+	}
+
 	return 0;
 }
 
@@ -118,19 +129,53 @@ static int interface_address_delete(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	connected_free(&c);
+
+	// struct static_srv6_locator *locator;
+	// struct static_srv6_sid *sid;
+	// struct listnode *node, *node2;
+
+	// for (ALL_LIST_ELEMENTS_RO(srv6_locators, node, locator)) {
+	// 	for (ALL_LIST_ELEMENTS_RO(locator->srv6_sids, node2, sid)) {
+	// 		if (strncmp(sid->attributes.ifname, c->ifp->name, sizeof(ifp->name)) == 0)
+	// 			static_zebra_release_srv6_sid(sid);
+	// 	}
+	// }
+
 	return 0;
 }
 
 static int static_ifp_up(struct interface *ifp)
 {
+	struct static_srv6_locator *locator;
+	struct static_srv6_sid *sid;
+	struct listnode *node, *node2;
+
 	static_ifindex_update(ifp, true);
+
+	for (ALL_LIST_ELEMENTS_RO(srv6_locators, node, locator)) {
+		for (ALL_LIST_ELEMENTS_RO(locator->srv6_sids, node2, sid)) {
+			if (strncmp(sid->attributes.ifname, ifp->name, sizeof(ifp->name)) == 0)
+				static_zebra_request_srv6_sid(sid);
+		}
+	}
 
 	return 0;
 }
 
 static int static_ifp_down(struct interface *ifp)
 {
+	struct static_srv6_locator *locator;
+	struct static_srv6_sid *sid;
+	struct listnode *node, *node2;
+
 	static_ifindex_update(ifp, false);
+
+	for (ALL_LIST_ELEMENTS_RO(srv6_locators, node, locator)) {
+		for (ALL_LIST_ELEMENTS_RO(locator->srv6_sids, node2, sid)) {
+			if (strncmp(sid->attributes.ifname, ifp->name, sizeof(ifp->name)) == 0)
+				static_zebra_release_srv6_sid(sid);
+		}
+	}
 
 	return 0;
 }
@@ -646,7 +691,18 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
 		prefixlen = IPV6_MAX_BITLEN;
 		ctx.nh6 = sid->attributes.nh6;
-		ifp = if_lookup_by_name(sid->attributes.ifname, VRF_DEFAULT);
+
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+			ifp = if_lookup_by_name(sid->attributes.ifname, vrf->vrf_id);
+			if (ifp) {
+				break;
+			}
+		}
+
+		if (!ifp) {
+			zlog_err("invalid ifname provided");
+			return;
+		}
 		break;
 	case STATIC_SRV6_SID_BEHAVIOR_UA:
 		action = ZEBRA_SEG6_LOCAL_ACTION_END_X;
@@ -658,7 +714,18 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 				ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 		ctx.flv.lcblock_len = sid->locator->block_bits_length;
 		ctx.flv.lcnode_func_len = sid->locator->node_bits_length;
-		ifp = if_lookup_by_name(sid->attributes.ifname, VRF_DEFAULT);
+
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+			ifp = if_lookup_by_name(sid->attributes.ifname, vrf->vrf_id);
+			if (ifp) {
+				break;
+			}
+		}
+
+		if (!ifp) {
+			zlog_err("invalid ifname provided");
+			return;
+		}
 		break;
 	case STATIC_SRV6_SID_BEHAVIOR_END_DT6:
 	case STATIC_SRV6_SID_BEHAVIOR_UDT6:
@@ -732,7 +799,7 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 {
 	enum seg6local_action_t action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
-	struct interface *ifp;
+	struct interface *ifp = NULL;
 	uint16_t prefixlen = IPV6_MAX_BITLEN;
 	struct vrf *vrf;
 
@@ -756,6 +823,18 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 		prefixlen = sid->locator->block_bits_length +
 			    sid->locator->node_bits_length +
 			    sid->locator->function_bits_length;
+
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+			ifp = if_lookup_by_name(sid->attributes.ifname, vrf->vrf_id);
+			if (ifp) {
+				break;
+			}
+		}
+
+		if (!ifp) {
+			zlog_err("invalid ifname provided");
+			return;
+		}
 		break;
 	case STATIC_SRV6_SID_BEHAVIOR_END_DT6:
 	case STATIC_SRV6_SID_BEHAVIOR_UDT6:
@@ -824,7 +903,6 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 extern void static_zebra_request_srv6_sid(struct static_srv6_sid *sid)
 {
 	struct srv6_sid_ctx ctx = {};
-	struct vrf *vrf;
 	int ret = 0;
 
 	if (!sid)
@@ -940,7 +1018,21 @@ extern void static_zebra_release_srv6_sid(struct static_srv6_sid *sid)
 	case STATIC_SRV6_SID_BEHAVIOR_END_X:
 	case STATIC_SRV6_SID_BEHAVIOR_UA:
 		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_X;
-		// TODO: params
+
+		struct interface *ifp;
+
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+			ifp = if_lookup_by_name(sid->attributes.ifname, vrf->vrf_id);
+			if (ifp) {
+				break;
+			}
+		}
+
+		if (!ifp) {
+			zlog_err("invalid ifname provided");
+			return;
+		}
+		ctx.ifindex = ifp->ifindex;
 		break;
 	case STATIC_SRV6_SID_BEHAVIOR_END_DT6:
 	case STATIC_SRV6_SID_BEHAVIOR_UDT6:
@@ -1124,6 +1216,8 @@ static int static_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 			    sizeof(locator->name)) != 0)
 			continue;
 
+		zlog_info("Deleting srv6 sids from locator %s", locator->name);
+
 		/* Delete SRv6 SIDs */
 		for (ALL_LIST_ELEMENTS(locator->srv6_sids, node2, nnode2,
 				       sid)) {
@@ -1133,16 +1227,24 @@ static int static_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 				locator->name,
 				&sid->addr);
 
+			static_zebra_release_srv6_sid(sid);
+
 			/* Uninstall the SRv6 SID from the forwarding plane
 			 * through Zebra */
 			static_zebra_srv6_sid_uninstall(sid);
 
-			listnode_delete(locator->srv6_sids, sid);
-			static_srv6_sid_free(sid);
+			// listnode_delete(locator->srv6_sids, sid);
+			// static_srv6_sid_free(sid);
 		}
 
-		listnode_delete(srv6_locators, locator);
-		static_srv6_locator_free(locator);
+		memset(&locator->prefix, 0, sizeof(struct prefix_ipv6));
+		locator->block_bits_length = 0;
+		locator->node_bits_length = 0;
+		locator->function_bits_length = 0;
+		locator->argument_bits_length = 0;
+		locator->flags = 0;
+		// listnode_delete(srv6_locators, locator);
+		// static_srv6_locator_free(locator);
 	}
 
 	return 0;
@@ -1261,6 +1363,7 @@ static int static_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 			if (!found) {
 				zlog_info("SRv6 SID %pI6 %s: not found", &sid_addr,
 					srv6_sid_ctx2str(buf, sizeof(buf), &ctx));
+				return 0;
 			}
 
 			sid->attributes.nh6 = ctx.nh6;

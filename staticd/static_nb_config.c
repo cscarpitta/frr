@@ -1386,6 +1386,8 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routi
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
+	zlog_info("entering routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_create 2");
+
 	loc_name = yang_dnode_get_string(args->dnode, "name");
 
 	locator = static_srv6_locator_alloc(loc_name);
@@ -1441,6 +1443,11 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routi
 
 	yang_dnode_get_ipv6(&sid_value, args->dnode, "sid");
 	sid = static_srv6_sid_alloc(&sid_value);
+	if (sid) {
+		zlog_info("created a non-NULL sid");
+	} else {
+		zlog_info("created an NULL sid");
+	}
 	nb_running_set_entry(args->dnode, sid);
 	// TODO: set locator
 
@@ -1516,6 +1523,10 @@ void routing_control_plane_protocols_control_plane_protocol_staticd_segment_rout
 	const char *loc_name = yang_dnode_get_string(args->dnode, "../../name");
 	zlog_info("loc_name %s", loc_name);
 	struct static_srv6_locator *locator = static_srv6_locator_lookup(loc_name);
+	if (!locator) {
+		zlog_err("locator is null");
+		return;
+	}
 	sid->locator = locator;
 
 	struct in6_addr newsid = {};
@@ -1530,18 +1541,16 @@ void routing_control_plane_protocols_control_plane_protocol_staticd_segment_rout
 	// struct static_srv6_sid *sid;
 	for (ALL_LIST_ELEMENTS_RO(locator->srv6_sids, node, s)) {
 		if (IPV6_ADDR_SAME(&s->addr, &sid->addr)) {
-			zlog_err("Prefix %pI6 is already exist,please delete it first. \n",
+			zlog_err("Prefix %pI6 is already exist,please delete it first.",
 				&sid->addr);
-			return NB_ERR;
 		}
 	}
 
 	if (sid->behavior == STATIC_SRV6_SID_BEHAVIOR_UDT6 || sid->behavior == STATIC_SRV6_SID_BEHAVIOR_UDT4 || sid->behavior == STATIC_SRV6_SID_BEHAVIOR_UDT46) {
 		for (ALL_LIST_ELEMENTS_RO(locator->srv6_sids, node, s)) {
 			if (sid->behavior == s->behavior && strncmp(sid->attributes.vrf_name, s->attributes.vrf_name, sizeof(sid->attributes.vrf_name)) == 0) {
-				zlog_err("Prefix %pI6 is already exist,please delete it first. \n",
+				zlog_err("Prefix %pI6 is already exist,please delete it first.",
 					&sid->addr);
-				return NB_ERR;
 			}
 		}
 	}
@@ -1723,7 +1732,12 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routi
 
 	sid = nb_running_get_entry(args->dnode, NULL, true);
 	ifname = yang_dnode_get_string(args->dnode, "../ifname");
+	if (!sid) {
+		zlog_info("Attempting to set ifname on a NULL sid");
+		return NB_OK;
+	}
 	strncpy(sid->attributes.ifname, ifname, sizeof(sid->attributes.ifname));
+	zlog_info("Set ifname: %s", sid->attributes.ifname);
 
 	return NB_OK;
 }

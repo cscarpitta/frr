@@ -410,6 +410,39 @@ DEFPY (locator_prefix,
 	uint8_t expected_prefixlen;
 	struct srv6_sid_format *format;
 
+	/* Deallocate End/uN SID if previously allocated */
+	if (memcmp(&locator->sid,
+						    &in6addr_any, sizeof(struct in6_addr)) != 0) {
+		struct srv6_sid_ctx ctx;
+		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END;
+
+		struct zserv *client = zserv_find_client(ZEBRA_ROUTE_STATIC, 0);
+		if (!client) {
+			zlog_err(
+				"SRv6: zclient not found");
+			return CMD_WARNING;
+		}
+		srv6_manager_release_sid_call(
+					client, &ctx);
+
+		struct seg6local_context seg6localctx = {};
+		seg6localctx.block_len = locator->block_bits_length;
+		seg6localctx.node_len = locator->node_bits_length;
+		seg6localctx.function_len = locator->function_bits_length;
+		seg6localctx.argument_len = locator->argument_bits_length;
+		if ((!locator->sid_format && CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID)) ||
+				(locator->sid_format && locator->sid_format->type == SRV6_SID_FORMAT_TYPE_USID)) {
+			zlog_info("adding flavor for usid");
+			SET_SRV6_FLV_OP(seg6localctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+			seg6localctx.flv.lcblock_len = locator->block_bits_length;
+			seg6localctx.flv.lcnode_func_len = locator->function_bits_length;
+		}
+		struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+		zebra_route_del(&locator->sid, vrf,
+				ctx.behavior, &seg6localctx);
+		memset(&locator->sid, 0, sizeof(struct in6_addr));
+	}
+
 	locator->prefix = *prefix;
 	func_bit_len = func_bit_len ?: ZEBRA_SRV6_FUNCTION_LENGTH;
 
@@ -510,6 +543,40 @@ DEFPY (locator_prefix,
 
 	zebra_srv6_locator_format_set(locator, locator->sid_format);
 
+	/* Allocate End/uN SID */
+	struct zebra_srv6_sid *sid = NULL;
+	struct srv6_sid_ctx ctx;
+	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END;
+
+	struct zserv *client = zserv_find_client(ZEBRA_ROUTE_STATIC, 0);
+	if (!client) {
+		zlog_err(
+			"SRv6: zclient not found");
+		return CMD_WARNING;
+	}
+	srv6_manager_get_sid_call(&sid,
+			       client, &ctx,
+			       NULL,
+			       locator->name);
+
+	struct seg6local_context seg6localctx = {};
+	seg6localctx.block_len = locator->block_bits_length;
+	seg6localctx.node_len = locator->node_bits_length;
+	seg6localctx.function_len = locator->function_bits_length;
+	seg6localctx.argument_len = locator->argument_bits_length;
+	if ((!locator->sid_format && CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID)) ||
+			(locator->sid_format && locator->sid_format->type == SRV6_SID_FORMAT_TYPE_USID)) {
+		zlog_info("adding flavor for usid");
+		SET_SRV6_FLV_OP(seg6localctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+		seg6localctx.flv.lcblock_len = locator->block_bits_length;
+		seg6localctx.flv.lcnode_func_len = locator->function_bits_length;
+	}
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	int ret = zebra_route_add(&sid->value, vrf,
+		    sid->ctx->ctx.behavior, &seg6localctx);
+	zlog_info("un sid install returned %d", ret);
+	locator->sid = sid->value;
+
 	return CMD_SUCCESS;
 }
 
@@ -530,6 +597,39 @@ DEFPY (locator_behavior,
 		/* SRv6 locator uSID flag already set, nothing to do */
 		return CMD_SUCCESS;
 
+	/* Deallocate End/uN SID if previously allocated */
+	if (memcmp(&locator->sid,
+						    &in6addr_any, sizeof(struct in6_addr)) != 0) {
+		struct srv6_sid_ctx ctx;
+		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END;
+
+		struct zserv *client = zserv_find_client(ZEBRA_ROUTE_STATIC, 0);
+		if (!client) {
+			zlog_err(
+				"SRv6: zclient not found");
+			return CMD_WARNING;
+		}
+		srv6_manager_release_sid_call(
+					client, &ctx);
+
+		struct seg6local_context seg6localctx = {};
+		seg6localctx.block_len = locator->block_bits_length;
+		seg6localctx.node_len = locator->node_bits_length;
+		seg6localctx.function_len = locator->function_bits_length;
+		seg6localctx.argument_len = locator->argument_bits_length;
+		if ((!locator->sid_format && CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID)) ||
+				(locator->sid_format && locator->sid_format->type == SRV6_SID_FORMAT_TYPE_USID)) {
+			zlog_info("adding flavor for usid");
+			SET_SRV6_FLV_OP(seg6localctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+			seg6localctx.flv.lcblock_len = locator->block_bits_length;
+			seg6localctx.flv.lcnode_func_len = locator->function_bits_length;
+		}
+		struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+		zebra_route_del(&locator->sid, vrf,
+				ctx.behavior, &seg6localctx);
+		memset(&locator->sid, 0, sizeof(struct in6_addr));
+	}
+
 	if (!locator->sid_format)
 		/* Remove old locator from zclients */
 		zebra_notify_srv6_locator_delete(locator);
@@ -543,6 +643,40 @@ DEFPY (locator_behavior,
 	if (!locator->sid_format)
 		/* Notify the new locator to zclients */
 		zebra_srv6_locator_add(locator);
+
+	/* Allocate End/uN SID */
+	struct zebra_srv6_sid *sid = NULL;
+	struct srv6_sid_ctx ctx;
+	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END;
+
+	struct zserv *client = zserv_find_client(ZEBRA_ROUTE_STATIC, 0);
+	if (!client) {
+		zlog_err(
+			"SRv6: zclient not found");
+		return CMD_WARNING;
+	}
+	srv6_manager_get_sid_call(&sid,
+			       client, &ctx,
+			       NULL,
+			       locator->name);
+
+	struct seg6local_context seg6localctx = {};
+	seg6localctx.block_len = locator->block_bits_length;
+	seg6localctx.node_len = locator->node_bits_length;
+	seg6localctx.function_len = locator->function_bits_length;
+	seg6localctx.argument_len = locator->argument_bits_length;
+	if ((!locator->sid_format && CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID)) ||
+			(locator->sid_format && locator->sid_format->type == SRV6_SID_FORMAT_TYPE_USID)) {
+		zlog_info("adding flavor for usid");
+		SET_SRV6_FLV_OP(seg6localctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+		seg6localctx.flv.lcblock_len = locator->block_bits_length;
+		seg6localctx.flv.lcnode_func_len = locator->function_bits_length;
+	}
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	int ret = zebra_route_add(&sid->value, vrf,
+		    sid->ctx->ctx.behavior, &seg6localctx);
+	zlog_info("un sid install returned %d", ret);
+	locator->sid = sid->value;
 
 	return CMD_SUCCESS;
 }
@@ -590,7 +724,74 @@ DEFPY(locator_sid_format,
 		/* Format has not changed, nothing to do */
 		return CMD_SUCCESS;
 
+	/* Deallocate End/uN SID if previously allocated */
+	if (memcmp(&locator->sid,
+						    &in6addr_any, sizeof(struct in6_addr)) != 0) {
+		struct srv6_sid_ctx ctx;
+		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END;
+
+		struct zserv *client = zserv_find_client(ZEBRA_ROUTE_STATIC, 0);
+		if (!client) {
+			zlog_err(
+				"SRv6: zclient not found");
+			return CMD_WARNING;
+		}
+		srv6_manager_release_sid_call(
+					client, &ctx);
+
+		struct seg6local_context seg6localctx = {};
+		seg6localctx.block_len = locator->block_bits_length;
+		seg6localctx.node_len = locator->node_bits_length;
+		seg6localctx.function_len = locator->function_bits_length;
+		seg6localctx.argument_len = locator->argument_bits_length;
+		if ((!locator->sid_format && CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID)) ||
+				(locator->sid_format && locator->sid_format->type == SRV6_SID_FORMAT_TYPE_USID)) {
+			zlog_info("adding flavor for usid");
+			SET_SRV6_FLV_OP(seg6localctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+			seg6localctx.flv.lcblock_len = locator->block_bits_length;
+			seg6localctx.flv.lcnode_func_len = locator->function_bits_length;
+		}
+		struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+		zebra_route_del(&locator->sid, vrf,
+				ctx.behavior, &seg6localctx);
+		memset(&locator->sid, 0, sizeof(struct in6_addr));
+	}
+
 	zebra_srv6_locator_format_set(locator, sid_format);
+
+	/* Allocate End/uN SID */
+	struct zebra_srv6_sid *sid = NULL;
+	struct srv6_sid_ctx ctx;
+	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END;
+
+	struct zserv *client = zserv_find_client(ZEBRA_ROUTE_STATIC, 0);
+	if (!client) {
+		zlog_err(
+			"SRv6: zclient not found");
+		return CMD_WARNING;
+	}
+	srv6_manager_get_sid_call(&sid,
+			       client, &ctx,
+			       NULL,
+			       locator->name);
+
+	struct seg6local_context seg6localctx = {};
+	seg6localctx.block_len = locator->block_bits_length;
+	seg6localctx.node_len = locator->node_bits_length;
+	seg6localctx.function_len = locator->function_bits_length;
+	seg6localctx.argument_len = locator->argument_bits_length;
+	if ((!locator->sid_format && CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID)) ||
+			(locator->sid_format && locator->sid_format->type == SRV6_SID_FORMAT_TYPE_USID)) {
+		zlog_info("adding flavor for usid");
+		SET_SRV6_FLV_OP(seg6localctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+		seg6localctx.flv.lcblock_len = locator->block_bits_length;
+		seg6localctx.flv.lcnode_func_len = locator->function_bits_length;
+	}
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	int ret = zebra_route_add(&sid->value, vrf,
+		    sid->ctx->ctx.behavior, &seg6localctx);
+	zlog_info("un sid install returned %d", ret);
+	locator->sid = sid->value;
 
 	return CMD_SUCCESS;
 }
@@ -608,7 +809,74 @@ DEFPY (no_locator_sid_format,
 		/* SID format already unset, nothing to do */
 		return CMD_SUCCESS;
 
+	/* Deallocate End/uN SID if previously allocated */
+	if (memcmp(&locator->sid,
+						    &in6addr_any, sizeof(struct in6_addr)) != 0) {
+		struct srv6_sid_ctx ctx;
+		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END;
+
+		struct zserv *client = zserv_find_client(ZEBRA_ROUTE_STATIC, 0);
+		if (!client) {
+			zlog_err(
+				"SRv6: zclient not found");
+			return CMD_WARNING;
+		}
+		srv6_manager_release_sid_call(
+					client, &ctx);
+
+		struct seg6local_context seg6localctx = {};
+		seg6localctx.block_len = locator->block_bits_length;
+		seg6localctx.node_len = locator->node_bits_length;
+		seg6localctx.function_len = locator->function_bits_length;
+		seg6localctx.argument_len = locator->argument_bits_length;
+		if ((!locator->sid_format && CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID)) ||
+				(locator->sid_format && locator->sid_format->type == SRV6_SID_FORMAT_TYPE_USID)) {
+			zlog_info("adding flavor for usid");
+			SET_SRV6_FLV_OP(seg6localctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+			seg6localctx.flv.lcblock_len = locator->block_bits_length;
+			seg6localctx.flv.lcnode_func_len = locator->function_bits_length;
+		}
+		struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+		zebra_route_del(&locator->sid, vrf,
+				ctx.behavior, &seg6localctx);
+		memset(&locator->sid, 0, sizeof(struct in6_addr));
+	}
+
 	zebra_srv6_locator_format_set(locator, NULL);
+
+	/* Allocate End/uN SID */
+	struct zebra_srv6_sid *sid = NULL;
+	struct srv6_sid_ctx ctx;
+	ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END;
+
+	struct zserv *client = zserv_find_client(ZEBRA_ROUTE_STATIC, 0);
+	if (!client) {
+		zlog_err(
+			"SRv6: zclient not found");
+		return CMD_WARNING;
+	}
+	srv6_manager_get_sid_call(&sid,
+			       client, &ctx,
+			       NULL,
+			       locator->name);
+
+	struct seg6local_context seg6localctx = {};
+	seg6localctx.block_len = locator->block_bits_length;
+	seg6localctx.node_len = locator->node_bits_length;
+	seg6localctx.function_len = locator->function_bits_length;
+	seg6localctx.argument_len = locator->argument_bits_length;
+	if ((!locator->sid_format && CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID)) ||
+			(locator->sid_format && locator->sid_format->type == SRV6_SID_FORMAT_TYPE_USID)) {
+		zlog_info("adding flavor for usid");
+		SET_SRV6_FLV_OP(seg6localctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+		seg6localctx.flv.lcblock_len = locator->block_bits_length;
+		seg6localctx.flv.lcnode_func_len = locator->function_bits_length;
+	}
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	int ret = zebra_route_add(&sid->value, vrf,
+		    sid->ctx->ctx.behavior, &seg6localctx);
+	zlog_info("un sid install returned %d", ret);
+	locator->sid = sid->value;
 
 	return CMD_SUCCESS;
 }

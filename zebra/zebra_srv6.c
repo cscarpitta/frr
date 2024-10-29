@@ -2303,7 +2303,7 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid,
 			// 	return;
 			// }
 			struct vrf *vrf;
-			struct interface *ifp;
+			struct interface *ifp = NULL;
 			RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 				ifp = if_lookup_by_index(ctx->ifindex, vrf->vrf_id);
 				if (ifp) {
@@ -2312,7 +2312,7 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid,
 			}
 			if (!ifp) {
 				zlog_err("failed to get interface");
-				return;
+				return -1;
 			}
 			struct zebra_if *zebra_if = ifp->info;
 			frr_each (nhg_connected_tree, &zebra_if->nhg_dependents, rb_node_dep) {
@@ -2491,6 +2491,239 @@ void zebra_srv6_terminate(void)
 		}
 
 		list_delete(&srv6.sid_formats);
+	}
+}
+
+int zebra_route_add(struct in6_addr *result_sid, struct vrf *vrf,
+		    enum seg6local_action_t act, struct seg6local_context *ctx)
+{
+	afi_t afi;
+	struct prefix_ipv6 *src_p = NULL;
+	struct route_entry *re;
+	struct nexthop_group *ng = NULL;
+	int ret = 0;
+	struct nhg_hash_entry nhe, *n;
+	struct zebra_vrf *zvrf;
+	struct vrf *def_vrf = NULL;
+	struct prefix p = {};
+	struct nexthop *nexthop;
+
+	p.family = AF_INET6;
+	if (CHECK_SRV6_FLV_OP(ctx->flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID))
+		p.prefixlen = ctx->block_len + ctx->node_len;
+	else
+		p.prefixlen = 128;
+	p.u.prefix6 = *result_sid;
+
+	def_vrf = vrf_lookup_by_name(VRF_DEFAULT_NAME);
+	zvrf = zebra_vrf_lookup_by_id(def_vrf->vrf_id);
+	if (!zvrf) {
+		return ret;
+	}
+
+	/* Allocate new route. */
+	re = XCALLOC(MTYPE_RE, sizeof(struct route_entry));
+	re->type = ZEBRA_ROUTE_STATIC;
+	re->instance = 0;
+	SET_FLAG(re->flags, ZEBRA_FLAG_ALLOW_RECURSION);
+	// SET_FLAG(re->flags, ZEBRA_FLAG_LOCAL_SID_ROUTE);
+	SET_FLAG(re->status, ROUTE_ENTRY_INSTALLED);
+	re->uptime = monotime(NULL);
+	re->vrf_id = VRF_DEFAULT;
+
+	re->table = zvrf->table_id;
+
+	ng = nexthop_group_new();
+	/*
+	 * TBD should _all_ of the nexthop add operations use
+	 * api_nh->vrf_id instead of re->vrf_id ? I only changed
+	 * for cases NEXTHOP_TYPE_IPV4 and NEXTHOP_TYPE_IPV6.
+	 */
+
+	/* Convert zapi nexthop */
+	struct interface *ifp = if_lookup_by_name("sr0", VRF_DEFAULT);
+	if (!ifp) {
+		zlog_err("sr0 interface is missing");
+		return ret;
+	}
+	nexthop = nexthop_from_ifindex(ifp->ifindex, 0);
+
+	if (!nexthop) {
+		if (ng)
+			nexthop_group_delete(&ng);
+		return ret;
+	}
+
+	zlog_debug("%s: adding seg6local action %s", __func__,
+		   seg6local_action2str(act));
+
+	nexthop_add_srv6_seg6local(nexthop, act, ctx);
+
+	if (ng) {
+		/* Add new nexthop to temporary list. This list is
+		 * canonicalized - sorted - so that it can be hashed
+		 * later in route processing. We expect that the sender
+		 * has sent the list sorted, and the zapi client api
+		 * attempts to enforce that, so this should be
+		 * inexpensive - but it is necessary to support shared
+		 * nexthop-groups.
+		 */
+		nexthop_group_add_sorted(ng, nexthop);
+	}
+
+	afi = family2afi(AF_INET6);
+
+	/*
+	 * If we have an ID, this proto owns the NHG it sent along with the
+	 * route, so we just send the ID into rib code with it.
+	 *
+	 * Havent figured out how to handle backup NHs with this yet, so lets
+	 * keep that separate.
+	 * Include backup info with the route. We use a temporary nhe here;
+	 * if this is a new/unknown nhe, a new copy will be allocated
+	 * and stored.
+	 */
+	if (!re->nhe_id) {
+		zebra_nhe_init(&nhe, afi, ng->nexthop);
+		nhe.nhg.nexthop = ng->nexthop;
+	}
+
+	n = zebra_nhe_copy(&nhe, 0);
+	ret = rib_add_multipath_nhe(afi, SAFI_UNICAST, &p, src_p, re, n, false);
+
+	/* At this point, these allocations are not needed: 're' has been
+	 * retained or freed, and if 're' still exists, it is using
+	 * a reference to a shared group object.
+	 */
+	nexthop_group_delete(&ng);
+	return ret;
+}
+
+int zebra_route_del(struct in6_addr *result_sid, struct vrf *vrf,
+		    enum seg6local_action_t act, struct seg6local_context *ctx)
+{
+	afi_t afi;
+	struct prefix_ipv6 *src_p = NULL;
+	uint32_t table_id;
+	struct zebra_vrf *zvrf;
+	struct vrf *def_vrf = NULL;
+	int ret = 0;
+	uint32_t flags = 0;
+
+	struct prefix p = {};
+
+	p.family = AF_INET6;
+	if (CHECK_SRV6_FLV_OP(ctx->flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID))
+		p.prefixlen = ctx->block_len + ctx->node_len;
+	else
+		p.prefixlen = 128;
+	p.u.prefix6 = *result_sid;
+
+	def_vrf = vrf_lookup_by_name(VRF_DEFAULT_NAME);
+	zvrf = zebra_vrf_lookup_by_id(def_vrf->vrf_id);
+	if (!zvrf) {
+		return ret;
+	}
+
+	afi = family2afi(AF_INET6);
+
+	table_id = zvrf->table_id;
+	SET_FLAG(flags, ZEBRA_FLAG_ALLOW_RECURSION);
+	// SET_FLAG(flags, ZEBRA_FLAG_LOCAL_SID_ROUTE);
+
+	rib_delete(afi, SAFI_UNICAST, zvrf_id(zvrf), ZEBRA_ROUTE_STATIC, 0,
+		   flags, &p, src_p, NULL, 0, table_id, 0, 0, false);
+	return 0;
+}
+
+void request_end_sid(void)
+{
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct listnode *node;
+	struct srv6_locator *locator;
+
+	if (!srv6->locators)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
+		/* Allocate End/uN SID */
+		struct zebra_srv6_sid *sid = NULL;
+		struct srv6_sid_ctx ctx;
+		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END;
+
+		struct zserv *client = zserv_find_client(ZEBRA_ROUTE_STATIC, 0);
+		if (!client) {
+			zlog_err(
+				"SRv6: zclient not found");
+			return;
+		}
+		srv6_manager_get_sid_call(&sid,
+					client, &ctx,
+					NULL,
+					locator->name);
+
+		struct seg6local_context seg6localctx = {};
+		seg6localctx.block_len = locator->block_bits_length;
+		seg6localctx.node_len = locator->node_bits_length;
+		seg6localctx.function_len = locator->function_bits_length;
+		seg6localctx.argument_len = locator->argument_bits_length;
+		if ((!locator->sid_format && CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID)) ||
+				(locator->sid_format && locator->sid_format->type == SRV6_SID_FORMAT_TYPE_USID)) {
+			zlog_info("adding flavor for usid");
+			SET_SRV6_FLV_OP(seg6localctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+			seg6localctx.flv.lcblock_len = locator->block_bits_length;
+			seg6localctx.flv.lcnode_func_len = locator->function_bits_length;
+		}
+		struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+		int ret = zebra_route_add(&sid->value, vrf,
+				sid->ctx->ctx.behavior, &seg6localctx);
+		zlog_info("un sid install returned %d", ret);
+		locator->sid = sid->value;
+	}
+}
+
+void unrequest_end_sid(void)
+{
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct listnode *node;
+	struct srv6_locator *locator;
+
+	if (!srv6->locators)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
+		/* Deallocate End/uN SID if previously allocated */
+		if (memcmp(&locator->sid,
+								&in6addr_any, sizeof(struct in6_addr)) != 0) {
+			struct srv6_sid_ctx ctx;
+			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END;
+
+			struct zserv *client = zserv_find_client(ZEBRA_ROUTE_STATIC, 0);
+			if (!client) {
+				zlog_err(
+					"SRv6: zclient not found");
+				return;
+			}
+			srv6_manager_release_sid_call(
+						client, &ctx);
+
+			struct seg6local_context seg6localctx = {};
+			seg6localctx.block_len = locator->block_bits_length;
+			seg6localctx.node_len = locator->node_bits_length;
+			seg6localctx.function_len = locator->function_bits_length;
+			seg6localctx.argument_len = locator->argument_bits_length;
+			if ((!locator->sid_format && CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID)) ||
+					(locator->sid_format && locator->sid_format->type == SRV6_SID_FORMAT_TYPE_USID)) {
+				zlog_info("adding flavor for usid");
+				SET_SRV6_FLV_OP(seg6localctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+				seg6localctx.flv.lcblock_len = locator->block_bits_length;
+				seg6localctx.flv.lcnode_func_len = locator->function_bits_length;
+			}
+			struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+			zebra_route_del(&locator->sid, vrf,
+					ctx.behavior, &seg6localctx);
+			memset(&locator->sid, 0, sizeof(struct in6_addr));
+		}
 	}
 }
 

@@ -321,4 +321,11 @@ extern struct zebra_srv6_sid_ctx *zebra_srv6_sid_ctx_alloc(void);
 extern void zebra_srv6_sid_ctx_free(struct zebra_srv6_sid_ctx *ctx);
 extern void delete_zebra_srv6_sid_ctx(void *val);
 
+int zebra_route_add(struct in6_addr *result_sid, struct vrf *vrf,
+		    enum seg6local_action_t act, struct seg6local_context *ctx);
+int zebra_route_del(struct in6_addr *result_sid, struct vrf *vrf,
+		    enum seg6local_action_t act, struct seg6local_context *ctx);
+void request_end_sid(void);
+void unrequest_end_sid(void);
+
 #endif /* _ZEBRA_SRV6_H */

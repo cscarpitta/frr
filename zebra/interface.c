@@ -35,6 +35,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_srv6.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 
@@ -1009,6 +1010,12 @@ void if_up(struct interface *ifp, bool install_connected)
 	event_ignore_late_timer(zif->speed_update);
 
 	if_addr_wakeup(ifp);
+
+	zlog_info("interface '%s' went up", ifp->name);
+	if (strncmp(ifp->name, "sr0", sizeof(ifp->name)) == 0) {
+		zlog_info("allocating uN SIDs");
+		request_end_sid();
+	}
 }
 
 /* Interface goes down.  We have to manage different behavior of based
@@ -1060,6 +1067,12 @@ void if_down(struct interface *ifp)
 	if_down_del_nbr_connected(ifp);
 
 	rib_update_handle_vrf_all(RIB_UPDATE_INTERFACE_DOWN, ZEBRA_ROUTE_KERNEL);
+
+	zlog_info("interface '%s' went down", ifp->name);
+	if (strncmp(ifp->name, "sr0", sizeof(ifp->name)) == 0) {
+		zlog_info("releasing uN SIDs");
+		unrequest_end_sid();
+	}
 }
 
 void if_refresh(struct interface *ifp)
