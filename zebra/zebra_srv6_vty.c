@@ -564,12 +564,24 @@ DEFPY (locator_prefix,
 	seg6localctx.node_len = locator->node_bits_length;
 	seg6localctx.function_len = locator->function_bits_length;
 	seg6localctx.argument_len = locator->argument_bits_length;
-	if ((!locator->sid_format && CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID)) ||
-			(locator->sid_format && locator->sid_format->type == SRV6_SID_FORMAT_TYPE_USID)) {
+	if (!locator->sid_format && CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID)) {
 		zlog_info("adding flavor for usid");
 		SET_SRV6_FLV_OP(seg6localctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
 		seg6localctx.flv.lcblock_len = locator->block_bits_length;
 		seg6localctx.flv.lcnode_func_len = locator->function_bits_length;
+		seg6localctx.block_len = locator->block_bits_length;
+		seg6localctx.node_len = locator->node_bits_length;
+		seg6localctx.function_len = locator->function_bits_length;
+		seg6localctx.argument_len = locator->argument_bits_length;
+	} else if (locator->sid_format && locator->sid_format->type == SRV6_SID_FORMAT_TYPE_USID) {
+		zlog_info("adding flavor for usid");
+		SET_SRV6_FLV_OP(seg6localctx.flv.flv_ops, ZEBRA_SEG6_LOCAL_FLV_OP_NEXT_CSID);
+		seg6localctx.flv.lcblock_len = locator->sid_format->block_len;
+		seg6localctx.flv.lcnode_func_len = locator->sid_format->function_len;
+		seg6localctx.block_len = locator->sid_format->block_len;
+		seg6localctx.node_len = locator->sid_format->node_len;
+		seg6localctx.function_len = locator->sid_format->function_len;
+		seg6localctx.argument_len = locator->sid_format->argument_len;
 	}
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	int ret = zebra_route_add(&sid->value, vrf,
@@ -1245,18 +1257,20 @@ static int zebra_sr_config(struct vty *vty)
 			vty_out(vty, "   locator %s\n", locator->name);
 			vty_out(vty, "    prefix %s/%u", str,
 				locator->prefix.prefixlen);
-			if (locator->block_bits_length)
-				vty_out(vty, " block-len %u",
-					locator->block_bits_length);
-			if (locator->node_bits_length)
-				vty_out(vty, " node-len %u",
-					locator->node_bits_length);
-			if (locator->function_bits_length)
-				vty_out(vty, " func-bits %u",
-					locator->function_bits_length);
-			if (locator->argument_bits_length)
-				vty_out(vty, " arg-len %u",
-					locator->argument_bits_length);
+			if (!locator->sid_format) {
+				if (locator->block_bits_length)
+					vty_out(vty, " block-len %u",
+						locator->block_bits_length);
+				if (locator->node_bits_length)
+					vty_out(vty, " node-len %u",
+						locator->node_bits_length);
+				if (locator->function_bits_length)
+					vty_out(vty, " func-bits %u",
+						locator->function_bits_length);
+				if (locator->argument_bits_length)
+					vty_out(vty, " arg-len %u",
+						locator->argument_bits_length);
+			}
 			vty_out(vty, "\n");
 			if (CHECK_FLAG(locator->flags, SRV6_LOCATOR_USID))
 				vty_out(vty, "    behavior usid\n");

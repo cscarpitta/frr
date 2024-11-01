@@ -56,6 +56,8 @@ struct static_srv6_sid {
 
 	struct static_srv6_locator *locator;
 
+	char opcode[256];
+
 	// QOBJ_FIELDS;
 };
 // DECLARE_QOBJ_TYPE(static_srv6_sid);
@@ -77,7 +79,10 @@ struct static_srv6_locator {
 #define SRV6_LOCATOR_USID (1 << 0) /* The SRv6 Locator is a uSID Locator */
 	
 	struct list *srv6_sids;
+
+	QOBJ_FIELDS;
 };
+DECLARE_QOBJ_TYPE(static_srv6_locator);
 
 /* List of SRv6 SIDs. */
 extern struct list *srv6_locators;

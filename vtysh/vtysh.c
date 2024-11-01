@@ -1684,7 +1684,7 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_end_all, vtysh_end_all_cmd, "end",
 	return vtysh_end();
 }
 
-DEFUNSH(VTYSH_ZEBRA | VTYSH_MGMTD, srv6, srv6_cmd,
+DEFUNSH(VTYSH_ZEBRA | VTYSH_STATICD, srv6, srv6_cmd,
 	"srv6",
 	"Segment-Routing SRv6 configuration\n")
 {
@@ -1692,7 +1692,7 @@ DEFUNSH(VTYSH_ZEBRA | VTYSH_MGMTD, srv6, srv6_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_ZEBRA | VTYSH_MGMTD, srv6_locators, srv6_locators_cmd,
+DEFUNSH(VTYSH_ZEBRA | VTYSH_STATICD, srv6_locators, srv6_locators_cmd,
 	"locators",
 	"Segment-Routing SRv6 locators configuration\n")
 {
@@ -1700,7 +1700,7 @@ DEFUNSH(VTYSH_ZEBRA | VTYSH_MGMTD, srv6_locators, srv6_locators_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_ZEBRA | VTYSH_MGMTD, srv6_locator, srv6_locator_cmd,
+DEFUNSH(VTYSH_ZEBRA | VTYSH_STATICD, srv6_locator, srv6_locator_cmd,
 	"locator WORD",
 	"Segment Routing SRv6 locator\n"
 	"Specify locator-name\n")
@@ -2215,7 +2215,7 @@ DEFUNSH(VTYSH_FABRICD, router_openfabric, router_openfabric_cmd, "router openfab
 }
 #endif /* HAVE_FABRICD */
 
-DEFUNSH(VTYSH_SR | VTYSH_MGMTD, segment_routing, segment_routing_cmd,
+DEFUNSH(VTYSH_SR | VTYSH_STATICD, segment_routing, segment_routing_cmd,
 	"segment-routing",
 	"Configure segment routing\n")
 {

@@ -21,7 +21,7 @@ struct list *srv6_locators = NULL;
 DEFINE_MTYPE_STATIC(STATIC, STATIC_SRV6_LOCATOR, "Static SRv6 locator");
 DEFINE_MTYPE_STATIC(STATIC, STATIC_SRV6_SID, "Static SRv6 SID");
 
-// DEFINE_QOBJ_TYPE(static_srv6_sid);
+DEFINE_QOBJ_TYPE(static_srv6_locator);
 
 /*
  * Convert SRv6 behavior to human-friendly string.
@@ -130,10 +130,14 @@ void static_fixup_vrf_srv6_sids(struct static_vrf *enable_svrf)
 	if (!srv6_locators || !enable_svrf)
 		return;
 
+	zlog_info("VRF %s enabled. Installing SIDs", enable_svrf->vrf->name);
+
 	for (ALL_LIST_ELEMENTS_RO(srv6_locators, node1, locator)) {
 		/* iterate over the list of SRv6 SIDs and install the SIDs that use this
 		* VRF in the zebra RIB */
+		zlog_info("Scanning locator %s", locator->name);
 		for (ALL_LIST_ELEMENTS_RO(locator->srv6_sids, node2, sid)) {
+			zlog_info("Scanning SID %pI6, vrf %s", &sid->addr, sid->attributes.vrf_name);
 			if (!strcmp(sid->attributes.vrf_name, enable_svrf->vrf->name))
 				static_zebra_srv6_sid_install(sid);
 		}
@@ -236,12 +240,18 @@ struct static_srv6_locator *static_srv6_locator_alloc(const char *name)
 	locator->srv6_sids = list_new();
 	locator->srv6_sids->del = delete_static_srv6_sid;
 
+	QOBJ_REG(locator, static_srv6_locator);
 	return locator;
 }
 
 void static_srv6_locator_free(struct static_srv6_locator *locator)
 {
-	XFREE(MTYPE_STATIC_SRV6_LOCATOR, locator);
+	if (locator) {
+		QOBJ_UNREG(locator);
+		list_delete(&locator->srv6_sids);
+
+		XFREE(MTYPE_STATIC_SRV6_LOCATOR, locator);
+	}
 }
 
 void delete_static_srv6_locator(void *val)

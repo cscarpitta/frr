@@ -1019,11 +1019,13 @@ extern void static_zebra_release_srv6_sid(struct static_srv6_sid *sid)
 	case STATIC_SRV6_SID_BEHAVIOR_UA:
 		ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_X;
 
-		struct interface *ifp;
+		struct interface *ifp = NULL;
 
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+			zlog_info("scanning vrf %s for ifname %s", vrf->name, sid->attributes.ifname);
 			ifp = if_lookup_by_name(sid->attributes.ifname, vrf->vrf_id);
 			if (ifp) {
+				zlog_info("if found");
 				break;
 			}
 		}
