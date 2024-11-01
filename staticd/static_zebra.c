@@ -780,6 +780,11 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 		break;
 	}
 
+	ctx.block_len = sid->locator->block_bits_length;
+	ctx.node_len = sid->locator->node_bits_length;
+	ctx.function_len = sid->locator->function_bits_length;
+	ctx.argument_len = sid->locator->argument_bits_length;
+
 	/* Attach the SID to the SRv6 interface */
 	if (!ifp) {
 		ifp = if_lookup_by_name("sr0", VRF_DEFAULT);
@@ -800,6 +805,7 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 {
 	enum seg6local_action_t action = ZEBRA_SEG6_LOCAL_ACTION_UNSPEC;
 	struct interface *ifp = NULL;
+	struct seg6local_context ctx = {};
 	uint16_t prefixlen = IPV6_MAX_BITLEN;
 	struct vrf *vrf;
 
@@ -893,11 +899,16 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 		}
 	}
 
+	ctx.block_len = sid->locator->block_bits_length;
+	ctx.node_len = sid->locator->node_bits_length;
+	ctx.function_len = sid->locator->function_bits_length;
+	ctx.argument_len = sid->locator->argument_bits_length;
+
 	zlog_info("delete SID %pI6",
 		 &sid->addr);
 
 	static_zebra_send_localsid(ZEBRA_ROUTE_DELETE, &sid->addr, prefixlen,
-				 ifp->ifindex, action, NULL);
+				 ifp->ifindex, action, &ctx);
 }
 
 extern void static_zebra_request_srv6_sid(struct static_srv6_sid *sid)
