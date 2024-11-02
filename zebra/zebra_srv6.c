@@ -2327,20 +2327,20 @@ static int srv6_manager_get_sid_internal(struct zebra_srv6_sid **sid,
 				if (found)
 					break;
 			}
-			struct nbr_connected *nc;
-			for (ALL_LIST_ELEMENTS_RO(ifp->nbr_connected, node, nc)) {
-				zlog_info("connected, %pFX", nc->address);
-			}
-			frr_each (nhg_connected_tree, &zebra_if->nhg_dependents, rb_node_dep) {
-				for (ALL_NEXTHOPS(rb_node_dep->nhe->nhg, nexthop)) {
-					zlog_info("nexthop %pI6", &nexthop->gate.ipv6);
-					ctx->nh6 = nexthop->gate.ipv6;
-					found = true;
-					// break;
-				}
-				// if (found)
-				// 	break;
-			}
+			// struct nbr_connected *nc;
+			// for (ALL_LIST_ELEMENTS_RO(ifp->nbr_connected, node, nc)) {
+			// 	zlog_info("connected, %pFX", nc->address);
+			// }
+			// frr_each (nhg_connected_tree, &zebra_if->nhg_dependents, rb_node_dep) {
+			// 	for (ALL_NEXTHOPS(rb_node_dep->nhe->nhg, nexthop)) {
+			// 		zlog_info("nexthop %pI6", &nexthop->gate.ipv6);
+			// 		ctx->nh6 = nexthop->gate.ipv6;
+			// 		found = true;
+			// 		// break;
+			// 	}
+			// 	// if (found)
+			// 	// 	break;
+			// }
 			if (!found)
 				zlog_info("nexthop not found");
 		}
