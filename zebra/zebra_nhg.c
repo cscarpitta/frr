@@ -250,7 +250,58 @@ static void zebra_nhg_dependents_del(struct nhg_hash_entry *from,
 static void zebra_nhg_dependents_add(struct nhg_hash_entry *to,
 				     struct nhg_hash_entry *dependent)
 {
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct listnode *node;
+	struct zebra_srv6_sid_ctx *sid;
+	struct zserv *c;
+
 	nhg_connected_tree_add_nhe(&to->nhg_dependents, dependent);
+
+	if (dependent->ifp) {
+		zlog_info("nh connected for interface %u, updating sids", dependent->ifp->ifindex);
+
+		for (ALL_LIST_ELEMENTS_RO(srv6->sids, node, sid)) {
+			zlog_info("sid %pI6 behavior %u nh6 %pI6 ifindex %u", &sid->sid->value, sid->ctx.behavior, &sid->ctx.nh6, sid->ctx.ifindex);
+			if (sid->ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_X && memcmp(&sid->ctx.nh6, &in6addr_any, sizeof(struct in6_addr)) == 0 && sid->ctx.ifindex == dependent->ifp->ifindex) {
+				zlog_info("nh connected for interface %u, updating sid %pI6", dependent->ifp->ifindex, &sid->sid->value);
+				if (memcmp(&dependent->nhg.nexthop->gate.ipv6, &in6addr_any, sizeof(struct in6_addr)) == 0)
+					continue;
+				sid->ctx.nh6 = dependent->nhg.nexthop->gate.ipv6;
+				zlog_info("nh connected for interface %u, updated sid %pI6 nh6 %pI6", dependent->ifp->ifindex, &sid->sid->value, &sid->ctx.nh6);
+				for (ALL_LIST_ELEMENTS_RO((sid->sid)->client_list, node, c)) {
+					zsend_srv6_sid_notify(c, &sid->ctx, &(sid->sid)->value,	
+								(sid->sid)->func, (sid->sid)->wide_func,
+								(sid->sid)->locator
+									? (sid->sid)->locator->name
+									: NULL,
+								ZAPI_SRV6_SID_ALLOCATED);
+				}
+			}
+		}
+	}
+
+	if (to->ifp) {
+		zlog_info("nh connected for interface %u, updating sids", to->ifp->ifindex);
+
+		for (ALL_LIST_ELEMENTS_RO(srv6->sids, node, sid)) {
+			zlog_info("sid %pI6 behavior %u nh6 %pI6 ifindex %u", &sid->sid->value, sid->ctx.behavior, &sid->ctx.nh6, sid->ctx.ifindex);
+			if (sid->ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_X && memcmp(&sid->ctx.nh6, &in6addr_any, sizeof(struct in6_addr)) == 0 && sid->ctx.ifindex == to->ifp->ifindex) {
+				zlog_info("nh connected for interface %u, updating sid %pI6", to->ifp->ifindex, &sid->sid->value);
+				if (memcmp(&to->nhg.nexthop->gate.ipv6, &in6addr_any, sizeof(struct in6_addr)) == 0)
+					continue;
+				sid->ctx.nh6 = to->nhg.nexthop->gate.ipv6;
+				zlog_info("nh connected for interface %u, updated sid %pI6 nh6 %pI6", to->ifp->ifindex, &sid->sid->value, &sid->ctx.nh6);
+				for (ALL_LIST_ELEMENTS_RO((sid->sid)->client_list, node, c)) {
+					zsend_srv6_sid_notify(c, &sid->ctx, &(sid->sid)->value,	
+								(sid->sid)->func, (sid->sid)->wide_func,
+								(sid->sid)->locator
+									? (sid->sid)->locator->name
+									: NULL,
+								ZAPI_SRV6_SID_ALLOCATED);
+				}
+			}
+		}
+	}
 }
 
 static void zebra_nhg_dependents_init(struct nhg_hash_entry *nhe)
@@ -313,6 +364,34 @@ static void zebra_nhg_set_if(struct nhg_hash_entry *nhe, struct interface *ifp)
 
 	nhe->ifp = ifp;
 	nhg_connected_tree_add_nhe(&zif->nhg_dependents, nhe);
+
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct listnode *node;
+	struct zebra_srv6_sid_ctx *sid;
+	struct zserv *c;
+
+	if (nhe->ifp) {
+		zlog_info("nh connected for interface %u, updating sids", nhe->ifp->ifindex);
+
+		for (ALL_LIST_ELEMENTS_RO(srv6->sids, node, sid)) {
+			zlog_info("sid %pI6 behavior %u nh6 %pI6 ifindex %u", &sid->sid->value, sid->ctx.behavior, &sid->ctx.nh6, sid->ctx.ifindex);
+			if (sid->ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_X && memcmp(&sid->ctx.nh6, &in6addr_any, sizeof(struct in6_addr)) == 0 && sid->ctx.ifindex == nhe->ifp->ifindex) {
+				zlog_info("nh connected for interface %u, updating sid %pI6", nhe->ifp->ifindex, &sid->sid->value);
+				if (memcmp(&nhe->nhg.nexthop->gate.ipv6, &in6addr_any, sizeof(struct in6_addr)) == 0)
+					continue;
+				sid->ctx.nh6 = nhe->nhg.nexthop->gate.ipv6;
+				zlog_info("nh connected for interface %u, updated sid %pI6 nh6 %pI6", nhe->ifp->ifindex, &sid->sid->value, &sid->ctx.nh6);
+				for (ALL_LIST_ELEMENTS_RO((sid->sid)->client_list, node, c)) {
+					zsend_srv6_sid_notify(c, &sid->ctx, &(sid->sid)->value,	
+								(sid->sid)->func, (sid->sid)->wide_func,
+								(sid->sid)->locator
+									? (sid->sid)->locator->name
+									: NULL,
+								ZAPI_SRV6_SID_ALLOCATED);
+				}
+			}
+		}
+	}
 }
 
 static void
