@@ -3752,6 +3752,34 @@ struct nhg_hash_entry *zebra_nhg_proto_add(uint32_t id, int type,
 		}
 	}
 
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct listnode *node;
+	struct zebra_srv6_sid_ctx *sid;
+	struct zserv *c;
+
+	if (new && new->ifp) {
+		zlog_info("nh connected for interface %u, updating sids", new->ifp->ifindex);
+
+		for (ALL_LIST_ELEMENTS_RO(srv6->sids, node, sid)) {
+			zlog_info("sid %pI6 behavior %u nh6 %pI6 ifindex %u", &sid->sid->value, sid->ctx.behavior, &sid->ctx.nh6, sid->ctx.ifindex);
+			if (sid->ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_X && memcmp(&sid->ctx.nh6, &in6addr_any, sizeof(struct in6_addr)) == 0 && sid->ctx.ifindex == new->ifp->ifindex) {
+				zlog_info("nh connected for interface %u, updating sid %pI6", new->ifp->ifindex, &sid->sid->value);
+				if (memcmp(&new->nhg.nexthop->gate.ipv6, &in6addr_any, sizeof(struct in6_addr)) == 0)
+					continue;
+				sid->ctx.nh6 = new->nhg.nexthop->gate.ipv6;
+				zlog_info("nh connected for interface %u, updated sid %pI6 nh6 %pI6", new->ifp->ifindex, &sid->sid->value, &sid->ctx.nh6);
+				for (ALL_LIST_ELEMENTS_RO((sid->sid)->client_list, node, c)) {
+					zsend_srv6_sid_notify(c, &sid->ctx, &(sid->sid)->value,
+								(sid->sid)->func, (sid->sid)->wide_func,
+								(sid->sid)->locator
+									? (sid->sid)->locator->name
+									: NULL,
+								ZAPI_SRV6_SID_ALLOCATED);
+				}
+			}
+		}
+	}
+
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: %s nhe %p (%u), vrf %d, type %s", __func__,
 			   (replace ? "replaced" : "added"), new, new->id,
