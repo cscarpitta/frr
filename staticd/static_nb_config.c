@@ -1478,34 +1478,34 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_segment_routi
 }
 
 
-static void combine_sid(struct static_srv6_locator *locator, struct in6_addr *sid_addr,
-		 struct in6_addr *result_addr)
-{
-	uint8_t idx = 0;
-	uint8_t funcid = 0;
-	uint8_t locatorbit = 0;
-	/* uint8_t sidbit = 0;*/
-	uint8_t totalbit = 0;
-	uint8_t funbit = 0;
-	locatorbit =
-		(locator->block_bits_length + locator->node_bits_length) / 8;
-	/* sidbit = 16 - locatorbit; */
-	totalbit = (locator->block_bits_length + locator->node_bits_length +
-		    locator->function_bits_length +
-		    locator->argument_bits_length) /
-		   8;
-	funbit = (locator->function_bits_length +
-		  locator->argument_bits_length) /
-		 8;
-	for (idx = 0; idx < locatorbit; idx++) {
-		result_addr->s6_addr[idx] = locator->prefix.prefix.s6_addr[idx];
-	}
-	for (; idx < totalbit; idx++) {
-		result_addr->s6_addr[idx] =
-			sid_addr->s6_addr[16 - funbit + funcid];
-		funcid++;
-	}
-}
+// static void combine_sid(struct static_srv6_locator *locator, struct in6_addr *sid_addr,
+// 		 struct in6_addr *result_addr)
+// {
+// 	uint8_t idx = 0;
+// 	uint8_t funcid = 0;
+// 	uint8_t locatorbit = 0;
+// 	/* uint8_t sidbit = 0;*/
+// 	uint8_t totalbit = 0;
+// 	uint8_t funbit = 0;
+// 	locatorbit =
+// 		(locator->block_bits_length + locator->node_bits_length) / 8;
+// 	/* sidbit = 16 - locatorbit; */
+// 	totalbit = (locator->block_bits_length + locator->node_bits_length +
+// 		    locator->function_bits_length +
+// 		    locator->argument_bits_length) /
+// 		   8;
+// 	funbit = (locator->function_bits_length +
+// 		  locator->argument_bits_length) /
+// 		 8;
+// 	for (idx = 0; idx < locatorbit; idx++) {
+// 		result_addr->s6_addr[idx] = locator->prefix.prefix.s6_addr[idx];
+// 	}
+// 	for (; idx < totalbit; idx++) {
+// 		result_addr->s6_addr[idx] =
+// 			sid_addr->s6_addr[16 - funbit + funcid];
+// 		funcid++;
+// 	}
+// }
 
 void routing_control_plane_protocols_control_plane_protocol_staticd_segment_routing_srv6_locators_locator_local_sids_sid_apply_finish(
 	struct nb_cb_apply_finish_args *args)

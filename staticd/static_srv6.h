@@ -135,6 +135,9 @@ struct static_srv6_locator *static_srv6_locator_lookup(const char *name);
 void delete_static_srv6_sid(void *val);
 void delete_static_srv6_locator(void *val);
 
+void combine_sid(struct static_srv6_locator *locator, struct in6_addr *sid_addr,
+		 struct in6_addr *result_addr);
+
 #ifdef __cplusplus
 }
 #endif

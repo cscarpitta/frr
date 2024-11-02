@@ -1830,35 +1830,6 @@ DEFUN_NOSH (no_srv6_locator,
 // }
 
 
-static void combine_sid(struct static_srv6_locator *locator, struct in6_addr *sid_addr,
-		 struct in6_addr *result_addr)
-{
-	uint8_t idx = 0;
-	uint8_t funcid = 0;
-	uint8_t locatorbit = 0;
-	/* uint8_t sidbit = 0;*/
-	uint8_t totalbit = 0;
-	uint8_t funbit = 0;
-	locatorbit =
-		(locator->block_bits_length + locator->node_bits_length) / 8;
-	/* sidbit = 16 - locatorbit; */
-	totalbit = (locator->block_bits_length + locator->node_bits_length +
-		    locator->function_bits_length +
-		    locator->argument_bits_length) /
-		   8;
-	funbit = (locator->function_bits_length +
-		  locator->argument_bits_length) /
-		 8;
-	for (idx = 0; idx < locatorbit; idx++) {
-		result_addr->s6_addr[idx] = locator->prefix.prefix.s6_addr[idx];
-	}
-	for (; idx < totalbit; idx++) {
-		result_addr->s6_addr[idx] =
-			sid_addr->s6_addr[16 - funbit + funcid];
-		funcid++;
-	}
-}
-
 DEFUN(srv6_opcode, srv6_opcode_cmd,
       "opcode X:X::X:X [<uA interface IFNAME | uDT6 vrf VIEWVRFNAME | uDT4 vrf VIEWVRFNAME | uDT46 vrf VIEWVRFNAME>]",
 	  "Configure SRv6 SID opcode\n"

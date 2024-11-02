@@ -1118,8 +1118,16 @@ static void request_srv6_sids(struct static_srv6_locator *locator)
 {
 	struct static_srv6_sid *sid;
 	struct listnode *node;
+	struct in6_addr ipv6prefix = { };
 
 	for (ALL_LIST_ELEMENTS_RO(locator->srv6_sids, node, sid)) {
+		int ret = inet_pton(AF_INET6, sid->opcode, &ipv6prefix);
+		if (!ret) {
+			zlog_err("Malformed IPv6 prefix\n");
+			continue;
+		}
+		memset(&sid->addr, 0, sizeof(struct in6_addr));
+		combine_sid(locator, &ipv6prefix, &sid->addr);
 		static_zebra_request_srv6_sid(sid);
 	}
 }
