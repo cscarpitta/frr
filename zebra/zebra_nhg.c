@@ -3156,6 +3156,34 @@ backups_done:
 	if (curr_active)
 		zebra_nhg_set_valid_if_active(re->nhe);
 
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct listnode *node;
+	struct zebra_srv6_sid_ctx *sid;
+	struct zserv *c;
+
+	if (re && re->nhe && re->nhe->ifp) {
+		zlog_info("nh connected for interface %u, updating sids", re->nhe->ifp->ifindex);
+
+		for (ALL_LIST_ELEMENTS_RO(srv6->sids, node, sid)) {
+			zlog_info("sid %pI6 behavior %u nh6 %pI6 ifindex %u", &sid->sid->value, sid->ctx.behavior, &sid->ctx.nh6, sid->ctx.ifindex);
+			if (sid->ctx.behavior == ZEBRA_SEG6_LOCAL_ACTION_END_X && memcmp(&sid->ctx.nh6, &in6addr_any, sizeof(struct in6_addr)) == 0 && sid->ctx.ifindex == re->nhe->ifp->ifindex) {
+				zlog_info("nh connected for interface %u, updating sid %pI6", re->nhe->ifp->ifindex, &sid->sid->value);
+				if (memcmp(&re->nhe->nhg.nexthop->gate.ipv6, &in6addr_any, sizeof(struct in6_addr)) == 0)
+					continue;
+				sid->ctx.nh6 = re->nhe->nhg.nexthop->gate.ipv6;
+				zlog_info("nh connected for interface %u, updated sid %pI6 nh6 %pI6", re->nhe->ifp->ifindex, &sid->sid->value, &sid->ctx.nh6);
+				for (ALL_LIST_ELEMENTS_RO((sid->sid)->client_list, node, c)) {
+					zsend_srv6_sid_notify(c, &sid->ctx, &(sid->sid)->value,	
+								(sid->sid)->func, (sid->sid)->wide_func,
+								(sid->sid)->locator
+									? (sid->sid)->locator->name
+									: NULL,
+								ZAPI_SRV6_SID_ALLOCATED);
+				}
+			}
+		}
+	}
+
 	/*
 	 * Do not need the old / copied nhe anymore since it
 	 * was either copied over into a new nhe or not

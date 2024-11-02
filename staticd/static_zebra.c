@@ -1379,6 +1379,8 @@ static int static_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 				return 0;
 			}
 
+			static_zebra_srv6_sid_uninstall(sid);
+
 			sid->attributes.nh6 = ctx.nh6;
 
 			/*
