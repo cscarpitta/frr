@@ -1,0 +1,30 @@
+{
+	"192.0.2.0/24": [
+		{
+			"prefix": "192.0.2.0/24",
+			"prefixLen": 24,
+			"protocol": "static",
+			"selected": true,
+			"destSelected": true,
+			"distance": 1,
+			"metric": 0,
+			"installed": true,
+			"nexthops": [
+				{
+					"directlyConnected": true,
+					"active": true,
+					"weight": 1,
+					"seg6local": {
+						"action": "unspec"
+					},
+					"seg6": [
+						"2001:db8:aaaa::7",
+						"2002::2",
+						"2003::3",
+						"2004::4"
+					]
+				}
+			]
+		}
+	]
+}
