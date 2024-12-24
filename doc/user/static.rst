@@ -180,3 +180,8 @@ multiple segments instructions.
 
 It is also possible to steer an IPv4 route over an SRv6 policy using the `segment` keyword,
 as shown in the following example.
+
+.. code-block:: frr
+
+  ip route A.B.C.D <A.B.C.D|nexthop> segments U:U::U:U/Y:Y::Y:Y/Z:Z::Z:Z
+
