@@ -185,3 +185,11 @@ as shown in the following example.
 
   ip route A.B.C.D <A.B.C.D|nexthop> segments U:U::U:U/Y:Y::Y:Y/Z:Z::Z:Z
 
+
+::
+
+  router(config)# ip route 192.0.2.0/24 ens3 segments 2001:db8:aaaa::7/2002::4/2002::3/2002::2
+
+  router# show ip route
+  [..]
+  S>* 192.0.2.0/24 [1/0] is directly connected, ens3, seg6 2001:db8:aaaa::7,2002::4,2002::3,2002::2, weight 1, 00:00:06
