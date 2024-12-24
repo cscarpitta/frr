@@ -176,3 +176,7 @@ multiple segments instructions.
   router# show ipv6 route
   [..]
   S>* 2005::/64 [1/0] is directly connected, ens3, seg6 2001:db8:aaaa::7,2002::4,2002::3,2002::2, weight 1, 00:00:06
+
+
+It is also possible to steer an IPv4 route over an SRv6 policy using the `segment` keyword,
+as shown in the following example.
