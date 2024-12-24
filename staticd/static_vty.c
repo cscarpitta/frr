@@ -762,6 +762,7 @@ DEFPY_YANG(ip_route,
 	  |nexthop-vrf NAME                            \
 	  |color (1-4294967295)                        \
 	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
+	  |segments WORD \
           }]",
       NO_STR IP_STR
       "Establish static routes\n"
@@ -786,7 +787,9 @@ DEFPY_YANG(ip_route,
       BFD_INTEGRATION_SOURCE_STR
       BFD_INTEGRATION_SOURCEV4_STR
       BFD_PROFILE_STR
-      BFD_PROFILE_NAME_STR)
+      BFD_PROFILE_NAME_STR
+      "Value of segs\n"
+      "Segs (SIDs)\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -807,6 +810,7 @@ DEFPY_YANG(ip_route,
 		.bfd_multi_hop = !!bfd_multi_hop,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
+		.segs = segments,
 	};
 
 	return static_route_nb_run(vty, &args);
