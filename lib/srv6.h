@@ -403,7 +403,6 @@ static inline const char *srv6_sid_ctx2str(char *str, size_t size,
 		break;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END:
-		snprintf(str + len, size - len, " USP");
 		break;
 
 	case ZEBRA_SEG6_LOCAL_ACTION_END_X:
