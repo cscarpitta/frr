@@ -200,7 +200,7 @@ keyword. At present, no sharp commands will be preserved in the config.
    router# sharp install seg6local-routes 1::6 nexthop-seg6local dum0 End_DT46 10 1
 
    router# show ipv6 route
-   D>* 1::1/128 [150/0] is directly connected, dum0, seg6local End USP, weight 1, 00:00:05
+   D>* 1::1/128 [150/0] is directly connected, dum0, seg6local End, weight 1, 00:00:05
    D>* 1::2/128 [150/0] is directly connected, dum0, seg6local End.X nh6 2001::1, weight 1, 00:00:05
    D>* 1::3/128 [150/0] is directly connected, dum0, seg6local End.T table 10, weight 1, 00:00:05
    D>* 1::4/128 [150/0] is directly connected, dum0, seg6local End.DX4 nh4 10.0.0.1, weight 1, 00:00:05
