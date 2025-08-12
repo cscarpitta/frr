@@ -25,6 +25,46 @@ struct list *srv6_sids;
 DEFINE_MTYPE_STATIC(STATIC, STATIC_SRV6_LOCATOR, "Static SRv6 locator");
 DEFINE_MTYPE_STATIC(STATIC, STATIC_SRV6_SID, "Static SRv6 SID");
 
+static bool static_ifp_srv6_sids_update_is_needed(struct interface *ifp, struct static_srv6_sid *sid)
+{
+
+	zlog_info("is vrf %d, name %s, behavior %u", if_is_vrf(ifp), sid->attributes.vrf_name, sid->behavior);
+
+	if (strcmp(sid->attributes.vrf_name, ifp->name) == 0)
+		return true;
+
+	if ((sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_X ||
+		sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID) &&
+	   strcmp(sid->attributes.ifname, ifp->name) == 0)
+	   return true;
+	
+	if (strncmp(ifp->name, DEFAULT_SRV6_IFNAME, sizeof(ifp->name)) == 0 &&
+		 (sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END ||
+		  sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID))
+		return true;
+		
+	if (strncmp(ifp->name, DEFAULT_SRV6_IFNAME, sizeof(ifp->name)) == 0 &&
+		strmatch(sid->attributes.vrf_name, VRF_DEFAULT_NAME) &&
+		(sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT6 ||
+			sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT6_USID||
+			sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT4||
+			sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID||
+			sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT46||
+			sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID))
+    	return true;
+		
+	if (if_is_vrf(ifp) &&
+		strmatch(sid->attributes.vrf_name, VRF_DEFAULT_NAME) &&
+		(sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT4||
+			sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT4_USID||
+			sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT46||
+			sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_DT46_USID))
+		return true;
+	
+
+	return false;
+}
+
 /*
  * When an interface is enabled in the kernel, go through all the static SRv6 SIDs in
  * the system that use this interface and install/remove them in the zebra RIB.
@@ -49,20 +89,24 @@ void static_ifp_srv6_sids_update(struct interface *ifp, bool is_up)
 	 * VRF from the zebra RIB
 	 */
 	for (ALL_LIST_ELEMENTS_RO(srv6_sids, node, sid)) {
-		if ((strcmp(sid->attributes.vrf_name, ifp->name) == 0) ||
-		    ((sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_X ||
-		      sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_X_NEXT_CSID) &&
-		     strcmp(sid->attributes.ifname, ifp->name) == 0) ||
-		    (strncmp(ifp->name, DEFAULT_SRV6_IFNAME, sizeof(ifp->name)) == 0 &&
-		     (sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END ||
-		      sid->behavior == SRV6_ENDPOINT_BEHAVIOR_END_NEXT_CSID))) {
-			if (is_up) {
+		if (!static_ifp_srv6_sids_update_is_needed(ifp, sid))
+			continue;
+
+		if (is_up) {
+			if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_VALID)) {
+				if (CHECK_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA)) {
+					static_zebra_srv6_sid_uninstall(sid);
+					UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
+				}
+
 				static_zebra_srv6_sid_install(sid);
 				SET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
 			} else {
-				static_zebra_srv6_sid_uninstall(sid);
-				UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
+				static_zebra_request_srv6_sid(sid);
 			}
+		} else {
+			static_zebra_srv6_sid_uninstall(sid);
+			UNSET_FLAG(sid->flags, STATIC_FLAG_SRV6_SID_SENT_TO_ZEBRA);
 		}
 	}
 }

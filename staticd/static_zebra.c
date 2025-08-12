@@ -800,7 +800,7 @@ void static_zebra_srv6_sid_install(struct static_srv6_sid *sid)
 	ctx.flv.lcnode_func_len = ctx.node_len + ctx.function_len;
 
 	/* Attach the SID to the SRv6 interface */
-	if (!ifp) {
+	if (!ifp || if_is_loopback_exact(ifp)) {
 		ifp = if_lookup_by_name(DEFAULT_SRV6_IFNAME, VRF_DEFAULT);
 		if (!ifp) {
 			zlog_warn("Failed to install SRv6 SID %pFX: %s interface not found",
@@ -982,7 +982,7 @@ void static_zebra_srv6_sid_uninstall(struct static_srv6_sid *sid)
 	}
 
 	/* The SID is attached to the SRv6 interface */
-	if (!ifp) {
+	if (!ifp || if_is_loopback_exact(ifp)) {
 		ifp = if_lookup_by_name(DEFAULT_SRV6_IFNAME, VRF_DEFAULT);
 		if (!ifp) {
 			zlog_warn("%s interface not found: nothing to uninstall",
