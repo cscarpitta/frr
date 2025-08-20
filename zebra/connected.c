@@ -191,6 +191,8 @@ static void connected_remove_kernel_for_connected(afi_t afi, safi_t safi, struct
 	rib_dest_t *dest;
 	struct route_table *table = zebra_vrf_table(afi, SAFI_UNICAST, zvrf->vrf->vrf_id);
 
+	rib_meta_queue_early_route_cleanup(p, ZEBRA_ROUTE_KERNEL);
+
 	if (!table)
 		return;
 
@@ -211,8 +213,6 @@ static void connected_remove_kernel_for_connected(afi_t afi, safi_t safi, struct
 
 	rib_delete(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_KERNEL, 0, 0, p, NULL, nh, 0,
 		   zvrf->table_id, 0, 0, false);
-
-	rib_meta_queue_early_route_cleanup(p, ZEBRA_ROUTE_KERNEL);
 }
 
 /* Called from if_up(). */
