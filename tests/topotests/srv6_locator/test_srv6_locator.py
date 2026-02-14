@@ -150,6 +150,65 @@ def test_srv6():
     check_sharpd_chunk(router, "expected_chunks6.json")
 
 
+def test_srv6_no_locators():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    logger.info("Test7 re-add locators before no locators")
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc1
+             prefix 2001:db8:1:1::/64
+            !
+            locator loc2
+             prefix 2001:db8:2:2::/64
+            !
+        """
+    )
+    check_srv6_locator(router, "expected_locators1.json")
+
+    logger.info("Test8 no locators")
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           no locators
+        """
+    )
+    check_srv6_locator(router, "expected_locators6.json")
+
+
+def test_srv6_locators_readd_initial():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    logger.info("Test9 re-add initial locators")
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc1
+             prefix 2001:db8:1:1::/64
+            !
+            locator loc2
+             prefix 2001:db8:2:2::/64
+            !
+        """
+    )
+    check_srv6_locator(router, "expected_locators1.json")
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
