@@ -745,6 +745,13 @@ static void unset_srv6_encap_source_address(void)
 	dplane_srv6_encap_srcaddr_set(&in6addr_any, NS_DEFAULT);
 }
 
+static void delete_srv6_locator(struct srv6_locator *locator)
+{
+	zebra_srv6_sid_entry_del_by_locator_all_sids(locator);
+	zebra_srv6_sid_locator_block_release(locator);
+	zebra_srv6_locator_delete(locator);
+}
+
 DEFUN (no_srv6,
        no_srv6_cmd,
        "no srv6",
@@ -754,30 +761,9 @@ DEFUN (no_srv6,
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	struct srv6_locator *locator;
 	struct listnode *node, *nnode;
-	struct zebra_srv6_sid_block *block;
-	struct zebra_srv6_sid_ctx *ctx;
 
-	for (ALL_LIST_ELEMENTS(srv6->locators, node, nnode, locator)) {
-		block = locator->sid_block;
-		if (block) {
-			block->refcnt--;
-			if (block->refcnt == 0) {
-				frr_each_safe (zebra_srv6_sid_ctx_list, &block->sids, ctx) {
-					if (ctx->sid)
-						zebra_srv6_sid_free(ctx->sid);
-
-					zebra_srv6_sid_ctx_list_del(&block->sids, ctx);
-					zebra_srv6_sid_ctx_free(ctx);
-				}
-				zebra_srv6_sid_ctx_list_fini(&block->sids);
-				listnode_delete(srv6->sid_blocks, block);
-				zebra_srv6_sid_block_free(block);
-			}
-			locator->sid_block = NULL;
-		}
-
-		zebra_srv6_locator_delete(locator);
-	}
+	for (ALL_LIST_ELEMENTS(srv6->locators, node, nnode, locator))
+		delete_srv6_locator(locator);
 
 	unset_srv6_encap_source_address();
 
@@ -823,55 +809,14 @@ DEFUN (no_srv6_locator,
        "Segment Routing SRv6 locator\n"
        "Specify locator-name\n")
 {
-	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
-	struct zebra_srv6_sid_block *block;
-	struct zebra_srv6_sid_ctx *ctx;
 	struct srv6_locator *locator = zebra_srv6_locator_lookup(argv[2]->arg);
-	struct zebra_srv6_sid_entry *entry;
 
 	if (!locator) {
 		vty_out(vty, "%% Can't find SRv6 locator\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	block = locator->sid_block;
-	frr_each_safe (zebra_srv6_sid_ctx_list, &block->sids, ctx) {
-		if (!ctx->sid)
-			continue;
-
-		frr_each_safe (zebra_srv6_sid_entry_list, &ctx->sid->entries, entry)
-			if (entry->locator == locator) {
-				zebra_srv6_sid_entry_list_del(&ctx->sid->entries, entry);
-				zebra_srv6_sid_entry_free(entry);
-			}
-
-		if (zebra_srv6_sid_entry_list_count(&ctx->sid->entries) == 0) {
-			zebra_srv6_sid_free(ctx->sid);
-
-			zebra_srv6_sid_ctx_list_del(&block->sids, ctx);
-			zebra_srv6_sid_ctx_free(ctx);
-		}
-	}
-
-	block = locator->sid_block;
-	if (block) {
-		block->refcnt--;
-		if (block->refcnt == 0) {
-			frr_each_safe (zebra_srv6_sid_ctx_list, &block->sids, ctx) {
-				if (ctx->sid)
-					zebra_srv6_sid_free(ctx->sid);
-
-				zebra_srv6_sid_ctx_list_del(&block->sids, ctx);
-				zebra_srv6_sid_ctx_free(ctx);
-			}
-			zebra_srv6_sid_ctx_list_fini(&block->sids);
-			listnode_delete(srv6->sid_blocks, block);
-			zebra_srv6_sid_block_free(block);
-		}
-		locator->sid_block = NULL;
-	}
-
-	zebra_srv6_locator_delete(locator);
+	delete_srv6_locator(locator);
 	return CMD_SUCCESS;
 }
 
