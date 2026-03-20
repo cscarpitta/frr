@@ -2433,15 +2433,6 @@ static inline int stream_get_tlv_hdr(struct stream *s, uint16_t *type, uint16_t 
 }
 
 /*
- * Skip unknown TLV in stream (RFC 9552 Section 5.1)
- * Unknown TLVs must be preserved and propagated
- */
-static inline void stream_skip_tlv(struct stream *s, uint16_t length)
-{
-	stream_forward_getp(s, length);
-}
-
-/*
  * Decode Node Descriptor from wire format (RFC 9552 Section 5.2.1)
  *
  * Wire format:
@@ -2555,7 +2546,7 @@ int bgp_ls_decode_node_descriptor(struct stream *s, struct bgp_ls_node_descripto
 			flog_warn(EC_BGP_LS_PACKET,
 				  "BGP-LS: Unknown Node Descriptor sub-TLV %u, length %u (skipping)",
 				  sub_type, sub_len);
-			stream_skip_tlv(s, sub_len);
+			stream_forward_getp(s, sub_len);
 			break;
 		}
 	}
@@ -2740,7 +2731,7 @@ int bgp_ls_decode_link_descriptor(struct stream *s, struct bgp_ls_link_descripto
 			flog_warn(EC_BGP_LS_PACKET,
 				  "BGP-LS: Unknown Link Descriptor TLV %u, length %u (skipping)",
 				  tlv_type, tlv_len);
-			stream_skip_tlv(s, tlv_len);
+			stream_forward_getp(s, tlv_len);
 			break;
 		}
 	}
@@ -2897,7 +2888,7 @@ int bgp_ls_decode_prefix_descriptor(struct stream *s, struct bgp_ls_prefix_descr
 			flog_warn(EC_BGP_LS_PACKET,
 				  "BGP-LS: Unknown Prefix Descriptor TLV %u, length %u (skipping)",
 				  tlv_type, tlv_len);
-			stream_skip_tlv(s, tlv_len);
+			stream_forward_getp(s, tlv_len);
 			break;
 		}
 	}
@@ -4233,7 +4224,7 @@ int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_att
 			if (BGP_DEBUG(update, UPDATE_IN))
 				zlog_debug("BGP-LS: Skipping unrecognized BGP-LS Attribute TLV %u",
 					   type);
-			stream_skip_tlv(s, length);
+			stream_forward_getp(s, length);
 			break;
 		}
 	}
