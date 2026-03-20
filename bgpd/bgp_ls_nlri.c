@@ -3344,8 +3344,16 @@ static int parse_isis_area_id(struct stream *s, uint16_t length, struct bgp_ls_a
 	}
 
 	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_ISIS_AREA_BIT)) {
-		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate ISIS Area-ID TLV");
-		return -1;
+		/*
+		 * RFC 9552 Section 5.3.1.4 allows multiple IS-IS Area-ID TLVs
+		 * to encode synonymous area addresses.  We currently support
+		 * only one IS-IS Area-ID TLV; skip any additional ones.
+		 */
+		if (BGP_DEBUG(linkstate, LINKSTATE))
+			flog_warn(EC_BGP_UPDATE_RCV,
+				  "BGP-LS: multiple IS-IS Area-ID TLVs not supported, skipping duplicate");
+		stream_forward_getp(s, length);
+		return 0;
 	}
 
 	attr->isis_area_id = XCALLOC(MTYPE_BGP_LS_ATTR, length);
@@ -3881,8 +3889,16 @@ static int parse_ipv4_router_id_local(struct stream *s, uint16_t length, struct 
 	}
 
 	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_IPV4_ROUTER_ID_LOCAL_BIT)) {
-		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate IPv4 Local Router-ID TLV");
-		return -1;
+		/*
+		 * RFC 9552 Section 5.3.1.4 allows multiple IPv4 Local Router-ID TLVs
+		 * when a node has more than one auxiliary Router-ID.  We currently
+		 * support only one; skip any additional ones.
+		 */
+		if (BGP_DEBUG(linkstate, LINKSTATE))
+			flog_warn(EC_BGP_UPDATE_RCV,
+				  "BGP-LS: multiple IPv4 Local Router-ID TLVs not supported, skipping duplicate");
+		stream_forward_getp(s, length);
+		return 0;
 	}
 
 	stream_get(&attr->ipv4_router_id_local, s, 4);
@@ -3900,8 +3916,16 @@ static int parse_ipv6_router_id_local(struct stream *s, uint16_t length, struct 
 	}
 
 	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_IPV6_ROUTER_ID_LOCAL_BIT)) {
-		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate IPv6 Local Router-ID TLV");
-		return -1;
+		/*
+		 * RFC 9552 Section 5.3.1.4 allows multiple IPv6 Local Router-ID TLVs
+		 * when a node has more than one auxiliary Router-ID.  We currently
+		 * support only one; skip any additional ones.
+		 */
+		if (BGP_DEBUG(linkstate, LINKSTATE))
+			flog_warn(EC_BGP_UPDATE_RCV,
+				  "BGP-LS: multiple IPv6 Local Router-ID TLVs not supported, skipping duplicate");
+		stream_forward_getp(s, length);
+		return 0;
 	}
 
 	stream_get(&attr->ipv6_router_id_local, s, 16);
@@ -3919,8 +3943,16 @@ static int parse_ipv4_router_id_remote(struct stream *s, uint16_t length, struct
 	}
 
 	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_IPV4_ROUTER_ID_REMOTE_BIT)) {
-		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate IPv4 Remote Router-ID TLV");
-		return -1;
+		/*
+		 * RFC 9552 Section 5.3.2.1 allows multiple IPv4 Remote Router-ID TLVs
+		 * when a node has more than one auxiliary Router-ID.  We currently
+		 * support only one; skip any additional ones.
+		 */
+		if (BGP_DEBUG(linkstate, LINKSTATE))
+			flog_warn(EC_BGP_UPDATE_RCV,
+				  "BGP-LS: multiple IPv4 Remote Router-ID TLVs not supported, skipping duplicate");
+		stream_forward_getp(s, length);
+		return 0;
 	}
 
 	stream_get(&attr->ipv4_router_id_remote, s, 4);
@@ -3938,8 +3970,16 @@ static int parse_ipv6_router_id_remote(struct stream *s, uint16_t length, struct
 	}
 
 	if (BGP_LS_TLV_CHECK(attr->present_tlvs, BGP_LS_ATTR_IPV6_ROUTER_ID_REMOTE_BIT)) {
-		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: duplicate IPv6 Remote Router-ID TLV");
-		return -1;
+		/*
+		 * RFC 9552 Section 5.3.2.1 allows multiple IPv6 Remote Router-ID TLVs
+		 * when a node has more than one auxiliary Router-ID.  We currently
+		 * support only one; skip any additional ones.
+		 */
+		if (BGP_DEBUG(linkstate, LINKSTATE))
+			flog_warn(EC_BGP_UPDATE_RCV,
+				  "BGP-LS: multiple IPv6 Remote Router-ID TLVs not supported, skipping duplicate");
+		stream_forward_getp(s, length);
+		return 0;
 	}
 
 	stream_get(&attr->ipv6_router_id_remote, s, 16);
