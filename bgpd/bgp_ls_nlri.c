@@ -2410,22 +2410,37 @@ int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr)
  * |              Type             |            Length             |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
- * Returns 0 on success, -1 on error
+ * @remaining: pointer to caller-maintained countdown of bytes left in the
+ *             enclosing object.  Decremented by BGP_LS_TLV_HDR_SIZE on
+ *             success; the value field length is checked against *remaining
+ *             but NOT subtracted (the caller does that after consuming the
+ *             value).
+ *
+ * Returns 0 on success, -1 on error (remaining is not modified on error).
  */
-static inline int stream_get_tlv_hdr(struct stream *s, uint16_t *type, uint16_t *length)
+static inline int stream_get_tlv_hdr(struct stream *s, uint16_t *type, uint16_t *length,
+				     uint16_t *remaining)
 {
+	/* Check enclosing-object boundary has room for a TLV header */
+	if (*remaining < BGP_LS_TLV_HDR_SIZE) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: truncated TLV header");
+		return -1;
+	}
+	/* Secondary stream-sanity check (defence in depth) */
 	if (STREAM_READABLE(s) < BGP_LS_TLV_HDR_SIZE) {
-		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Not enough data for TLV header");
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: stream underrun reading TLV header");
 		return -1;
 	}
 
 	*type = stream_getw(s);
 	*length = stream_getw(s);
+	*remaining -= BGP_LS_TLV_HDR_SIZE;
 
-	/* Check if stream has enough data for TLV value */
-	if (STREAM_READABLE(s) < *length) {
-		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: TLV type=%u length=%u exceeds available data",
-			  *type, *length);
+	/* Check TLV value fits within remaining enclosing-object bytes */
+	if (*length > *remaining) {
+		flog_warn(EC_BGP_LS_PACKET,
+			  "BGP-LS: TLV type=%u length=%u exceeds enclosing object boundary", *type,
+			  *length);
 		return -1;
 	}
 
@@ -2455,7 +2470,7 @@ static inline int stream_get_tlv_hdr(struct stream *s, uint16_t *type, uint16_t 
 int bgp_ls_decode_node_descriptor(struct stream *s, struct bgp_ls_node_descriptor *desc,
 				  uint16_t desc_length)
 {
-	size_t end_pos;
+	uint16_t remaining = desc_length;
 	uint16_t sub_type, sub_len;
 	bool has_igp_router_id = false;
 
@@ -2465,12 +2480,9 @@ int bgp_ls_decode_node_descriptor(struct stream *s, struct bgp_ls_node_descripto
 	/* Clear descriptor */
 	memset(desc, 0, sizeof(*desc));
 
-	/* Save end position for bounds checking */
-	end_pos = stream_get_getp(s) + desc_length;
-
-	/* Parse sub-TLVs */
-	while (stream_get_getp(s) < end_pos) {
-		if (stream_get_tlv_hdr(s, &sub_type, &sub_len) < 0)
+	/* Parse sub-TLVs; 'remaining' counts down bytes left in this descriptor */
+	while (remaining > 0) {
+		if (stream_get_tlv_hdr(s, &sub_type, &sub_len, &remaining) < 0)
 			return -1;
 
 		switch (sub_type) {
@@ -2549,20 +2561,13 @@ int bgp_ls_decode_node_descriptor(struct stream *s, struct bgp_ls_node_descripto
 			stream_forward_getp(s, sub_len);
 			break;
 		}
+		remaining -= sub_len;
 	}
 
 	/* Verify mandatory TLV present */
 	if (!has_igp_router_id) {
 		flog_warn(EC_BGP_LS_PACKET,
 			  "BGP-LS: Mandatory IGP Router-ID TLV missing from Node Descriptor");
-		return -1;
-	}
-
-	/* Check we consumed exactly desc_length bytes */
-	if (stream_get_getp(s) != end_pos) {
-		flog_warn(EC_BGP_LS_PACKET,
-			  "BGP-LS: Node Descriptor length mismatch (consumed %zu, expected %u)",
-			  stream_get_getp(s) - (end_pos - desc_length), desc_length);
 		return -1;
 	}
 
@@ -2592,7 +2597,7 @@ int bgp_ls_decode_node_descriptor(struct stream *s, struct bgp_ls_node_descripto
 int bgp_ls_decode_link_descriptor(struct stream *s, struct bgp_ls_link_descriptor *desc,
 				  size_t total_length)
 {
-	size_t end_pos;
+	uint16_t remaining = (uint16_t)total_length;
 	uint16_t tlv_type, tlv_len;
 
 	if (!s || !desc)
@@ -2601,12 +2606,9 @@ int bgp_ls_decode_link_descriptor(struct stream *s, struct bgp_ls_link_descripto
 	/* Clear descriptor */
 	memset(desc, 0, sizeof(*desc));
 
-	/* Save end position for bounds checking */
-	end_pos = stream_get_getp(s) + total_length;
-
-	/* Parse TLVs */
-	while (stream_get_getp(s) < end_pos) {
-		if (stream_get_tlv_hdr(s, &tlv_type, &tlv_len) < 0)
+	/* Parse TLVs; 'remaining' counts down bytes left in this descriptor */
+	while (remaining > 0) {
+		if (stream_get_tlv_hdr(s, &tlv_type, &tlv_len, &remaining) < 0)
 			goto error;
 
 		switch (tlv_type) {
@@ -2734,12 +2736,7 @@ int bgp_ls_decode_link_descriptor(struct stream *s, struct bgp_ls_link_descripto
 			stream_forward_getp(s, tlv_len);
 			break;
 		}
-	}
-
-	/* Check we consumed exactly total_length bytes */
-	if (stream_get_getp(s) != end_pos) {
-		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Link Descriptor length mismatch");
-		goto error;
+		remaining -= tlv_len;
 	}
 
 	return 0;
@@ -2771,7 +2768,7 @@ error:
 int bgp_ls_decode_prefix_descriptor(struct stream *s, struct bgp_ls_prefix_descriptor *desc,
 				    size_t total_length, bool is_ipv6)
 {
-	size_t end_pos;
+	uint16_t remaining = (uint16_t)total_length;
 	uint16_t tlv_type, tlv_len;
 	bool has_ip_reach = false;
 
@@ -2781,12 +2778,9 @@ int bgp_ls_decode_prefix_descriptor(struct stream *s, struct bgp_ls_prefix_descr
 	/* Clear descriptor */
 	memset(desc, 0, sizeof(*desc));
 
-	/* Save end position for bounds checking */
-	end_pos = stream_get_getp(s) + total_length;
-
-	/* Parse TLVs */
-	while (stream_get_getp(s) < end_pos) {
-		if (stream_get_tlv_hdr(s, &tlv_type, &tlv_len) < 0)
+	/* Parse TLVs; 'remaining' counts down bytes left in this descriptor */
+	while (remaining > 0) {
+		if (stream_get_tlv_hdr(s, &tlv_type, &tlv_len, &remaining) < 0)
 			goto error;
 
 		switch (tlv_type) {
@@ -2891,18 +2885,13 @@ int bgp_ls_decode_prefix_descriptor(struct stream *s, struct bgp_ls_prefix_descr
 			stream_forward_getp(s, tlv_len);
 			break;
 		}
+		remaining -= tlv_len;
 	}
 
 	/* Verify mandatory TLV present */
 	if (!has_ip_reach) {
 		flog_warn(EC_BGP_LS_PACKET,
 			  "BGP-LS: Mandatory IP Reachability Info TLV missing from Prefix Descriptor");
-		goto error;
-	}
-
-	/* Check we consumed exactly total_length bytes */
-	if (stream_get_getp(s) != end_pos) {
-		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: Prefix Descriptor length mismatch");
 		goto error;
 	}
 
@@ -2940,7 +2929,7 @@ error:
  */
 int bgp_ls_decode_node_nlri(struct stream *s, struct bgp_ls_nlri *nlri, uint16_t nlri_length)
 {
-	uint16_t desc_type, desc_len;
+	uint16_t desc_type, desc_len, tlv_rem;
 	size_t start_pos;
 
 	if (!s || !nlri)
@@ -2974,7 +2963,8 @@ int bgp_ls_decode_node_nlri(struct stream *s, struct bgp_ls_nlri *nlri, uint16_t
 	nlri->nlri_data.node.identifier = stream_getq(s);
 
 	/* Read Local Node Descriptor TLV */
-	if (stream_get_tlv_hdr(s, &desc_type, &desc_len) < 0)
+	tlv_rem = nlri_length - (uint16_t)(stream_get_getp(s) - start_pos);
+	if (stream_get_tlv_hdr(s, &desc_type, &desc_len, &tlv_rem) < 0)
 		return -1;
 
 	if (desc_type != BGP_LS_TLV_LOCAL_NODE_DESC) {
@@ -3028,7 +3018,7 @@ int bgp_ls_decode_node_nlri(struct stream *s, struct bgp_ls_nlri *nlri, uint16_t
  */
 int bgp_ls_decode_link_nlri(struct stream *s, struct bgp_ls_nlri *nlri, uint16_t nlri_length)
 {
-	uint16_t desc_type, desc_len;
+	uint16_t desc_type, desc_len, tlv_rem;
 	size_t start_pos, link_desc_start;
 
 	if (!s || !nlri)
@@ -3062,7 +3052,8 @@ int bgp_ls_decode_link_nlri(struct stream *s, struct bgp_ls_nlri *nlri, uint16_t
 	nlri->nlri_data.link.identifier = stream_getq(s);
 
 	/* Read Local Node Descriptor TLV */
-	if (stream_get_tlv_hdr(s, &desc_type, &desc_len) < 0)
+	tlv_rem = nlri_length - (uint16_t)(stream_get_getp(s) - start_pos);
+	if (stream_get_tlv_hdr(s, &desc_type, &desc_len, &tlv_rem) < 0)
 		return -1;
 
 	if (desc_type != BGP_LS_TLV_LOCAL_NODE_DESC) {
@@ -3075,7 +3066,8 @@ int bgp_ls_decode_link_nlri(struct stream *s, struct bgp_ls_nlri *nlri, uint16_t
 		return -1;
 
 	/* Read Remote Node Descriptor TLV */
-	if (stream_get_tlv_hdr(s, &desc_type, &desc_len) < 0)
+	tlv_rem = nlri_length - (uint16_t)(stream_get_getp(s) - start_pos);
+	if (stream_get_tlv_hdr(s, &desc_type, &desc_len, &tlv_rem) < 0)
 		return -1;
 
 	if (desc_type != BGP_LS_TLV_REMOTE_NODE_DESC) {
@@ -3137,7 +3129,7 @@ int bgp_ls_decode_link_nlri(struct stream *s, struct bgp_ls_nlri *nlri, uint16_t
 int bgp_ls_decode_prefix_nlri(struct stream *s, struct bgp_ls_nlri *nlri, uint16_t nlri_type,
 			      uint16_t nlri_length)
 {
-	uint16_t desc_type, desc_len;
+	uint16_t desc_type, desc_len, tlv_rem;
 	size_t start_pos, prefix_desc_start;
 
 	if (!s || !nlri)
@@ -3177,7 +3169,8 @@ int bgp_ls_decode_prefix_nlri(struct stream *s, struct bgp_ls_nlri *nlri, uint16
 	nlri->nlri_data.prefix.identifier = stream_getq(s);
 
 	/* Read Local Node Descriptor TLV */
-	if (stream_get_tlv_hdr(s, &desc_type, &desc_len) < 0)
+	tlv_rem = nlri_length - (uint16_t)(stream_get_getp(s) - start_pos);
+	if (stream_get_tlv_hdr(s, &desc_type, &desc_len, &tlv_rem) < 0)
 		return -1;
 
 	if (desc_type != BGP_LS_TLV_LOCAL_NODE_DESC) {
@@ -4056,14 +4049,13 @@ static int parse_extended_tag(struct stream *s, uint16_t length, struct bgp_ls_a
  */
 int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_attr *attr)
 {
-	uint16_t type, length;
-	size_t end_pos = stream_get_getp(s) + total_length;
+	uint16_t type, length, remaining = total_length;
 
 	if (!attr)
 		return -1;
 
-	while (stream_get_getp(s) < end_pos) {
-		if (stream_get_tlv_hdr(s, &type, &length) < 0) {
+	while (remaining > 0) {
+		if (stream_get_tlv_hdr(s, &type, &length, &remaining) < 0) {
 			flog_warn(EC_BGP_UPDATE_RCV,
 				  "BGP-LS: Error parsing Node Attribute TLV header");
 			return -1;
@@ -4227,6 +4219,14 @@ int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_att
 			stream_forward_getp(s, length);
 			break;
 		}
+		remaining -= length;
+	}
+
+	if (remaining != 0) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: Attribute length mismatch (consumed %u, expected %u)",
+			  total_length - remaining, total_length);
+		return -1;
 	}
 
 	return 0;
