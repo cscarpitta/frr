@@ -529,28 +529,28 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 }
 
 /* Static unicast routes for multicast RPF lookup. */
-DEFPY_YANG (ip_mroute_dist,
-       ip_mroute_dist_cmd,
-       "[no] ip mroute A.B.C.D/M$prefix <A.B.C.D$gate|INTERFACE$ifname> [{"
-       "(1-255)$distance"
-       "|metric (0-4294967295)"
-       "|bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}]"
-       "}]",
-       NO_STR
-       IP_STR
-       "Configure static unicast route into MRIB for multicast RPF lookup\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "Nexthop address\n"
-       "Nexthop interface name\n"
-       "Distance\n"
-       "Route metric\n"
-       "Metric value\n"
-       BFD_INTEGRATION_STR
-       BFD_INTEGRATION_MULTI_HOP_STR
-       BFD_INTEGRATION_SOURCE_STR
-       BFD_INTEGRATION_SOURCEV4_STR
-       BFD_PROFILE_STR
-       BFD_PROFILE_NAME_STR)
+DEFPY_YANG(ip_mroute_dist,
+      ip_mroute_dist_cmd,
+      "[no] ip mroute A.B.C.D/M$prefix <A.B.C.D$gate|INTERFACE$ifname> [{"
+      "(1-255)$distance"
+      "|metric (0-4294967295)"
+      "|bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}]"
+      "}]",
+      NO_STR
+      IP_STR
+      "Configure static unicast route into MRIB for multicast RPF lookup\n"
+      "IP destination prefix (e.g. 10.0.0.0/8)\n"
+      "Nexthop address\n"
+      "Nexthop interface name\n"
+      "Distance\n"
+      "Route metric\n"
+      "Metric value\n"
+      BFD_INTEGRATION_STR
+      BFD_INTEGRATION_MULTI_HOP_STR
+      BFD_INTEGRATION_SOURCE_STR
+      BFD_INTEGRATION_SOURCEV4_STR
+      BFD_PROFILE_STR
+      BFD_PROFILE_NAME_STR)
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -582,8 +582,8 @@ DEFPY_YANG(ip_route_blackhole,
 	  |metric (0-4294967295)                                              \
 	  |vrf NAME                                                           \
 	  |label WORD                                                         \
-          |table (1-4294967295)                                               \
-          }]",
+	  |table (1-4294967295)                                               \
+	  }]",
       NO_STR IP_STR
       "Establish static routes\n"
       "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -630,7 +630,7 @@ DEFPY_YANG(ip_route_blackhole_vrf,
 	  |metric (0-4294967295)                                              \
 	  |label WORD                                                         \
 	  |table (1-4294967295)                                               \
-          }]",
+	  }]",
       NO_STR IP_STR
       "Establish static routes\n"
       "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -691,7 +691,7 @@ DEFPY_YANG(ip_route_address_interface,
 	  |color (1-4294967295)                        \
 	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
 	  |segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] [encap-source X:X::X:X$encap_source] \
-          }]",
+	  }]",
       NO_STR IP_STR
       "Establish static routes\n"
       "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -724,11 +724,11 @@ DEFPY_YANG(ip_route_address_interface,
       BFD_PROFILE_NAME_STR
       "Steer this route over an SRv6 SID list\n"
       "SRv6 SID list\n"
-	  "Configure SRv6 encap mode\n"
-	  "H.Encaps\n"
-	  "H.Encaps.Red\n"
-	  "Configure SRv6 encap source address\n"
-	  "SRv6 encap source address\n")
+      "Configure SRv6 encap mode\n"
+      "H.Encaps\n"
+      "H.Encaps.Red\n"
+      "Configure SRv6 encap source address\n"
+      "SRv6 encap source address\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -810,11 +810,11 @@ DEFPY_YANG(ip_route_address_interface_vrf,
       BFD_PROFILE_NAME_STR
       "Steer this route over an SRv6 SID list\n"
       "SRv6 SID list\n"
-	  "Configure SRv6 encap mode\n"
-	  "H.Encaps\n"
-	  "H.Encaps.Red\n"
-	  "Configure SRv6 encap source address\n"
-	  "SRv6 encap source address\n")
+      "Configure SRv6 encap mode\n"
+      "H.Encaps\n"
+      "H.Encaps.Red\n"
+      "Configure SRv6 encap source address\n"
+      "SRv6 encap source address\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -851,7 +851,7 @@ DEFPY_YANG(ip_route,
       "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask>     \
 	<<A.B.C.D|X:X::X:X>$gate|<INTERFACE|Null0>$ifname> \
-	[{                                             	   \
+	[{                                                 \
 	  tag (1-4294967295)                               \
 	  |(1-255)$distance                                \
 	  |metric (0-4294967295)                           \
@@ -863,7 +863,7 @@ DEFPY_YANG(ip_route,
 	  |color (1-4294967295)                            \
 	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
 	  |segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] [encap-source X:X::X:X$encap_source] \
-          }]",
+	  }]",
       NO_STR IP_STR
       "Establish static routes\n"
       "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -895,11 +895,11 @@ DEFPY_YANG(ip_route,
       BFD_PROFILE_NAME_STR
       "Steer this route over an SRv6 SID list\n"
       "SRv6 SID list\n"
-	  "Configure SRv6 encap mode\n"
-	  "H.Encaps\n"
-	  "H.Encaps.Red\n"
-	  "Configure SRv6 encap source address\n"
-	  "SRv6 encap source address\n")
+      "Configure SRv6 encap mode\n"
+      "H.Encaps\n"
+      "H.Encaps.Red\n"
+      "Configure SRv6 encap source address\n"
+      "SRv6 encap source address\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -946,7 +946,7 @@ DEFPY_YANG(ip_route_vrf,
 	  |color (1-4294967295)                            \
 	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
 	  |segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] [encap-source X:X::X:X$encap_source] \
-          }]",
+	  }]",
       NO_STR IP_STR
       "Establish static routes\n"
       "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -977,11 +977,11 @@ DEFPY_YANG(ip_route_vrf,
       BFD_PROFILE_NAME_STR
       "Steer this route over an SRv6 SID list\n"
       "SRv6 SID list\n"
-	  "Configure SRv6 encap mode\n"
-	  "H.Encaps\n"
-	  "H.Encaps.Red\n"
-	  "Configure SRv6 encap source address\n"
-	  "SRv6 encap source address\n")
+      "Configure SRv6 encap mode\n"
+      "H.Encaps\n"
+      "H.Encaps.Red\n"
+      "Configure SRv6 encap source address\n"
+      "SRv6 encap source address\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -1123,13 +1123,13 @@ DEFPY_YANG(ipv6_route_address_interface, ipv6_route_address_interface_cmd,
             |metric (0-4294967295)                         \
             |vrf NAME                                      \
             |label WORD                                    \
-	    |table (1-4294967295)                          \
+            |table (1-4294967295)                          \
             |nexthop-vrf NAME                              \
-	    |weight (1-65535)                              \
-	    |onlink$onlink                                 \
-	    |color (1-4294967295)                          \
-	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
-		|segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] [encap-source X:X::X:X$encap_source] \
+            |weight (1-65535)                              \
+            |onlink$onlink                                 \
+            |color (1-4294967295)                          \
+            |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
+            |segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] [encap-source X:X::X:X$encap_source] \
           }]",
 	   NO_STR IPV6_STR
 	   "Establish static routes\n"
@@ -1144,23 +1144,29 @@ DEFPY_YANG(ipv6_route_address_interface, ipv6_route_address_interface_cmd,
 	   "Distance value for this prefix\n"
 	   "Route metric\n"
 	   "Metric value\n"
-	   VRF_CMD_HELP_STR MPLS_LABEL_HELPSTR
+	   VRF_CMD_HELP_STR
+	   MPLS_LABEL_HELPSTR
 	   "Table to configure\n"
-	   "The table number to configure\n" VRF_CMD_HELP_STR
+	   "The table number to configure\n"
+	   VRF_CMD_HELP_STR
 	   "Set weight of nexthop\n"
 	   "Weight value\n"
 	   "Treat the nexthop as directly attached to the interface\n"
 	   "SR-TE color\n"
-	   "The SR-TE color to configure\n" BFD_INTEGRATION_STR
-		   BFD_INTEGRATION_MULTI_HOP_STR BFD_INTEGRATION_SOURCE_STR
-			   BFD_INTEGRATION_SOURCEV4_STR BFD_PROFILE_STR
-				   BFD_PROFILE_NAME_STR "Value of segs\n"
+	   "The SR-TE color to configure\n"
+	   BFD_INTEGRATION_STR
+	   BFD_INTEGRATION_MULTI_HOP_STR
+	   BFD_INTEGRATION_SOURCE_STR
+	   BFD_INTEGRATION_SOURCEV4_STR
+	   BFD_PROFILE_STR
+	   BFD_PROFILE_NAME_STR
+	   "Value of segs\n"
 	   "Segs (SIDs)\n"
-	  "Configure SRv6 encap mode\n"
-	  "H.Encaps\n"
-	  "H.Encaps.Red\n"
-	  "Configure SRv6 encap source address\n"
-	  "SRv6 encap source address\n")
+	   "Configure SRv6 encap mode\n"
+	   "H.Encaps\n"
+	   "H.Encaps.Red\n"
+	   "Configure SRv6 encap source address\n"
+	   "SRv6 encap source address\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -1202,13 +1208,13 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
             |(1-255)$distance                              \
             |metric (0-4294967295)                         \
             |label WORD                                    \
-	    |table (1-4294967295)                          \
+            |table (1-4294967295)                          \
             |nexthop-vrf NAME                              \
-	    |weight (1-65535)                              \
-	    |onlink$onlink                                 \
-	    |color (1-4294967295)                          \
-	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
-		|segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] [encap-source X:X::X:X$encap_source] \
+            |weight (1-65535)                              \
+            |onlink$onlink                                 \
+            |color (1-4294967295)                          \
+            |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
+            |segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] [encap-source X:X::X:X$encap_source] \
           }]",
 	   NO_STR IPV6_STR
 	   "Establish static routes\n"
@@ -1225,21 +1231,26 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 	   "Metric value\n"
 	   MPLS_LABEL_HELPSTR
 	   "Table to configure\n"
-	   "The table number to configure\n" VRF_CMD_HELP_STR
+	   "The table number to configure\n"
+	   VRF_CMD_HELP_STR
 	   "Set weight of nexthop\n"
 	   "Weight value\n"
 	   "Treat the nexthop as directly attached to the interface\n"
 	   "SR-TE color\n"
-	   "The SR-TE color to configure\n" BFD_INTEGRATION_STR
-		   BFD_INTEGRATION_MULTI_HOP_STR BFD_INTEGRATION_SOURCE_STR
-			   BFD_INTEGRATION_SOURCEV4_STR BFD_PROFILE_STR
-				   BFD_PROFILE_NAME_STR "Value of segs\n"
+	   "The SR-TE color to configure\n"
+	   BFD_INTEGRATION_STR
+	   BFD_INTEGRATION_MULTI_HOP_STR
+	   BFD_INTEGRATION_SOURCE_STR
+	   BFD_INTEGRATION_SOURCEV4_STR
+	   BFD_PROFILE_STR
+	   BFD_PROFILE_NAME_STR
+	   "Value of segs\n"
 	   "Segs (SIDs)\n"
-	  "Configure SRv6 encap mode\n"
-	  "H.Encaps\n"
-	  "H.Encaps.Red\n"
-	  "Configure SRv6 encap source address\n"
-	  "SRv6 encap source address\n")
+	   "Configure SRv6 encap mode\n"
+	   "H.Encaps\n"
+	   "H.Encaps.Red\n"
+	   "Configure SRv6 encap source address\n"
+	   "SRv6 encap source address\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -1280,12 +1291,12 @@ DEFPY_YANG(ipv6_route, ipv6_route_cmd,
             |metric (0-4294967295)                         \
             |vrf NAME                                      \
             |label WORD                                    \
-	    |table (1-4294967295)                          \
+            |table (1-4294967295)                          \
             |nexthop-vrf NAME                              \
-	    |weight (1-65535)                              \
+            |weight (1-65535)                              \
             |color (1-4294967295)                          \
-	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
-			|segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] [encap-source X:X::X:X$encap_source] \
+            |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
+            |segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] [encap-source X:X::X:X$encap_source] \
           }]",
 	   NO_STR IPV6_STR
 	   "Establish static routes\n"
@@ -1300,22 +1311,28 @@ DEFPY_YANG(ipv6_route, ipv6_route_cmd,
 	   "Distance value for this prefix\n"
 	   "Route metric\n"
 	   "Metric value\n"
-	   VRF_CMD_HELP_STR MPLS_LABEL_HELPSTR
+	   VRF_CMD_HELP_STR
+	   MPLS_LABEL_HELPSTR
 	   "Table to configure\n"
-	   "The table number to configure\n" VRF_CMD_HELP_STR
+	   "The table number to configure\n"
+	   VRF_CMD_HELP_STR
 	   "Set weight of nexthop\n"
 	   "Weight value\n"
 	   "SR-TE color\n"
-	   "The SR-TE color to configure\n" BFD_INTEGRATION_STR
-		   BFD_INTEGRATION_MULTI_HOP_STR BFD_INTEGRATION_SOURCE_STR
-			   BFD_INTEGRATION_SOURCEV4_STR BFD_PROFILE_STR
-				   BFD_PROFILE_NAME_STR "Value of segs\n"
+	   "The SR-TE color to configure\n"
+	   BFD_INTEGRATION_STR
+	   BFD_INTEGRATION_MULTI_HOP_STR
+	   BFD_INTEGRATION_SOURCE_STR
+	   BFD_INTEGRATION_SOURCEV4_STR
+	   BFD_PROFILE_STR
+	   BFD_PROFILE_NAME_STR
+	   "Value of segs\n"
 	   "Segs (SIDs)\n"
-	  "Configure SRv6 encap mode\n"
-	  "H.Encaps\n"
-	  "H.Encaps.Red\n"
-	  "Configure SRv6 encap source address\n"
-	  "SRv6 encap source address\n")
+	   "Configure SRv6 encap mode\n"
+	   "H.Encaps\n"
+	   "H.Encaps.Red\n"
+	   "Configure SRv6 encap source address\n"
+	   "SRv6 encap source address\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -1341,7 +1358,6 @@ DEFPY_YANG(ipv6_route, ipv6_route_cmd,
 		.srv6_encap_behavior = encap_behavior,
 		.srv6_encap_source = encap_source_str,
 		.weight = weight_str,
-
 	};
 
 	return static_route_nb_run(vty, &args);
@@ -1349,18 +1365,18 @@ DEFPY_YANG(ipv6_route, ipv6_route_cmd,
 
 DEFPY_YANG(ipv6_route_vrf, ipv6_route_vrf_cmd,
 	   "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
-          <X:X::X:X$gate|<INTERFACE|Null0>$ifname>                 \
+          <X:X::X:X$gate|<INTERFACE|Null0>$ifname>         \
           [{                                               \
             tag (1-4294967295)                             \
             |(1-255)$distance                              \
             |metric (0-4294967295)                         \
             |label WORD                                    \
-	    |table (1-4294967295)                          \
+            |table (1-4294967295)                          \
             |nexthop-vrf NAME                              \
-	    |weight (1-65535)                              \
-	    |color (1-4294967295)                          \
-	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
-		|segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] [encap-source X:X::X:X$encap_source] \
+            |weight (1-65535)                              \
+            |color (1-4294967295)                          \
+            |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
+            |segments WORD [encap-behavior <H_Encaps|H_Encaps_Red>$encap_behavior] [encap-source X:X::X:X$encap_source] \
           }]",
 	   NO_STR IPV6_STR
 	   "Establish static routes\n"
@@ -1377,20 +1393,25 @@ DEFPY_YANG(ipv6_route_vrf, ipv6_route_vrf_cmd,
 	   "Metric value\n"
 	   MPLS_LABEL_HELPSTR
 	   "Table to configure\n"
-	   "The table number to configure\n" VRF_CMD_HELP_STR
+	   "The table number to configure\n"
+	   VRF_CMD_HELP_STR
 	   "Set weight of nexthop\n"
 	   "Weight value\n"
 	   "SR-TE color\n"
-	   "The SR-TE color to configure\n" BFD_INTEGRATION_STR
-		   BFD_INTEGRATION_MULTI_HOP_STR BFD_INTEGRATION_SOURCE_STR
-			   BFD_INTEGRATION_SOURCEV4_STR BFD_PROFILE_STR
-				   BFD_PROFILE_NAME_STR "Value of segs\n"
+	   "The SR-TE color to configure\n"
+	   BFD_INTEGRATION_STR
+	   BFD_INTEGRATION_MULTI_HOP_STR
+	   BFD_INTEGRATION_SOURCE_STR
+	   BFD_INTEGRATION_SOURCEV4_STR
+	   BFD_PROFILE_STR
+	   BFD_PROFILE_NAME_STR
+	   "Value of segs\n"
 	   "Segs (SIDs)\n"
-	  "Configure SRv6 encap mode\n"
-	  "H.Encaps\n"
-	  "H.Encaps.Red\n"
-	  "Configure SRv6 encap source address\n"
-	  "SRv6 encap source address\n")
+	   "Configure SRv6 encap mode\n"
+	   "H.Encaps\n"
+	   "H.Encaps.Red\n"
+	   "Configure SRv6 encap source address\n"
+	   "SRv6 encap source address\n")
 {
 	struct static_route_args args = {
 		.delete = !!no,
@@ -1454,7 +1475,7 @@ DEFUN_YANG (no_static_srv6, no_static_srv6_cmd,
 
 DEFPY_YANG_NOSH (static_srv6_sids, static_srv6_sids_cmd,
       "[no] static-sids",
-	  NO_STR
+      NO_STR
       "Segment Routing SRv6 SIDs\n")
 {
 	char xpath[XPATH_MAXLEN];
@@ -1474,9 +1495,9 @@ DEFPY_YANG_NOSH (static_srv6_sids, static_srv6_sids_cmd,
 
 DEFPY_YANG(srv6_sid, srv6_sid_cmd,
       "sid X:X::X:X/M locator NAME$locator_name behavior <uN | uA interface INTERFACE$interface [nexthop X:X::X:X$nh6] | uDT6 vrf VIEWVRFNAME | uDT4 vrf VIEWVRFNAME | uDT46 vrf VIEWVRFNAME>",
-	  "Configure SRv6 SID\n"
+      "Configure SRv6 SID\n"
       "Specify SRv6 SID\n"
-	  "Locator name\n"
+      "Locator name\n"
       "Specify Locator name\n"
       "Specify SRv6 SID behavior\n"
       "Apply the code to a uN SID\n"
@@ -1571,9 +1592,9 @@ DEFPY_YANG(srv6_sid, srv6_sid_cmd,
 DEFPY_YANG(no_srv6_sid, no_srv6_sid_cmd,
       "no sid X:X::X:X/M [locator NAME$locator_name] [behavior <uN | uA interface INTERFACE$interface [nexthop X:X::X:X$nh6] | uDT6 vrf VIEWVRFNAME | uDT4 vrf VIEWVRFNAME | uDT46 vrf VIEWVRFNAME>]",
       NO_STR
-	  "Configure SRv6 SID\n"
+      "Configure SRv6 SID\n"
       "Specify SRv6 SID\n"
-	  "Locator name\n"
+      "Locator name\n"
       "Specify Locator name\n"
       "Specify SRv6 SID behavior\n"
       "Apply the code to a uN SID\n"
