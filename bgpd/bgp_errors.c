@@ -193,6 +193,12 @@ static struct log_ref ferr_bgp_err[] = {
 		.suggestion = "Determine the source of the attribute and determine why the attribute length has been set incorrectly"
 	},
 	{
+		.code = EC_BGP_ATTR_SRV6_SERVICE_MALFORMED,
+		.title = "BGP SRv6 Service TLV is malformed",
+		.description = "BGP received a malformed SRv6 Service TLV, Sub-TLV, or Sub-Sub-TLV in the Prefix-SID attribute. The affected routes are treated as withdrawn per RFC 9252.",
+		.suggestion = "Check the sending peer's RFC 9252 SRv6 Service encoding, especially TLV lengths and SID Information/SID Structure fields.",
+	},
+	{
 		.code = EC_BGP_ATTR_ORIGIN,
 		.title = "BGP attribute origin value invalid",
 		.description = "BGP attribute origin value is invalid",
