@@ -44,6 +44,7 @@
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_evpn_vty.h"
 #include "bgpd/bgp_mplsvpn.h"
+#include "bgpd/bgp_srv6.h"
 #include "bgpd/bgp_pbr.h"
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_encap_types.h"
@@ -5097,6 +5098,18 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 				(void)bgp_aggregate_route(bgp, bn_p, afi, safi,
 							  aggregate);
 			}
+		}
+
+		/* For SRv6 unicast sid export route-map updates. */
+		if (route_update && safi == SAFI_UNICAST &&
+		    bgp->srv6_unicast[afi].rmap_name &&
+		    strmatch(rmap_name, bgp->srv6_unicast[afi].rmap_name)) {
+			if (BGP_DEBUG(zebra, ZEBRA))
+				zlog_debug(
+					"Processing route_map %s(%s:%s) update on SRv6 unicast sid export",
+					rmap_name, afi2str(afi), safi2str(safi));
+
+			bgp_srv6_unicast_announce(bgp, afi);
 		}
 	}
 
