@@ -652,6 +652,14 @@ extern struct ls_edge *ls_edge_add(struct ls_ted *ted,
 				   struct ls_attributes *attributes);
 
 /**
+ * Reconnect an Edge to the vertices identified by its attributes.
+ *
+ * @param ted		Link State Data Base
+ * @param edge		Link State Edge to reconnect
+ */
+extern void ls_edge_reconnect(struct ls_ted *ted, struct ls_edge *edge);
+
+/**
  * Update the Link State Attributes information of an existing Edge. If there is
  * no corresponding Edge in the Link State Data Base, a new Edge is created.
  *

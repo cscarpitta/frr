@@ -31,6 +31,9 @@
 /* Link State Memory allocation */
 DEFINE_MTYPE_STATIC(LIB, LS_DB, "Link State Database");
 
+static void ls_edge_connect_destination(struct ls_ted *ted,
+					struct ls_edge *edge);
+
 /**
  *  Link State Node management functions
  */
@@ -700,7 +703,6 @@ static void ls_edge_connect_to(struct ls_ted *ted, struct ls_edge *edge)
 {
 	struct ls_vertex *vertex = NULL;
 	struct ls_node *node;
-	struct ls_edge *dst;
 	const struct in_addr inaddr_any = {.s_addr = INADDR_ANY};
 
 	/* First, search if there is a Vertex that correspond to the Node ID */
@@ -715,17 +717,7 @@ static void ls_edge_connect_to(struct ls_ted *ted, struct ls_edge *edge)
 	listnode_add_sort_nodup(vertex->outgoing_edges, edge);
 	edge->source = vertex;
 
-	/* Then search if there is a reverse Edge */
-	dst = ls_find_edge_by_destination(ted, edge->attributes);
-	/* attach the destination edge to the vertex */
-	if (dst) {
-		listnode_add_sort_nodup(vertex->incoming_edges, dst);
-		dst->destination = vertex;
-		/* and destination vertex to this edge */
-		vertex = dst->source;
-		listnode_add_sort_nodup(vertex->incoming_edges, edge);
-		edge->destination = vertex;
-	}
+	ls_edge_connect_destination(ted, edge);
 }
 
 static struct ls_edge_key get_edge_key(struct ls_attributes *attr, bool dst)
@@ -845,6 +837,46 @@ struct ls_edge *ls_find_edge_by_destination(struct ls_ted *ted,
 	return edges_find(&ted->edges, &edge);
 }
 
+/*
+ * Connect an edge to its reverse edge, if one is present.  This is kept
+ * separate from ls_edge_connect_to() because an edge can receive updated
+ * attributes after it has already been connected to a destination.
+ */
+static void ls_edge_connect_destination(struct ls_ted *ted,
+					struct ls_edge *edge)
+{
+	struct ls_edge *reverse;
+	struct ls_vertex *source;
+
+	if (!ted || !edge || !edge->attributes || !edge->source || edge->destination)
+		return;
+
+	reverse = ls_find_edge_by_destination(ted, edge->attributes);
+	if (!reverse || reverse == edge || !reverse->source)
+		return;
+
+	source = edge->source;
+	if (reverse->destination != source) {
+		if (reverse->destination)
+			ls_disconnect(reverse->destination, reverse, false);
+		listnode_add_sort_nodup(source->incoming_edges, reverse);
+		reverse->destination = source;
+	}
+
+	listnode_add_sort_nodup(reverse->source->incoming_edges, edge);
+	edge->destination = reverse->source;
+}
+
+void ls_edge_reconnect(struct ls_ted *ted, struct ls_edge *edge)
+{
+	if (!ted || !edge)
+		return;
+
+	ls_disconnect(edge->source, edge, true);
+	ls_disconnect(edge->destination, edge, false);
+	ls_edge_connect_to(ted, edge);
+}
+
 struct ls_edge *ls_edge_update(struct ls_ted *ted,
 			       struct ls_attributes *attributes)
 {
@@ -858,8 +890,14 @@ struct ls_edge *ls_edge_update(struct ls_ted *ted,
 	if (old) {
 		/* Check if attributes are similar */
 		if (!ls_attributes_same(old->attributes, attributes)) {
+			/*
+			 * The endpoints are part of the attributes, not the edge key.
+			 * Reconnect after replacing attributes so an update cannot
+			 * leave the edge in stale vertex lists.
+			 */
 			ls_attributes_del(old->attributes);
 			old->attributes = attributes;
+			ls_edge_reconnect(ted, old);
 		} else
 			ls_attributes_del(attributes);
 

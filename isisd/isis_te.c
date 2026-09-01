@@ -1182,6 +1182,7 @@ static int lsp_to_edge_cb(const uint8_t *id, uint32_t metric, bool old_metric,
 			te_debug("    |- Update Edge Attributes information");
 			ls_attributes_del(edge->attributes);
 			edge->attributes = attr;
+			ls_edge_reconnect(args->ted, edge);
 			edge->status = UPDATE;
 		} else {
 			if (edge->attributes != attr)
