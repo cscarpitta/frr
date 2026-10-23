@@ -54,6 +54,17 @@ def check_srv6_static_sids(router, expected_file, exact=False):
     assert result is None, "Failed"
 
 
+def _check_srv6_locators_empty(router):
+    output = json.loads(router.vtysh_cmd("show segment-routing srv6 locator json"))
+    return topotest.json_cmp(output, {"locators": []}, exact=True)
+
+
+def check_srv6_locators_empty(router):
+    func = functools.partial(_check_srv6_locators_empty, router)
+    _, result = topotest.run_and_expect(func, None, count=15, wait=1)
+    assert result is None, "Failed"
+
+
 def setup_module(mod):
     # This topotest sets net.vrf.strict_mode during setup. That sysctl is
     # available only after the VRF module is loaded; if the module is not loaded,
@@ -773,6 +784,26 @@ def test_srv6_static_sids_same_address_missing_locator():
 
     logger.info("Verify the other SIDs are unaffected")
     check_srv6_static_sids(router, "expected_srv6_sids.json")
+
+
+def test_srv6_no_locators():
+    """Remove all configured SRv6 locators with one command."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    router = tgen.gears["r1"]
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           no locators
+        """
+    )
+
+    check_srv6_locators_empty(router)
+    check_srv6_static_sids(router, "expected_srv6_sids_delete_all.json", exact=True)
 
 
 if __name__ == "__main__":
