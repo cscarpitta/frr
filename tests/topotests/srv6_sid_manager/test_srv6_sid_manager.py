@@ -58,11 +58,12 @@ test_srv6_sid_manager.py:
 
 """
 
+import functools
+import ipaddress
+import json
 import os
 import re
 import sys
-import json
-import functools
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -79,7 +80,12 @@ from lib.common_config import (
 )
 from lib.checkping import check_ping
 
-pytestmark = [pytest.mark.bgpd, pytest.mark.isisd, pytest.mark.sharpd]
+pytestmark = [
+    pytest.mark.bgpd,
+    pytest.mark.isisd,
+    pytest.mark.sharpd,
+    pytest.mark.staticd,
+]
 
 
 def build_topo(tgen):
@@ -249,6 +255,8 @@ def setup_module(mod):
         router.load_config(
             TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
         )
+        if rname == "rt1":
+            router.load_config(TopoRouter.RD_STATIC)
         if os.path.exists("{}/sharpd.conf".format(rname)):
             router.load_config(
                 TopoRouter.RD_SHARP, os.path.join(CWD, "{}/sharpd.conf".format(rname))
@@ -472,6 +480,166 @@ format usid-f3216
     assert "local-id-block explicit start 0x201 end 0x2ff" not in output
     assert "wide-local-id-block start 0x301 end 0x3ff" not in output
     assert "wide-local-id-block explicit start 0x401" not in output
+
+
+def _dynamic_sids_from_range(router, sid_start, sid_end):
+    """Check that BGP and IS-IS have dynamic SIDs from the requested range."""
+    try:
+        sids = json.loads(router.vtysh_cmd("show segment-routing srv6 sid json"))
+    except json.JSONDecodeError as error:
+        return "show segment-routing srv6 sid json: {}".format(error)
+
+    protocols = set()
+    for sid, info in sids.items():
+        if info.get("allocationMode") != "dynamic":
+            continue
+
+        sid_func = int.from_bytes(ipaddress.IPv6Address(sid).packed[6:8], "big")
+        if not sid_start <= sid_func < sid_end:
+            continue
+
+        protocols.update(client["protocol"] for client in info.get("clients", []))
+
+    missing = {"bgp", "isis"} - protocols
+    if missing:
+        return "No dynamic SID from range 0x{:x}-0x{:x} for {}".format(
+            sid_start, sid_end - 1, ", ".join(sorted(missing))
+        )
+
+    return None
+
+
+def _check_srv6_sid_clients(router, sid, expected_clients, allocation_mode=None):
+    """Check that the requested SRv6 SID is shared by the expected clients."""
+    try:
+        output = json.loads(
+            router.vtysh_cmd("show segment-routing srv6 sid {} json".format(sid))
+        )
+    except json.JSONDecodeError as error:
+        return "show segment-routing srv6 sid {} json: {}".format(sid, error)
+
+    sid_info = output.get(sid)
+    if not sid_info:
+        return "SRv6 SID {} was not allocated".format(sid)
+
+    if allocation_mode and sid_info.get("allocationMode") != allocation_mode:
+        return "SRv6 SID {} has allocation mode {}, expected {}".format(
+            sid, sid_info.get("allocationMode"), allocation_mode
+        )
+
+    clients = {client["protocol"] for client in sid_info.get("clients", [])}
+    missing = set(expected_clients) - clients
+    if missing:
+        return "SRv6 SID {} is missing clients {}".format(
+            sid, ", ".join(sorted(missing))
+        )
+
+    return None
+
+
+def test_dynamic_sid_range_and_static_sid_sharing():
+    """Verify dynamic range allocation and explicit SID sharing with staticd."""
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["rt1"]
+    start = 0xD000
+    explicit_start = 0xFE00
+    format_context = """configure terminal
+segment-routing
+srv6
+formats
+format usid-f3216
+"""
+
+    # Change the dynamic range and verify BGP and IS-IS allocate from it.
+    router.vtysh_cmd(format_context + "local-id-block start 0xd000\n")
+    router.vtysh_cmd(
+        """configure terminal
+router bgp 1 vrf vrf10
+address-family ipv6 unicast
+no sid vpn export 65024
+sid vpn export auto
+"""
+    )
+
+    check_dynamic_sids = functools.partial(
+        _dynamic_sids_from_range, router, start, explicit_start
+    )
+    _, result = topotest.run_and_expect(check_dynamic_sids, None, count=30, wait=1)
+    assert result is None, result
+
+    # Configure explicit SIDs in staticd and verify BGP and IS-IS share them.
+    router.vtysh_cmd(
+        """configure terminal
+router bgp 1 vrf vrf10
+address-family ipv6 unicast
+no sid vpn export auto
+"""
+    )
+    router.vtysh_cmd(
+        """configure terminal
+segment-routing
+srv6
+static-sids
+sid fc00:0:1:fe10::/64 locator loc1 behavior uDT6 vrf vrf10
+sid fc00:0:1::/48 locator loc1 behavior uN
+"""
+    )
+    router.vtysh_cmd(
+        """configure terminal
+router bgp 1 vrf vrf10
+address-family ipv6 unicast
+sid vpn export explicit fc00:0:1:fe10::
+"""
+    )
+
+    for sid, clients, allocation_mode in (
+        ("fc00:0:1:fe10::", {"static", "bgp"}, "explicit"),
+        ("fc00:0:1::", {"static", "isis"}, None),
+    ):
+        check_sid_clients = functools.partial(
+            _check_srv6_sid_clients, router, sid, clients, allocation_mode
+        )
+        _, result = topotest.run_and_expect(
+            check_sid_clients, None, count=30, wait=1
+        )
+        assert result is None, result
+
+    # Restore BGP and range defaults and verify the test overrides are gone.
+    router.vtysh_cmd(
+        """configure terminal
+segment-routing
+srv6
+static-sids
+no sid fc00:0:1:fe10::/64
+no sid fc00:0:1::/48
+"""
+    )
+    router.vtysh_cmd(
+        """configure terminal
+router bgp 1 vrf vrf10
+address-family ipv6 unicast
+no sid vpn export explicit fc00:0:1:fe10::
+"""
+    )
+    router.vtysh_cmd(format_context + "no local-id-block\n")
+    router.vtysh_cmd(
+        """configure terminal
+router bgp 1 vrf vrf10
+address-family ipv6 unicast
+sid vpn export 65024
+"""
+    )
+
+    output = router.vtysh_cmd("write terminal")
+    assert "local-id-block start 0xd000" not in output
+    assert "sid vpn export auto" not in output
+    assert "sid vpn export 65024" in output
+    assert "sid fc00:0:1:fe10::/64" not in output
+    assert "sid fc00:0:1::/48" not in output
 
 
 def test_uncompressed_explicit_range_hex():
