@@ -6,6 +6,8 @@
 
 #include <zebra.h>
 
+#include <errno.h>
+
 #include "memory.h"
 #include "if.h"
 #include "prefix.h"
@@ -31,6 +33,33 @@
 #include "zebra/zebra_srv6_vty_clippy.c"
 
 static int zebra_sr_config(struct vty *vty);
+
+static int srv6_parse_range_value(struct vty *vty, uint64_t number,
+				  const char *hex_value, uint32_t *result)
+{
+	char *endptr;
+	unsigned long long parsed;
+
+	if (!hex_value) {
+		*result = number;
+		return 0;
+	}
+	if (hex_value[0] != '0' ||
+	    (hex_value[1] != 'x' && hex_value[1] != 'X'))
+		goto invalid;
+
+	errno = 0;
+	parsed = strtoull(hex_value, &endptr, 16);
+	if (errno || endptr == hex_value || *endptr != '\0' || parsed > UINT32_MAX)
+		goto invalid;
+
+	*result = (uint32_t)parsed;
+	return 0;
+
+invalid:
+	vty_out(vty, "%% Invalid hexadecimal range value '%s'\n", hex_value);
+	return -1;
+}
 
 static struct cmd_node sr_node = {
 	.name = "sr",
@@ -1355,12 +1384,17 @@ DEFUN(no_srv6_sid_format_f4024_uncompressed,
 
 DEFPY(srv6_sid_format_usid_lib,
       srv6_sid_format_usid_lib_cmd,
-      "local-id-block start (0-4294967295)$start",
+      "local-id-block start <(0-4294967295)$start_decimal|BITPATTERN$start_hex>",
       "Configure LIB\n"
       "Configure the start value for the LIB\n"
-      "Specify the start value for the LIB\n")
+      "Specify the start value for the LIB\n"
+      "Specify the start value for the LIB in hexadecimal\n")
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
+	uint32_t start;
+
+	if (srv6_parse_range_value(vty, start_decimal, start_hex, &start) < 0)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	format->config.usid.lib_start = start;
 
@@ -1372,11 +1406,12 @@ DEFPY(srv6_sid_format_usid_lib,
 
 DEFPY(no_srv6_sid_format_usid_lib,
       no_srv6_sid_format_usid_lib_cmd,
-      "no local-id-block [start (0-4294967295)]",
+      "no local-id-block [start <(0-4294967295)|BITPATTERN>]",
       NO_STR
       "Configure LIB\n"
       "Configure the start value for the LIB\n"
-      "Specify the start value for the LIB\n")
+      "Specify the start value for the LIB\n"
+      "Specify the start value for the LIB in hexadecimal\n")
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
@@ -1396,20 +1431,26 @@ DEFPY(no_srv6_sid_format_usid_lib,
 
 DEFPY(srv6_sid_format_usid_lib_explicit,
       srv6_sid_format_usid_lib_explicit_cmd,
-      "local-id-block explicit start (0-4294967295)$start end (0-4294967295)$end",
+      "local-id-block explicit start <(0-4294967295)$start_decimal|BITPATTERN$start_hex> end <(0-4294967295)$end_decimal|BITPATTERN$end_hex>",
       "Configure LIB\n"
       "Configure the Explicit LIB\n"
       "Configure the start value for the Explicit LIB\n"
       "Specify the start value for the Explicit LIB\n"
+      "Specify the start value for the Explicit LIB in hexadecimal\n"
       "Configure the end value for the Explicit LIB\n"
-      "Specify the end value for the Explicit LIB\n")
+      "Specify the end value for the Explicit LIB\n"
+      "Specify the end value for the Explicit LIB in hexadecimal\n")
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
+	uint32_t start, end;
+
+	if (srv6_parse_range_value(vty, start_decimal, start_hex, &start) < 0 ||
+	    srv6_parse_range_value(vty, end_decimal, end_hex, &end) < 0)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if (start > end) {
 		vty_out(vty,
-			"%% Explicit LIB start (%" PRId64 ") cannot be greater than end (%" PRId64
-			")\n",
+			"%% Explicit LIB start (0x%x) cannot be greater than end (0x%x)\n",
 			start, end);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -1425,14 +1466,16 @@ DEFPY(srv6_sid_format_usid_lib_explicit,
 
 DEFPY(no_srv6_sid_format_usid_lib_explicit,
       no_srv6_sid_format_usid_lib_explicit_cmd,
-      "no local-id-block explicit [start (0-4294967295) end (0-4294967295)]",
+      "no local-id-block explicit [start <(0-4294967295)|BITPATTERN> end <(0-4294967295)|BITPATTERN>]",
       NO_STR
       "Configure LIB\n"
       "Configure the Explicit LIB\n"
       "Configure the start value for the Explicit LIB\n"
       "Specify the start value for the Explicit LIB\n"
+      "Specify the start value for the Explicit LIB in hexadecimal\n"
       "Configure the end value for the Explicit LIB\n"
-      "Specify the end value for the Explicit LIB\n")
+      "Specify the end value for the Explicit LIB\n"
+      "Specify the end value for the Explicit LIB in hexadecimal\n")
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
@@ -1456,19 +1499,25 @@ DEFPY(no_srv6_sid_format_usid_lib_explicit,
 
 DEFPY(srv6_sid_format_usid_wlib,
       srv6_sid_format_usid_wlib_cmd,
-      "wide-local-id-block start (0-4294967295)$start end (0-4294967295)$end",
+      "wide-local-id-block start <(0-4294967295)$start_decimal|BITPATTERN$start_hex> end <(0-4294967295)$end_decimal|BITPATTERN$end_hex>",
       "Configure Wide LIB\n"
       "Configure the start value for the Wide LIB\n"
       "Specify the start value for the Wide LIB\n"
+      "Specify the start value for the Wide LIB in hexadecimal\n"
       "Configure the end value for the Wide LIB\n"
-      "Specify the end value for the Wide LIB\n")
+      "Specify the end value for the Wide LIB\n"
+      "Specify the end value for the Wide LIB in hexadecimal\n")
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
+	uint32_t start, end;
+
+	if (srv6_parse_range_value(vty, start_decimal, start_hex, &start) < 0 ||
+	    srv6_parse_range_value(vty, end_decimal, end_hex, &end) < 0)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if (start > end) {
 		vty_out(vty,
-			"%% Wide LIB start (%" PRId64 ") cannot be greater than end (%" PRId64
-			")\n",
+			"%% Wide LIB start (0x%x) cannot be greater than end (0x%x)\n",
 			start, end);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -1484,13 +1533,15 @@ DEFPY(srv6_sid_format_usid_wlib,
 
 DEFPY(no_srv6_sid_format_usid_wlib,
       no_srv6_sid_format_usid_wlib_cmd,
-      "no wide-local-id-block [start (0-4294967295) end (0-4294967295)]",
+      "no wide-local-id-block [start <(0-4294967295)|BITPATTERN> end <(0-4294967295)|BITPATTERN>]",
       NO_STR
       "Configure Wide LIB\n"
       "Configure the start value for the Wide LIB\n"
       "Specify the start value for the Wide LIB\n"
+      "Specify the start value for the Wide LIB in hexadecimal\n"
       "Configure the end value for the Wide LIB\n"
-      "Specify the end value for the Wide LIB\n")
+      "Specify the end value for the Wide LIB\n"
+      "Specify the end value for the Wide LIB in hexadecimal\n")
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
@@ -1514,13 +1565,18 @@ DEFPY(no_srv6_sid_format_usid_wlib,
 
 DEFPY(srv6_sid_format_usid_wide_lib_explicit,
       srv6_sid_format_usid_wide_lib_explicit_cmd,
-      "wide-local-id-block explicit start (0-4294967295)$start",
+      "wide-local-id-block explicit start <(0-4294967295)$start_decimal|BITPATTERN$start_hex>",
       "Configure Wide LIB\n"
       "Configure Explicit Wide LIB\n"
       "Configure the start value for the Explicit Wide LIB\n"
-      "Specify the start value for the Explicit Wide LIB\n")
+      "Specify the start value for the Explicit Wide LIB\n"
+      "Specify the start value for the Explicit Wide LIB in hexadecimal\n")
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
+	uint32_t start;
+
+	if (srv6_parse_range_value(vty, start_decimal, start_hex, &start) < 0)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	format->config.usid.ewlib_start = start;
 
@@ -1532,12 +1588,13 @@ DEFPY(srv6_sid_format_usid_wide_lib_explicit,
 
 DEFPY(no_srv6_sid_format_usid_wide_lib_explicit,
       no_srv6_sid_format_usid_wide_lib_explicit_cmd,
-      "no wide-local-id-block explicit [start (0-4294967295)]",
+      "no wide-local-id-block explicit [start <(0-4294967295)|BITPATTERN>]",
 	  NO_STR
       "Configure Wide LIB\n"
       "Configure Explicit Wide LIB\n"
       "Configure the start value for the Explicit Wide LIB\n"
-      "Specify the start value for the Explicit Wide LIB\n")
+      "Specify the start value for the Explicit Wide LIB\n"
+      "Specify the start value for the Explicit Wide LIB in hexadecimal\n")
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
@@ -1557,12 +1614,17 @@ DEFPY(no_srv6_sid_format_usid_wide_lib_explicit,
 
 DEFPY(srv6_sid_format_explicit,
       srv6_sid_format_explicit_cmd,
-      "explicit start (0-4294967295)$start",
+      "explicit start <(0-4294967295)$start_decimal|BITPATTERN$start_hex>",
       "Configure Explicit range\n"
       "Configure the start value for the Explicit range\n"
-      "Specify the start value for the Explicit range\n")
+      "Specify the start value for the Explicit range\n"
+      "Specify the start value for the Explicit range in hexadecimal\n")
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
+	uint32_t start;
+
+	if (srv6_parse_range_value(vty, start_decimal, start_hex, &start) < 0)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	format->config.uncompressed.explicit_start = start;
 
@@ -1574,11 +1636,12 @@ DEFPY(srv6_sid_format_explicit,
 
 DEFPY(no_srv6_sid_format_explicit,
       no_srv6_sid_format_explicit_cmd,
-      "no explicit [start (0-4294967295)$start]",
+      "no explicit [start <(0-4294967295)|BITPATTERN>]",
 	  NO_STR
       "Configure Explicit range\n"
       "Configure the start value for the Explicit range\n"
-      "Specify the start value for the Explicit range\n")
+      "Specify the start value for the Explicit range\n"
+      "Specify the start value for the Explicit range in hexadecimal\n")
 {
 	VTY_DECLVAR_CONTEXT(srv6_sid_format, format);
 
@@ -1727,20 +1790,20 @@ static int zebra_sr_config(struct vty *vty)
 					vty_out(vty, "   format %s\n", format->name);
 					if (format->config.uncompressed.explicit_start !=
 					    SRV6_SID_FORMAT_UNCOMPRESSED_F4024_EXPLICIT_RANGE_START)
-						vty_out(vty, "    explicit start %u\n",
+						vty_out(vty, "    explicit start 0x%x\n",
 							format->config.uncompressed.explicit_start);
 				} else if (strmatch(format->name, SRV6_SID_FORMAT_USID_F3216_NAME)) {
 					vty_out(vty, "   format %s\n", format->name);
 					if (format->config.usid.lib_start !=
 					    SRV6_SID_FORMAT_USID_F3216_LIB_START)
-						vty_out(vty, "    local-id-block start %u\n",
+						vty_out(vty, "    local-id-block start 0x%x\n",
 							format->config.usid.lib_start);
 					if (format->config.usid.elib_start !=
 						    SRV6_SID_FORMAT_USID_F3216_ELIB_START ||
 					    format->config.usid.elib_end !=
 						    SRV6_SID_FORMAT_USID_F3216_ELIB_END)
 						vty_out(vty,
-							"    local-id-block explicit start %u end %u\n",
+							"    local-id-block explicit start 0x%x end 0x%x\n",
 							format->config.usid.elib_start,
 							format->config.usid.elib_end);
 					if (format->config.usid.wlib_start !=
@@ -1748,26 +1811,26 @@ static int zebra_sr_config(struct vty *vty)
 					    format->config.usid.wlib_end !=
 						    SRV6_SID_FORMAT_USID_F3216_WLIB_END)
 						vty_out(vty,
-							"    wide-local-id-block start %u end %u\n",
+							"    wide-local-id-block start 0x%x end 0x%x\n",
 							format->config.usid.wlib_start,
 							format->config.usid.wlib_end);
 					if (format->config.usid.ewlib_start !=
 					    SRV6_SID_FORMAT_USID_F3216_EWLIB_START)
 						vty_out(vty,
-							"    wide-local-id-block explicit start %u\n",
+							"    wide-local-id-block explicit start 0x%x\n",
 							format->config.usid.ewlib_start);
 				} else if (strmatch(format->name, SRV6_SID_FORMAT_USID_F4816_NAME)) {
 					vty_out(vty, "   format %s\n", format->name);
 					if (format->config.usid.lib_start !=
 					    SRV6_SID_FORMAT_USID_F4816_LIB_START)
-						vty_out(vty, "    local-id-block start %u\n",
+						vty_out(vty, "    local-id-block start 0x%x\n",
 							format->config.usid.lib_start);
 					if (format->config.usid.elib_start !=
 						    SRV6_SID_FORMAT_USID_F4816_ELIB_START ||
 					    format->config.usid.elib_end !=
 						    SRV6_SID_FORMAT_USID_F4816_ELIB_END)
 						vty_out(vty,
-							"    local-id-block explicit start %u end %u\n",
+							"    local-id-block explicit start 0x%x end 0x%x\n",
 							format->config.usid.elib_start,
 							format->config.usid.elib_end);
 					if (format->config.usid.wlib_start !=
@@ -1775,13 +1838,13 @@ static int zebra_sr_config(struct vty *vty)
 					    format->config.usid.wlib_end !=
 						    SRV6_SID_FORMAT_USID_F4816_WLIB_END)
 						vty_out(vty,
-							"    wide-local-id-block start %u end %u\n",
+							"    wide-local-id-block start 0x%x end 0x%x\n",
 							format->config.usid.wlib_start,
 							format->config.usid.wlib_end);
 					if (format->config.usid.ewlib_start !=
 					    SRV6_SID_FORMAT_USID_F4816_EWLIB_START)
 						vty_out(vty,
-							"    wide-local-id-block explicit start %u\n",
+							"    wide-local-id-block explicit start 0x%x\n",
 							format->config.usid.ewlib_start);
 				}
 				vty_out(vty, "   exit\n");
