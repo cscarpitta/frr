@@ -444,19 +444,28 @@ formats
 format usid-f3216
 """
 
-    router.vtysh_cmd(
-        format_context
-        + "local-id-block start 291\n"
-        + "local-id-block explicit start 0x201 end 0x2ff\n"
-        + "wide-local-id-block start 0x301 end 0x3ff\n"
-        + "wide-local-id-block explicit start 0x401\n"
-    )
+    try:
+        router.vtysh_cmd(
+            format_context
+            + "local-id-block start 291\n"
+            + "local-id-block explicit start 0x201 end 0x2ff\n"
+            + "wide-local-id-block start 0x301 end 0x3ff\n"
+            + "wide-local-id-block explicit start 0x401\n"
+        )
 
-    output = router.vtysh_cmd("write terminal")
-    assert "local-id-block start 0x123" in output
-    assert "local-id-block explicit start 0x201 end 0x2ff" in output
-    assert "wide-local-id-block start 0x301 end 0x3ff" in output
-    assert "wide-local-id-block explicit start 0x401" in output
+        output = router.vtysh_cmd("write terminal")
+        assert "local-id-block start 0x123" in output
+        assert "local-id-block explicit start 0x201 end 0x2ff" in output
+        assert "wide-local-id-block start 0x301 end 0x3ff" in output
+        assert "wide-local-id-block explicit start 0x401" in output
+    finally:
+        router.vtysh_cmd(
+            format_context
+            + "no local-id-block\n"
+            + "no local-id-block explicit\n"
+            + "no wide-local-id-block\n"
+            + "no wide-local-id-block explicit\n"
+        )
 
 
 def test_uncompressed_explicit_range_hex():
@@ -467,18 +476,23 @@ def test_uncompressed_explicit_range_hex():
         pytest.skip(tgen.errors)
 
     router = tgen.gears["rt1"]
-    router.vtysh_cmd(
-        """configure terminal
+    format_context = """configure terminal
 segment-routing
 srv6
 formats
 format uncompressed-f4024
-explicit start 0x1234
 """
-    )
 
-    output = router.vtysh_cmd("write terminal")
-    assert "explicit start 0x1234" in output
+    try:
+        router.vtysh_cmd(
+            format_context
+            + "explicit start 0x1234\n"
+        )
+
+        output = router.vtysh_cmd("write terminal")
+        assert "explicit start 0x1234" in output
+    finally:
+        router.vtysh_cmd(format_context + "no explicit\n")
 
 
 # Memory leak test template
