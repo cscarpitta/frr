@@ -444,6 +444,7 @@ formats
 format usid-f3216
 """
 
+    # Change the ranges and verify the values are reflected in the configuration.
     router.vtysh_cmd(
         format_context
         + "local-id-block start 291\n"
@@ -458,6 +459,7 @@ format usid-f3216
     assert "wide-local-id-block start 0x301 end 0x3ff" in output
     assert "wide-local-id-block explicit start 0x401" in output
 
+    # Restore the default ranges and verify the overrides are gone.
     router.vtysh_cmd(
         format_context
         + "no local-id-block\n"
@@ -465,6 +467,11 @@ format usid-f3216
         + "no wide-local-id-block\n"
         + "no wide-local-id-block explicit\n"
     )
+    output = router.vtysh_cmd("write terminal")
+    assert "local-id-block start 0x123" not in output
+    assert "local-id-block explicit start 0x201 end 0x2ff" not in output
+    assert "wide-local-id-block start 0x301 end 0x3ff" not in output
+    assert "wide-local-id-block explicit start 0x401" not in output
 
 
 def test_uncompressed_explicit_range_hex():
@@ -482,12 +489,16 @@ formats
 format uncompressed-f4024
 """
 
+    # Change the range and verify the value is reflected in the configuration.
     router.vtysh_cmd(format_context + "explicit start 0x1234\n")
 
     output = router.vtysh_cmd("write terminal")
     assert "explicit start 0x1234" in output
 
+    # Restore the default range and verify the override is gone.
     router.vtysh_cmd(format_context + "no explicit\n")
+    output = router.vtysh_cmd("write terminal")
+    assert "explicit start 0x1234" not in output
 
 
 # Memory leak test template
