@@ -481,6 +481,16 @@ format usid-f3216
     assert "wide-local-id-block start 0x301 end 0x3ff" not in output
     assert "wide-local-id-block explicit start 0x401" not in output
 
+    check_bgp_sid = functools.partial(
+        _check_srv6_sid_clients,
+        router,
+        "fc00:0:1:fe00::",
+        {"bgp"},
+        "explicit",
+    )
+    _, result = topotest.run_and_expect(check_bgp_sid, None, count=30, wait=1)
+    assert result is None, result
+
 
 def _dynamic_sids_from_range(router, sid_start, sid_end):
     """Check that BGP and IS-IS have dynamic SIDs from the requested range."""
@@ -549,6 +559,72 @@ def _check_srv6_sid_clients(router, sid, expected_clients, allocation_mode=None)
     if missing:
         return "SRv6 SID {} is missing clients {}".format(
             sid, ", ".join(sorted(missing))
+        )
+
+    return None
+
+
+def _check_srv6_sid_lifecycle(rt1, rt6, sid, expected_present):
+    """Check SID allocation, local installation, and remote VPN propagation."""
+    try:
+        sid_output = json.loads(
+            rt1.vtysh_cmd("show segment-routing srv6 sid {} json".format(sid))
+        )
+        rt1_routes = json.loads(rt1.vtysh_cmd("show ipv6 route json"))
+        rt6_vrf_routes = json.loads(
+            rt6.vtysh_cmd("show ipv6 route vrf vrf10 json")
+        )
+        rt6_vpn_routes = json.loads(rt6.vtysh_cmd("show bgp ipv6 vpn json"))
+    except json.JSONDecodeError as error:
+        return "Failed to decode SID lifecycle command output: {}".format(error)
+
+    sid_info = sid_output.get(sid)
+    if bool(sid_info) != expected_present:
+        return "SID {} allocation presence is {}, expected {}".format(
+            sid, bool(sid_info), expected_present
+        )
+    if sid_info and sid_info.get("allocationMode") != "explicit":
+        return "SID {} has allocation mode {}, expected explicit".format(
+            sid, sid_info.get("allocationMode")
+        )
+
+    sid_routes = [
+        route
+        for prefix, routes in rt1_routes.items()
+        if prefix.rsplit("/", 1)[0] == sid
+        for route in routes
+    ]
+    installed_sid_route = any(
+        route.get("selected")
+        and route.get("installed")
+        and any(
+            nexthop.get("interfaceName") == "vrf10"
+            and nexthop.get("seg6local", {}).get("action") == "uDT6"
+            for nexthop in route.get("nexthops", [])
+        )
+        for route in sid_routes
+    )
+    if installed_sid_route != expected_present:
+        return "SID {} local RIB installation is {}, expected {}".format(
+            sid, installed_sid_route, expected_present
+        )
+
+    vrf_route = rt6_vrf_routes.get("2001:1::/64", [])
+    selected_vrf_route = any(route.get("selected") for route in vrf_route)
+    if selected_vrf_route != expected_present:
+        return "rt6 VRF route 2001:1::/64 presence is {}, expected {}".format(
+            selected_vrf_route, expected_present
+        )
+
+    route_distinguishers = rt6_vpn_routes.get("routes", {}).get(
+        "routeDistinguishers", {}
+    )
+    vpn_route_present = any(
+        "2001:1::/64" in routes for routes in route_distinguishers.values()
+    )
+    if vpn_route_present != expected_present:
+        return "rt6 BGP VPN route 2001:1::/64 presence is {}, expected {}".format(
+            vpn_route_present, expected_present
         )
 
     return None
@@ -628,6 +704,55 @@ def _check_srv6_vpn_forwarding(rt1, rt6, rt1_sid):
 
     check_ping("ce2", "2001:1::2", True, 10, 1)
     check_ping("ce1", "2001:2::2", True, 10, 1)
+
+
+def test_explicit_sid_range_change_lifecycle():
+    """Verify an explicit VPN SID is withdrawn and reinstalled with its range."""
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    rt1 = tgen.gears["rt1"]
+    rt6 = tgen.gears["rt6"]
+    sid = "fc00:0:1:fe00::"
+    format_context = """configure terminal
+segment-routing
+srv6
+formats
+format usid-f3216
+"""
+
+    # Confirm the default explicit SID is allocated, installed, and advertised.
+    check_lifecycle = functools.partial(
+        _check_srv6_sid_lifecycle, rt1, rt6, sid, True
+    )
+    _, result = topotest.run_and_expect(check_lifecycle, None, count=30, wait=1)
+    assert result is None, result
+    _check_srv6_vpn_forwarding(rt1, rt6, sid)
+
+    # Move the explicit range so the configured SID is no longer available.
+    rt1.vtysh_cmd(
+        format_context + "local-id-block explicit start 0x201 end 0x2ff\n"
+    )
+
+    check_lifecycle = functools.partial(
+        _check_srv6_sid_lifecycle, rt1, rt6, sid, False
+    )
+    _, result = topotest.run_and_expect(check_lifecycle, None, count=30, wait=1)
+    assert result is None, result
+    check_ping("ce2", "2001:1::2", False, 10, 1)
+    check_ping("ce1", "2001:2::2", False, 10, 1)
+
+    # Restore the default range and verify the SID and VPN route return.
+    rt1.vtysh_cmd(format_context + "no local-id-block explicit\n")
+
+    check_lifecycle = functools.partial(
+        _check_srv6_sid_lifecycle, rt1, rt6, sid, True
+    )
+    _, result = topotest.run_and_expect(check_lifecycle, None, count=30, wait=1)
+    assert result is None, result
+    _check_srv6_vpn_forwarding(rt1, rt6, sid)
 
 
 def test_dynamic_sid_range_and_static_sid_configuration():
