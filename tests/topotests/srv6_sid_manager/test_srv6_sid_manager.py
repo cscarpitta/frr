@@ -455,7 +455,7 @@ format usid-f3216
     # Change the ranges and verify the values are reflected in the configuration.
     router.vtysh_cmd(
         format_context
-        + "local-id-block start 291\n"
+        + "local-id-block start 0x123\n"
         + "local-id-block explicit start 0x201 end 0x2ff\n"
         + "wide-local-id-block start 0x301 end 0x3ff\n"
         + "wide-local-id-block explicit start 0x401\n"
@@ -561,6 +561,12 @@ format usid-f3216
 router bgp 1 vrf vrf10
 address-family ipv6 unicast
 no sid vpn export 65024
+"""
+    )
+    router.vtysh_cmd(
+        """configure terminal
+router bgp 1 vrf vrf10
+address-family ipv6 unicast
 sid vpn export auto
 """
     )
@@ -571,14 +577,7 @@ sid vpn export auto
     _, result = topotest.run_and_expect(check_dynamic_sids, None, count=30, wait=1)
     assert result is None, result
 
-    # Configure explicit SIDs in staticd and verify BGP and IS-IS share them.
-    router.vtysh_cmd(
-        """configure terminal
-router bgp 1 vrf vrf10
-address-family ipv6 unicast
-no sid vpn export auto
-"""
-    )
+    # Configure the same SIDs explicitly in staticd and verify BGP and IS-IS share them.
     router.vtysh_cmd(
         """configure terminal
 segment-routing
@@ -588,17 +587,10 @@ sid fc00:0:1:fe10::/64 locator loc1 behavior uDT6 vrf vrf10
 sid fc00:0:1::/48 locator loc1 behavior uN
 """
     )
-    router.vtysh_cmd(
-        """configure terminal
-router bgp 1 vrf vrf10
-address-family ipv6 unicast
-sid vpn export explicit fc00:0:1:fe10::
-"""
-    )
 
     for sid, clients, allocation_mode in (
         ("fc00:0:1:fe10::", {"static", "bgp"}, "explicit"),
-        ("fc00:0:1::", {"static", "isis"}, None),
+        ("fc00:0:1::", {"static", "isis"}, "dynamic"),
     ):
         check_sid_clients = functools.partial(
             _check_srv6_sid_clients, router, sid, clients, allocation_mode
@@ -616,13 +608,6 @@ srv6
 static-sids
 no sid fc00:0:1:fe10::/64
 no sid fc00:0:1::/48
-"""
-    )
-    router.vtysh_cmd(
-        """configure terminal
-router bgp 1 vrf vrf10
-address-family ipv6 unicast
-no sid vpn export explicit fc00:0:1:fe10::
 """
     )
     router.vtysh_cmd(format_context + "no local-id-block\n")
