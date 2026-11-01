@@ -590,6 +590,34 @@ def _check_srv6_vpn_routes(rt1, rt6, rt1_sid):
                     router.name, prefix, route_sids, sid
                 )
 
+    for router, sid in ((rt1, rt1_sid), (rt6, "fc00:0:6:fe00::")):
+        try:
+            output = json.loads(router.vtysh_cmd("show ipv6 route json"))
+        except json.JSONDecodeError as error:
+            return "show ipv6 route json: {}".format(error)
+
+        entries = [
+            route
+            for prefix, routes in output.items()
+            if prefix.rsplit("/", 1)[0] == sid
+            for route in routes
+        ]
+        entry = next((route for route in entries if route.get("selected")), None)
+        if not entry:
+            return "{} has no installed local SID route for {}".format(
+                router.name, sid
+            )
+
+        local_sid = any(
+            nexthop.get("interfaceName") == "vrf10"
+            and nexthop.get("seg6local", {}).get("action") == "uDT6"
+            for nexthop in entry.get("nexthops", [])
+        )
+        if not local_sid:
+            return "{} local SID {} is not installed with uDT6 for vrf10".format(
+                router.name, sid
+            )
+
     return None
 
 
