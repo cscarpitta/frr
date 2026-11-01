@@ -648,6 +648,7 @@ format usid-f3216
 """
 
     # Verify the baseline routes and forwarding.
+    tgen.mininet_cli()
     _check_srv6_vpn_forwarding(router, tgen.gears["rt6"], "fc00:0:1:fe00::")
 
     # Change the dynamic range and verify BGP and IS-IS allocate from it.
