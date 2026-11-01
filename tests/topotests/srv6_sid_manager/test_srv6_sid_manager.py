@@ -509,6 +509,23 @@ def _dynamic_sids_from_range(router, sid_start, sid_end):
     return None
 
 
+def _dynamic_sid_for_client(router, protocol, sid_start, sid_end):
+    """Return a client's dynamic SID from the requested uSID LIB range."""
+    sids = json.loads(router.vtysh_cmd("show segment-routing srv6 sid json"))
+    for sid, info in sids.items():
+        if info.get("allocationMode") != "dynamic":
+            continue
+
+        sid_func = int.from_bytes(ipaddress.IPv6Address(sid).packed[6:8], "big")
+        if not sid_start <= sid_func < sid_end:
+            continue
+
+        if any(client["protocol"] == protocol for client in info.get("clients", [])):
+            return sid
+
+    return None
+
+
 def _check_srv6_sid_clients(router, sid, expected_clients, allocation_mode=None):
     """Check that the requested SRv6 SID is shared by the expected clients."""
     try:
@@ -537,8 +554,56 @@ def _check_srv6_sid_clients(router, sid, expected_clients, allocation_mode=None)
     return None
 
 
-def test_dynamic_sid_range_and_static_sid_sharing():
-    """Verify dynamic range allocation and explicit SID sharing with staticd."""
+def _check_srv6_vpn_routes(rt1, rt6, rt1_sid):
+    """Check ingress and egress VPN routes on both PEs."""
+    routes = (
+        (rt6, "2001:1::/64", "bgp", rt1_sid),
+        (rt1, "2001:1::/64", "connected", None),
+        (rt1, "2001:2::/64", "bgp", "fc00:0:6:fe00::"),
+        (rt6, "2001:2::/64", "connected", None),
+    )
+
+    for router, prefix, protocol, sid in routes:
+        try:
+            output = json.loads(
+                router.vtysh_cmd("show ipv6 route vrf vrf10 json")
+            )
+        except json.JSONDecodeError as error:
+            return "show ipv6 route vrf vrf10 json: {}".format(error)
+
+        entries = output.get(prefix, [])
+        entry = next((route for route in entries if route.get("selected")), None)
+        if not entry:
+            return "{} has no selected route for {}".format(router.name, prefix)
+        if entry.get("protocol") != protocol:
+            return "{} route for {} uses {}, expected {}".format(
+                router.name, prefix, entry.get("protocol"), protocol
+            )
+
+        if sid:
+            route_sids = {
+                nexthop.get("seg6", {}).get("segs")
+                for nexthop in entry.get("nexthops", [])
+            }
+            if sid not in route_sids:
+                return "{} route for {} uses SID {}, expected {}".format(
+                    router.name, prefix, route_sids, sid
+                )
+
+    return None
+
+
+def _check_srv6_vpn_forwarding(rt1, rt6, rt1_sid):
+    check_routes = functools.partial(_check_srv6_vpn_routes, rt1, rt6, rt1_sid)
+    _, result = topotest.run_and_expect(check_routes, None, count=30, wait=1)
+    assert result is None, result
+
+    check_ping("ce2", "2001:1::2", True, 10, 1)
+    check_ping("ce1", "2001:2::2", True, 10, 1)
+
+
+def test_dynamic_sid_range_and_static_sid_configuration():
+    """Verify dynamic range allocation and staticd explicit SID configuration."""
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
@@ -553,6 +618,9 @@ srv6
 formats
 format usid-f3216
 """
+
+    # Verify the baseline routes and forwarding.
+    _check_srv6_vpn_forwarding(router, tgen.gears["rt6"], "fc00:0:1:fe00::")
 
     # Change the dynamic range and verify BGP and IS-IS allocate from it.
     router.vtysh_cmd(format_context + "local-id-block start 0xd000\n")
@@ -576,6 +644,9 @@ sid vpn export auto
     )
     _, result = topotest.run_and_expect(check_dynamic_sids, None, count=30, wait=1)
     assert result is None, result
+    bgp_dynamic_sid = _dynamic_sid_for_client(router, "bgp", start, explicit_start)
+    assert bgp_dynamic_sid, "BGP has no dynamic SID in the configured range"
+    _check_srv6_vpn_forwarding(router, tgen.gears["rt6"], bgp_dynamic_sid)
 
     # Configure the same SIDs explicitly in staticd and verify BGP and IS-IS share them.
     router.vtysh_cmd(
@@ -599,6 +670,7 @@ sid fc00:0:1::/48 locator loc1 behavior uN
             check_sid_clients, None, count=30, wait=1
         )
         assert result is None, result
+    _check_srv6_vpn_forwarding(router, tgen.gears["rt6"], "fc00:0:1:fe10::")
 
     # Restore BGP and range defaults and verify the test overrides are gone.
     router.vtysh_cmd(
@@ -615,6 +687,13 @@ no sid fc00:0:1::/48
         """configure terminal
 router bgp 1 vrf vrf10
 address-family ipv6 unicast
+no sid vpn export auto
+"""
+    )
+    router.vtysh_cmd(
+        """configure terminal
+router bgp 1 vrf vrf10
+address-family ipv6 unicast
 sid vpn export 65024
 """
     )
@@ -625,6 +704,7 @@ sid vpn export 65024
     assert "sid vpn export 65024" in output
     assert "sid fc00:0:1:fe10::/64" not in output
     assert "sid fc00:0:1::/48" not in output
+    _check_srv6_vpn_forwarding(router, tgen.gears["rt6"], "fc00:0:1:fe00::")
 
 
 def test_uncompressed_explicit_range_hex():
