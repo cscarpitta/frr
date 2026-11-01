@@ -648,7 +648,21 @@ format usid-f3216
 """
 
     # Verify the baseline routes and forwarding.
-    tgen.mininet_cli()
+    for diagnostic_router in (router, tgen.gears["rt6"]):
+        for command in (
+            "show ipv6 route vrf vrf10",
+            "show ipv6 route",
+            "show bgp ipv6 vpn",
+            "show segment-routing srv6 sid",
+        ):
+            print(
+                "\n===== {}: {} =====\n{}".format(
+                    diagnostic_router.name,
+                    command,
+                    diagnostic_router.vtysh_cmd(command, isjson=False),
+                )
+            )
+
     _check_srv6_vpn_forwarding(router, tgen.gears["rt6"], "fc00:0:1:fe00::")
 
     # Change the dynamic range and verify BGP and IS-IS allocate from it.
