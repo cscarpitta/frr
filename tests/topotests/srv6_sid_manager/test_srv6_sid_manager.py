@@ -669,7 +669,11 @@ def _dynamic_sid_for_client(router, protocol, sid_start, sid_end):
 
 
 def test_dynamic_sid_range_and_static_sid_configuration():
-    """Verify dynamic range allocation and staticd SID configuration."""
+    """
+    Change the dynamic range and verify BGP and IS-IS allocate from it; configure
+    a static SID and verify BGP uses it in auto mode; restore the original
+    configuration and verify the default SID is allocated, installed, and advertised.
+    """
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
@@ -686,7 +690,8 @@ formats
 format usid-f3216
 """
 
-    # Change the dynamic range and verify BGP and IS-IS allocate from it.
+    # Change the dynamic range and enable BGP auto allocation, then verify BGP and
+    # IS-IS allocate from the new range and VPN forwarding works.
     router.vtysh_cmd(format_context + "local-id-block start 53248\n")
     router.vtysh_cmd(
         """configure terminal
@@ -725,7 +730,7 @@ sid vpn export auto
     assert result is None, result
     check_ping("ce2", "2001:1::2", True, 10, 1)
 
-    # Configure BGP's SID explicitly in staticd while BGP remains in auto mode.
+    # Configure a static SID and verify BGP uses it while remaining in auto mode.
     sid = "fc00:0:1:fe10::"
     router.vtysh_cmd(
         """configure terminal
@@ -748,7 +753,8 @@ sid fc00:0:1:fe10::/64 locator loc1 behavior uDT6 vrf vrf10
     assert result is None, result
     check_ping("ce2", "2001:1::2", True, 10, 1)
 
-    # Restore BGP and range defaults, then verify the original SID is back.
+    # Remove the test SID, restore BGP and range settings, and verify the default
+    # SID is allocated, installed, and advertised again.
     router.vtysh_cmd(
         """configure terminal
 segment-routing
@@ -789,7 +795,10 @@ sid vpn export 65024
 
 
 def test_explicit_sid_range_change_lifecycle():
-    """Verify an explicit VPN SID is withdrawn and reinstalled with its range."""
+    """
+    Move the explicit range so the SID falls outside it and verify withdrawal, then
+    restore the default range and verify allocation, installation, and advertisement.
+    """
     tgen = get_topogen()
 
     if tgen.routers_have_failure():
@@ -805,7 +814,8 @@ formats
 format usid-f3216
 """
 
-    # Confirm the default explicit SID is allocated, installed, and advertised.
+    # Check the default configuration and verify that the SID is allocated,
+    # installed, and advertised.
     check_lifecycle = functools.partial(
         _check_srv6_sid_lifecycle, rt1, rt6, sid, True
     )
@@ -814,7 +824,8 @@ format usid-f3216
     check_ping("ce2", "2001:1::2", True, 10, 1)
     check_ping("ce1", "2001:2::2", True, 10, 1)
 
-    # Move the explicit range so the configured SID is no longer available.
+    # Change the explicit range so the configured SID falls outside it, and
+    # verify that the SID is withdrawn.
     rt1.vtysh_cmd(
         format_context + "local-id-block explicit start 513 end 767\n"
     )
@@ -827,7 +838,8 @@ format usid-f3216
     check_ping("ce2", "2001:1::2", False, 10, 1)
     check_ping("ce1", "2001:2::2", False, 10, 1)
 
-    # Restore the default range and verify the SID and VPN route return.
+    # Restore the default range and verify that the SID is allocated, installed,
+    # and advertised again.
     rt1.vtysh_cmd(format_context + "no local-id-block explicit\n")
 
     check_lifecycle = functools.partial(
