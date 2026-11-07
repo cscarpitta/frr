@@ -471,13 +471,10 @@ format usid-f4816
     )
 
     # The Wide LIB cannot move up and leave the Explicit Wide LIB behind
-    output = router.vtysh_cmd(
-        format_context
-        + """wide-local-id-block start 0 end 2000
+    output = router.vtysh_cmd(format_context + """wide-local-id-block start 0 end 2000
 wide-local-id-block explicit start 500
 wide-local-id-block start 1000 end 1010
-"""
-    )
+""")
     assert (
         "Wide LIB start (1000) cannot be greater than the Explicit Wide LIB start (500)"
         in output
@@ -497,17 +494,13 @@ wide-local-id-block start 1000 end 1010
     assert "wide-local-id-block explicit start 500" in output
 
     # Removing the Explicit Wide LIB first is the way out
-    router.vtysh_cmd(
-        format_context
-        + """no wide-local-id-block explicit
+    router.vtysh_cmd(format_context + """no wide-local-id-block explicit
 no wide-local-id-block
-"""
-    )
+""")
 
     # Resetting the Explicit Wide LIB cannot drop it below the Wide LIB either
     output = router.vtysh_cmd(
-        format_context
-        + """wide-local-id-block explicit start 70000
+        format_context + """wide-local-id-block explicit start 70000
 wide-local-id-block start 70000 end 80000
 no wide-local-id-block explicit
 """
@@ -517,12 +510,9 @@ no wide-local-id-block explicit
         in output
     )
 
-    router.vtysh_cmd(
-        format_context
-        + """no wide-local-id-block
+    router.vtysh_cmd(format_context + """no wide-local-id-block
 no wide-local-id-block explicit
-"""
-    )
+""")
 
     output = router.vtysh_cmd("write terminal")
     assert "wide-local-id-block" not in output
@@ -542,9 +532,7 @@ def _check_srv6_sid_lifecycle(
             rt1.vtysh_cmd("show segment-routing srv6 sid {} json".format(sid))
         )
         rt1_routes = json.loads(rt1.vtysh_cmd("show ipv6 route json"))
-        rt6_vrf_routes = json.loads(
-            rt6.vtysh_cmd("show ipv6 route vrf vrf10 json")
-        )
+        rt6_vrf_routes = json.loads(rt6.vtysh_cmd("show ipv6 route vrf vrf10 json"))
         rt6_vpn_routes = json.loads(rt6.vtysh_cmd("show bgp ipv6 vpn json"))
     except json.JSONDecodeError as error:
         return "Failed to decode SID lifecycle command output: {}".format(error)
@@ -606,9 +594,7 @@ def _check_srv6_sid_lifecycle(
         )
         for route in vrf_route
     ):
-        return "rt6 VRF route 2001:1::/64 is not installed with SID {}".format(
-            sid
-        )
+        return "rt6 VRF route 2001:1::/64 is not installed with SID {}".format(sid)
 
     route_distinguishers = rt6_vpn_routes.get("routes", {}).get(
         "routeDistinguishers", {}
@@ -693,20 +679,16 @@ format usid-f3216
     # Change the dynamic range and enable BGP auto allocation, then verify BGP and
     # IS-IS allocate from the new range and VPN forwarding works.
     router.vtysh_cmd(format_context + "local-id-block start 53248\n")
-    router.vtysh_cmd(
-        """configure terminal
+    router.vtysh_cmd("""configure terminal
 router bgp 1 vrf vrf10
 address-family ipv6 unicast
 no sid vpn export 65024
-"""
-    )
-    router.vtysh_cmd(
-        """configure terminal
+""")
+    router.vtysh_cmd("""configure terminal
 router bgp 1 vrf vrf10
 address-family ipv6 unicast
 sid vpn export auto
-"""
-    )
+""")
 
     check_dynamic_sids = functools.partial(
         _dynamic_sids_from_range, router, start, explicit_start
@@ -714,9 +696,7 @@ sid vpn export auto
     _, result = topotest.run_and_expect(check_dynamic_sids, None, count=30, wait=1)
     assert result is None, result
 
-    bgp_dynamic_sid = _dynamic_sid_for_client(
-        router, "bgp", start, explicit_start
-    )
+    bgp_dynamic_sid = _dynamic_sid_for_client(router, "bgp", start, explicit_start)
     assert bgp_dynamic_sid, "BGP has no dynamic SID in the configured range"
     check_lifecycle = functools.partial(
         _check_srv6_sid_lifecycle,
@@ -732,14 +712,12 @@ sid vpn export auto
 
     # Configure a static SID and verify BGP uses it while remaining in auto mode.
     sid = "fc00:0:1:fe10::"
-    router.vtysh_cmd(
-        """configure terminal
+    router.vtysh_cmd("""configure terminal
 segment-routing
 srv6
 static-sids
 sid fc00:0:1:fe10::/64 locator loc1 behavior uDT6 vrf vrf10
-"""
-    )
+""")
 
     check_lifecycle = functools.partial(
         _check_srv6_sid_lifecycle,
@@ -755,29 +733,23 @@ sid fc00:0:1:fe10::/64 locator loc1 behavior uDT6 vrf vrf10
 
     # Remove the test SID, restore BGP and range settings, and verify the default
     # SID is allocated, installed, and advertised again.
-    router.vtysh_cmd(
-        """configure terminal
+    router.vtysh_cmd("""configure terminal
 segment-routing
 srv6
 static-sids
 no sid fc00:0:1:fe10::/64
-"""
-    )
+""")
     router.vtysh_cmd(format_context + "no local-id-block\n")
-    router.vtysh_cmd(
-        """configure terminal
+    router.vtysh_cmd("""configure terminal
 router bgp 1 vrf vrf10
 address-family ipv6 unicast
 no sid vpn export auto
-"""
-    )
-    router.vtysh_cmd(
-        """configure terminal
+""")
+    router.vtysh_cmd("""configure terminal
 router bgp 1 vrf vrf10
 address-family ipv6 unicast
 sid vpn export 65024
-"""
-    )
+""")
 
     output = router.vtysh_cmd("write terminal")
     assert "local-id-block start 53248" not in output
@@ -816,9 +788,7 @@ format usid-f3216
 
     # Check the default configuration and verify that the SID is allocated,
     # installed, and advertised.
-    check_lifecycle = functools.partial(
-        _check_srv6_sid_lifecycle, rt1, rt6, sid, True
-    )
+    check_lifecycle = functools.partial(_check_srv6_sid_lifecycle, rt1, rt6, sid, True)
     _, result = topotest.run_and_expect(check_lifecycle, None, count=30, wait=1)
     assert result is None, result
     check_ping("ce2", "2001:1::2", True, 10, 1)
@@ -826,13 +796,9 @@ format usid-f3216
 
     # Change the explicit range so the configured SID falls outside it, and
     # verify that the SID is withdrawn.
-    rt1.vtysh_cmd(
-        format_context + "local-id-block explicit start 513 end 767\n"
-    )
+    rt1.vtysh_cmd(format_context + "local-id-block explicit start 513 end 767\n")
 
-    check_lifecycle = functools.partial(
-        _check_srv6_sid_lifecycle, rt1, rt6, sid, False
-    )
+    check_lifecycle = functools.partial(_check_srv6_sid_lifecycle, rt1, rt6, sid, False)
     _, result = topotest.run_and_expect(check_lifecycle, None, count=30, wait=1)
     assert result is None, result
     check_ping("ce2", "2001:1::2", False, 10, 1)
@@ -842,9 +808,7 @@ format usid-f3216
     # and advertised again.
     rt1.vtysh_cmd(format_context + "no local-id-block explicit\n")
 
-    check_lifecycle = functools.partial(
-        _check_srv6_sid_lifecycle, rt1, rt6, sid, True
-    )
+    check_lifecycle = functools.partial(_check_srv6_sid_lifecycle, rt1, rt6, sid, True)
     _, result = topotest.run_and_expect(check_lifecycle, None, count=30, wait=1)
     assert result is None, result
     check_ping("ce2", "2001:1::2", True, 10, 1)
